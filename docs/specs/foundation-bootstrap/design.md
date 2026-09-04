@@ -73,12 +73,13 @@ examples/sdk-basic ── harness-core + adapter-reference
 
 ```json
 {
-  "engines": { "node": "22.22.0" },
+  "engines": { "node": ">=22.22.0 <23" },
   "packageManager": "pnpm@11.10.0"
 }
 ```
 
 - TypeScript统一为5.9.3，模块配置使用`NodeNext`。
+- CI和`.nvmrc`固定Node 22.22.0；本地允许兼容的Node 22补丁版本。
 - package源码为ESM，相对导入在TypeScript源码中使用`.js`后缀。
 - 每个包输出`dist/*.js`和`dist/*.d.ts`，通过`exports`公开。
 - 默认不生成或发布source map；开发调试如需启用须确认不包含敏感源码路径。
@@ -338,26 +339,26 @@ type ReferenceScenario =
 
 ### 9.1 运行映射
 
-| Harness概念 | CodeBuddy SDK |
-|---|---|
-| startRun | `query({ prompt, options })` |
-| adapterSessionId | `system/init.session_id` |
-| resumeRun | `options.resume` |
-| cancel | `AbortController`及Query interrupt能力，以实测为准 |
-| text stream | `stream_event.event.delta.text_delta` |
-| final text | `assistant.message.content[text]` |
-| tool start | `assistant.message.content[tool_use]` |
-| tool result | 顶层或嵌入式`tool_result` |
-| usage/cost | `result`消息字段，以能力矩阵记录 |
-| models.list | `unstable_v2_createSession().getAvailableModels()`，标记不稳定 |
+| Harness概念      | CodeBuddy SDK                                                  |
+| ---------------- | -------------------------------------------------------------- |
+| startRun         | `query({ prompt, options })`                                   |
+| adapterSessionId | `system/init.session_id`                                       |
+| resumeRun        | `options.resume`                                               |
+| cancel           | `AbortController`及Query interrupt能力，以实测为准             |
+| text stream      | `stream_event.event.delta.text_delta`                          |
+| final text       | `assistant.message.content[text]`                              |
+| tool start       | `assistant.message.content[tool_use]`                          |
+| tool result      | 顶层或嵌入式`tool_result`                                      |
+| usage/cost       | `result`消息字段，以能力矩阵记录                               |
+| models.list      | `unstable_v2_createSession().getAvailableModels()`，标记不稳定 |
 
 ### 9.2 权限映射
 
-| 公共策略 | CodeBuddy权限模式 |
-|---|---|
-| `interactive` | `default` + `canUseTool` |
-| `auto-edit` | `acceptEdits`，仍受平台高风险规则约束 |
-| `read-only` | `plan`并追加工具允许/禁止策略 |
+| 公共策略      | CodeBuddy权限模式                     |
+| ------------- | ------------------------------------- |
+| `interactive` | `default` + `canUseTool`              |
+| `auto-edit`   | `acceptEdits`，仍受平台高风险规则约束 |
+| `read-only`   | `plan`并追加工具允许/禁止策略         |
 
 公共协议不提供`bypassPermissions`。真实冒烟可以在完全隔离fixture中通过内部测试选项使用，但该选项不得进入公开Schema。
 
@@ -381,7 +382,7 @@ type ReferenceScenario =
 `docs/architecture/codebuddy-capability-matrix.md`至少包含：
 
 | 能力 | 官方文档 | Fixture | 真实冒烟 | 支持级别 | 限制/备注 |
-|---|---|---|---|---|---|
+| ---- | -------- | ------- | -------- | -------- | --------- |
 
 每项状态只能是：未验证、通过、部分通过、失败。能力支持级别只有在真实冒烟或明确无需网络的本地验证后才能标为`native`。
 

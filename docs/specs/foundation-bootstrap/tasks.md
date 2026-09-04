@@ -1,5 +1,11 @@
 # Foundation Bootstrap 任务拆解
 
+## 进度快照（2026-09-04）
+
+- 已完成：FB-T1～FB-T5、FB-T7的实现与本地验收。
+- 待远端验证：FB-T9本地门禁和CI配置已完成，需在GitHub邀请处理后由Actions验证。
+- 下一步：FB-T6 CodeBuddy fixture闭环；随后执行FB-T8受控真实探针和FB-T10阶段收口。
+
 ## 执行规则
 
 - 每项任务应形成可独立Review的提交。
@@ -9,18 +15,18 @@
 
 ## 需求追踪矩阵
 
-| 需求 | 实施任务 |
-|---|---|
-| FB-R1 Workspace基线 | FB-T1、FB-T9 |
-| FB-R2 公共协议 | FB-T2 |
-| FB-R3 Adapter SPI | FB-T3 |
-| FB-R4 Reference Adapter | FB-T4 |
-| FB-R5 Adapter Conformance Kit | FB-T5 |
-| FB-R6 CodeBuddy Adapter | FB-T6 |
-| FB-R7 CodeBuddy能力探针 | FB-T8 |
-| FB-R8 Sidecar协议设计 | FB-T7 |
-| FB-R9 安全与仓库卫生 | FB-T1、FB-T6、FB-T8、FB-T9 |
-| FB-R10 文档与示例 | FB-T4、FB-T5、FB-T9、FB-T10 |
+| 需求                          | 实施任务                    |
+| ----------------------------- | --------------------------- |
+| FB-R1 Workspace基线           | FB-T1、FB-T9                |
+| FB-R2 公共协议                | FB-T2                       |
+| FB-R3 Adapter SPI             | FB-T3                       |
+| FB-R4 Reference Adapter       | FB-T4                       |
+| FB-R5 Adapter Conformance Kit | FB-T5                       |
+| FB-R6 CodeBuddy Adapter       | FB-T6                       |
+| FB-R7 CodeBuddy能力探针       | FB-T8                       |
+| FB-R8 Sidecar协议设计         | FB-T7                       |
+| FB-R9 安全与仓库卫生          | FB-T1、FB-T6、FB-T8、FB-T9  |
+| FB-R10 文档与示例             | FB-T4、FB-T5、FB-T9、FB-T10 |
 
 ## FB-T1. 初始化仓库工具链
 
@@ -34,7 +40,7 @@
 
 **工作内容**：
 
-- 固定Node 22.22.0、pnpm 11.10.0和TypeScript 5.9.3。
+- 固定Node兼容范围`>=22.22.0 <23`、CI基线22.22.0、pnpm 11.10.0和TypeScript 5.9.3。
 - 建立workspace、统一脚本和NodeNext ESM规则。
 - 创建实际需要的packages，不创建Web/Electron/Admin空壳。
 

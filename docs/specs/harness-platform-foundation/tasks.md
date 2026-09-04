@@ -29,21 +29,21 @@ M0 仓库、Adapter SPI与SDK探针
 
 ## 需求追踪矩阵
 
-| 需求 | 主要设计/实施里程碑 |
-|---|---|
-| R1 CLI基础执行 | M2、M3 |
-| R2 自有TypeScript SDK | M1、M3 |
-| R2A Harness Adapter机制 | M0、M1 |
-| R3 本地Web工作台 | M2、M4 |
-| R4 Electron客户端 | M4、M6 |
-| R5 Local Runtime | M1、M2 |
-| R6 云端执行 | M5、M10A、M10B |
-| R7 账号、组织与权限 | M5、M7 |
-| R8 模型、额度与用量 | M5、M7、M10B |
-| R9 MCP、Skill与Agent管理 | M2、M4、M8 |
-| R10 市场与版本管理 | M8 |
-| R11 客户端版本发布 | M6、M8 |
-| R12 可观测性与审计 | M2、M5、M7、M10B |
+| 需求                     | 主要设计/实施里程碑 |
+| ------------------------ | ------------------- |
+| R1 CLI基础执行           | M2、M3              |
+| R2 自有TypeScript SDK    | M1、M3              |
+| R2A Harness Adapter机制  | M0、M1              |
+| R3 本地Web工作台         | M2、M4              |
+| R4 Electron客户端        | M4、M6              |
+| R5 Local Runtime         | M1、M2              |
+| R6 云端执行              | M5、M10A、M10B      |
+| R7 账号、组织与权限      | M5、M7              |
+| R8 模型、额度与用量      | M5、M7、M10B        |
+| R9 MCP、Skill与Agent管理 | M2、M4、M8          |
+| R10 市场与版本管理       | M8                  |
+| R11 客户端版本发布       | M6、M8              |
+| R12 可观测性与审计       | M2、M5、M7、M10B    |
 
 ## M0. 仓库初始化、Adapter SPI与CodeBuddy能力探针
 

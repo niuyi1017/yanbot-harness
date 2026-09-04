@@ -1,0 +1,16 @@
+{
+  "name": "@yanbot-harness/example-sdk-basic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/adapter-reference": "workspace:*",
+    "@yanbot-harness/core": "workspace:*"
+  }
+}
