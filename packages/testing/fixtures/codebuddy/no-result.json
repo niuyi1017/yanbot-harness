@@ -1,0 +1,8 @@
+[
+  { "type": "system", "subtype": "init", "session_id": "cb-session-3" },
+  {
+    "type": "assistant",
+    "session_id": "cb-session-3",
+    "message": { "content": [{ "type": "text", "text": "incomplete" }] }
+  }
+]

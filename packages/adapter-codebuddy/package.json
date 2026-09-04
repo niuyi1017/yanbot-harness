@@ -1,0 +1,29 @@
+{
+  "name": "@yanbot-harness/adapter-codebuddy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@tencent-ai/agent-sdk": "0.3.43",
+    "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/adapter-kit": "workspace:*",
+    "@yanbot-harness/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@yanbot-harness/testing": "workspace:*"
+  }
+}

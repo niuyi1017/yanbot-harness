@@ -1,0 +1,12 @@
+[
+  { "type": "system", "subtype": "init", "session_id": "cb-session-2" },
+  {
+    "type": "assistant",
+    "session_id": "cb-session-2",
+    "message": {
+      "content": [{ "type": "tool_use", "id": "tool-2", "name": "Search", "input": { "query": "fixture" } }]
+    }
+  },
+  { "type": "tool_result", "toolUseId": "tool-2", "content": { "matches": 1 } },
+  { "type": "result", "subtype": "success", "session_id": "cb-session-2", "is_error": false }
+]

@@ -1,5 +1,11 @@
 # Yanbot Harness 平台基座开发任务大纲
 
+## 当前状态（2026-09-04）
+
+- M0/M1的协议、Adapter、fixture、Sidecar Schema、文档和本地CI门禁已经实现并通过。
+- M0尚待受控环境真实CodeBuddy探针，以及GitHub邀请处理后的远端Actions验证。
+- 未开始M2；在真实探针结论写回能力矩阵前，不进入Local Runtime开发。
+
 ## 使用方式
 
 本文件是总体任务基线，不是一次迭代全部执行的待办清单。

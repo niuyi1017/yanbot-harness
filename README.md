@@ -23,7 +23,7 @@ pnpm build
 ```
 
 `pnpm check` performs formatting, linting, package-boundary checks, type checking, tests, and builds. Real CodeBuddy
-smoke tests are opt-in and will be added separately; default CI never requires a model credential.
+smoke tests are opt-in through `pnpm smoke:codebuddy`; default CI never requires a model credential.
 
 ## Package boundaries
 
@@ -32,7 +32,7 @@ smoke tests are opt-in and will be added separately; default CI never requires a
 - `packages/harness-core`: runtime orchestration over the adapter API.
 - `packages/adapter-kit`: adapter authoring helpers and conformance checks.
 - `packages/adapter-reference`: deterministic, offline reference implementation.
-- `packages/adapter-codebuddy`: the only package allowed to import `@tencent-ai/agent-sdk`.
+- `packages/adapter-codebuddy`: CodeBuddy 0.3.43 translation and the only package allowed to import its vendor SDK.
 - `packages/adapter-sidecar`: protocol schemas only during the foundation phase.
 
 See [the foundation specification](docs/specs/foundation-bootstrap/design.md) for the current implementation contract.

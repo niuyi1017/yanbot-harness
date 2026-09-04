@@ -1,0 +1,50 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "cb-session-1",
+    "model": "fixture-model"
+  },
+  {
+    "type": "stream_event",
+    "session_id": "cb-session-1",
+    "event": { "delta": { "type": "text_delta", "text": "hello" } }
+  },
+  {
+    "type": "stream_event",
+    "session_id": "cb-session-1",
+    "event": { "delta": { "type": "thinking_delta", "thinking": "checking" } }
+  },
+  {
+    "type": "assistant",
+    "session_id": "cb-session-1",
+    "message": {
+      "content": [
+        { "type": "text", "text": "hello" },
+        { "type": "tool_use", "id": "tool-1", "name": "Read", "input": { "path": "fixture.txt" } }
+      ]
+    }
+  },
+  {
+    "type": "user",
+    "session_id": "cb-session-1",
+    "message": {
+      "content": [{ "type": "tool_result", "tool_use_id": "tool-1", "content": "fixture output" }]
+    }
+  },
+  {
+    "type": "tool_result",
+    "tool_use_id": "tool-1",
+    "content": "duplicate result"
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "session_id": "cb-session-1",
+    "is_error": false,
+    "duration_ms": 25,
+    "num_turns": 1,
+    "total_cost_usd": 0.001,
+    "usage": { "input_tokens": 10, "output_tokens": 4, "cache_read_input_tokens": 2 }
+  }
+]
