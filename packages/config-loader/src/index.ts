@@ -9,11 +9,14 @@ import {
   type ExtensionSelection,
   type JsonValue,
 } from '@yanbot-harness/contracts';
+import { Ajv } from 'ajv';
 import { z } from 'zod';
 
 const MAX_CONFIG_BYTES = 1_048_576;
+const schemaValidator = new Ajv({ allErrors: false, strict: true });
 const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
-const sensitiveKeyPattern = /^(?:api[-_]?key|authorization|cookie|credentials?|password|secret|token)$/i;
+const sensitiveKeyPattern =
+  /^(?:api[-_]?key|authorization|client[-_]?secret|cookie|credentials?|password|private[-_]?key|secret|(?:access|auth|refresh)?[-_]?token)$/i;
 const credentialReferenceSchema = z.string().regex(/^(?:env|keychain|secret):[A-Za-z0-9._/-]+$/);
 const layerScopeSchema = z.union([configScopeSchema, z.literal('enforced')]);
 const layerValuesSchema = z
@@ -77,10 +80,13 @@ export function resolveConfigLayers(
     for (const layer of ordered) {
       assertSafeObject(layer.values);
       if (layer.values.adapter) {
-        assertNoInlineCredentials(layer.values.adapter);
+        assertNoInlineCredentialValues(layer.values.adapter);
         adapterConfig = mergeObjects(adapterConfig, layer.values.adapter);
       }
-      for (const selection of layer.values.extensions ?? []) extensions.set(selection.extensionId, selection);
+      for (const selection of layer.values.extensions ?? []) {
+        if (selection.config) assertNoInlineCredentialValues(selection.config);
+        extensions.set(selection.extensionId, selection);
+      }
       for (const [key, reference] of Object.entries(layer.values.credentialRefs ?? {})) {
         if (reference === null) credentialRefs.delete(key);
         else credentialRefs.set(key, reference);
@@ -127,11 +133,32 @@ export async function readConfigLayer(options: {
     const raw: unknown = JSON.parse(contents);
     assertSafeObject(raw);
     const values = layerValuesSchema.parse(raw);
-    if (values.adapter) assertNoInlineCredentials(values.adapter);
+    if (values.adapter) assertNoInlineCredentialValues(values.adapter);
+    for (const selection of values.extensions ?? []) {
+      if (selection.config) assertNoInlineCredentialValues(selection.config);
+    }
     return { scope: options.scope, values, sourceRef: `${options.scope}:config` };
   } catch (error) {
     if (error instanceof ConfigLoaderError) throw error;
     throw new ConfigLoaderError('CONFIGURATION_INVALID', 'The configuration file is invalid.', { cause: error });
+  }
+}
+
+export function validateAdapterConfig(
+  adapterConfig: Record<string, JsonValue>,
+  configSchema: Record<string, JsonValue> | undefined,
+): void {
+  if (configSchema === undefined) return;
+  try {
+    const validate = schemaValidator.compile(configSchema);
+    if (!validate(adapterConfig)) {
+      throw new ConfigLoaderError('CONFIGURATION_INVALID', 'The adapter configuration does not match its schema.');
+    }
+  } catch (error) {
+    if (error instanceof ConfigLoaderError) throw error;
+    throw new ConfigLoaderError('CONFIGURATION_INVALID', 'The adapter configuration schema is invalid.', {
+      cause: error,
+    });
   }
 }
 
@@ -156,9 +183,9 @@ function mergeObjects(
   return merged;
 }
 
-function assertNoInlineCredentials(value: JsonValue): void {
+export function assertNoInlineCredentialValues(value: JsonValue): void {
   if (Array.isArray(value)) {
-    for (const item of value) assertNoInlineCredentials(item);
+    for (const item of value) assertNoInlineCredentialValues(item);
     return;
   }
   if (!isObject(value)) return;
@@ -169,7 +196,7 @@ function assertNoInlineCredentials(value: JsonValue): void {
         'Credential values must be provided through credential references.',
       );
     }
-    assertNoInlineCredentials(item);
+    assertNoInlineCredentialValues(item);
   }
 }
 

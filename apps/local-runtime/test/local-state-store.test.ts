@@ -44,6 +44,18 @@ describe('FileLocalStateStore', () => {
     };
     await Promise.all([store.appendEvent(started), store.appendEvent(message)]);
 
+    const initialized: AdapterEvent = {
+      protocolVersion: HARNESS_PROTOCOL_VERSION,
+      eventId: eventId(3),
+      runId,
+      sessionId,
+      sequence: 3,
+      timestamp,
+      type: 'session.initialized',
+      payload: { capabilities: { 'usage.tokens': { level: 'native' } } },
+    };
+    await store.appendEvent(initialized);
+
     expect(await store.listSessions()).toEqual([session()]);
     expect(await store.getRun(runId)).toEqual(run());
     expect(await store.readEvents(runId, started.eventId)).toMatchObject([
@@ -51,6 +63,10 @@ describe('FileLocalStateStore', () => {
         sequence: 2,
         payload: { text: 'secret [REDACTED] at [REDACTED_PATH]' },
         adapterMetadata: { accessToken: '[REDACTED]' },
+      },
+      {
+        sequence: 3,
+        payload: { capabilities: { 'usage.tokens': { level: 'native' } } },
       },
     ]);
     const raw = await readFile(eventsPath(root), 'utf8');
@@ -103,6 +119,27 @@ describe('FileLocalStateStore', () => {
       { sequence: 1, type: 'run.started' },
       { sequence: 2, type: 'run.failed', payload: { error: { code: 'INTERNAL_ERROR' } } },
     ]);
+  });
+
+  it('repairs metadata when a terminal event was durable before the metadata update', async () => {
+    const root = await temporaryRoot();
+    const store = new FileLocalStateStore({ stateRoot: root });
+    await store.initialize();
+    await store.createSession(session({ status: 'running' }));
+    await store.createRun(run({ status: 'running' }));
+    await store.appendEvent(event(1, 'run.started'));
+    await store.appendEvent(event(2, 'run.completed'));
+
+    const recovered = new FileLocalStateStore({ stateRoot: root, now: () => new Date(timestamp) });
+    await recovered.initialize();
+
+    expect(await recovered.getRun(runId)).toMatchObject({
+      status: 'completed',
+      lastSequence: 2,
+      terminalEventType: 'run.completed',
+    });
+    expect(await recovered.getSession(sessionId)).toMatchObject({ status: 'idle', lastRunId: runId });
+    expect(await recovered.readEvents(runId)).toHaveLength(2);
   });
 
   it('rejects duplicate event sequences and foreign cursors', async () => {

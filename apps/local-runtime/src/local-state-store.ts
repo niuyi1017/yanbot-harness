@@ -232,6 +232,33 @@ export class FileLocalStateStore implements LocalStateStore {
     for (const run of [...this.#runs.values()]) {
       if (run.status !== 'queued' && run.status !== 'running') continue;
       const events = await this.readEvents(run.runId);
+      const persistedTerminal = events.at(-1);
+      if (persistedTerminal && isTerminalEvent(persistedTerminal)) {
+        const adapterSessionId = events.findLast(
+          (event): event is Extract<AdapterEvent, { type: 'session.initialized' }> =>
+            event.type === 'session.initialized' && event.payload.adapterSessionId !== undefined,
+        )?.payload.adapterSessionId;
+        await this.updateRun({
+          ...run,
+          ...(adapterSessionId === undefined ? {} : { adapterSessionId }),
+          status: runStatusFromTerminal(persistedTerminal),
+          firstSequence: run.firstSequence ?? events[0]?.sequence,
+          lastSequence: persistedTerminal.sequence,
+          terminalEventType: persistedTerminal.type,
+          completedAt: persistedTerminal.timestamp,
+        });
+        const session = this.#sessions.get(run.sessionId);
+        if (session) {
+          await this.updateSession({
+            ...session,
+            ...(adapterSessionId === undefined ? {} : { adapterSessionId }),
+            status: persistedTerminal.type === 'run.failed' ? 'failed' : 'idle',
+            lastRunId: run.runId,
+            updatedAt: this.#now().toISOString(),
+          });
+        }
+        continue;
+      }
       let sequence = events.at(-1)?.sequence ?? 0;
       if (sequence === 0) {
         sequence = 1;
@@ -383,6 +410,14 @@ function isMissing(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
 
-function isTerminalEvent(event: AdapterEvent): boolean {
+function isTerminalEvent(
+  event: AdapterEvent,
+): event is Extract<AdapterEvent, { type: 'run.completed' | 'run.failed' | 'run.cancelled' }> {
   return event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled';
+}
+
+function runStatusFromTerminal(event: AdapterEvent): LocalRun['status'] {
+  if (event.type === 'run.completed') return 'completed';
+  if (event.type === 'run.cancelled') return 'cancelled';
+  return 'failed';
 }

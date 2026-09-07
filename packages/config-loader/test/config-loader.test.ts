@@ -4,7 +4,13 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ConfigLoaderError, readConfigLayer, resolveConfigLayers, type ConfigLayer } from '../src/index.js';
+import {
+  ConfigLoaderError,
+  readConfigLayer,
+  resolveConfigLayers,
+  validateAdapterConfig,
+  type ConfigLayer,
+} from '../src/index.js';
 
 const roots: string[] = [];
 afterEach(async () => Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))));
@@ -64,6 +70,16 @@ describe('config loader', () => {
     expect(() => resolveConfigLayers([layer('local', { adapter: { apiKey: 'secret' } })], ['local'])).toThrowError(
       expect.objectContaining({ code: 'CONFIGURATION_INVALID' }),
     );
+    expect(() =>
+      resolveConfigLayers(
+        [
+          layer('local', {
+            extensions: [{ extensionId: 'example.skill', enabled: true, config: { password: 'secret' } }],
+          }),
+        ],
+        ['local'],
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'CONFIGURATION_INVALID' }));
   });
 
   it('only reads a config file whose real path is inside the allowed root', async () => {
@@ -97,6 +113,21 @@ describe('config loader', () => {
     await expect(readConfigLayer({ file: malformed, allowedRoot: root, scope: 'project' })).rejects.toMatchObject({
       code: 'CONFIGURATION_INVALID',
     });
+  });
+
+  it('validates effective adapter values against the adapter JSON schema', () => {
+    const schema = {
+      type: 'object',
+      properties: { mode: { type: 'string', enum: ['safe'] } },
+      additionalProperties: false,
+    };
+    expect(() => validateAdapterConfig({ mode: 'safe' }, schema)).not.toThrow();
+    expect(() => validateAdapterConfig({ mode: 'unsafe' }, schema)).toThrowError(
+      expect.objectContaining({ code: 'CONFIGURATION_INVALID' }),
+    );
+    expect(() => validateAdapterConfig({ mode: 'safe', unknown: true }, schema)).toThrowError(
+      expect.objectContaining({ code: 'CONFIGURATION_INVALID' }),
+    );
   });
 });
 

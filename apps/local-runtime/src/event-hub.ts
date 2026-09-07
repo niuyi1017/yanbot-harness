@@ -16,6 +16,8 @@ type Subscriber = {
   waiters: Array<() => void>;
   closed: boolean;
   overflowed: boolean;
+  signal?: AbortSignal;
+  onAbort?: () => void;
 };
 
 export class LocalEventHub {
@@ -28,8 +30,17 @@ export class LocalEventHub {
     this.#maxBufferedEvents = options.maxBufferedEvents ?? 256;
   }
 
-  async publish(event: AdapterEvent): Promise<void> {
+  async publish(event: AdapterEvent, afterPersist?: (persisted: AdapterEvent) => Promise<void>): Promise<void> {
     const persisted = await this.#store.appendEvent(event);
+    try {
+      await afterPersist?.(persisted);
+    } catch (error) {
+      for (const subscriber of this.#subscribers.get(persisted.runId) ?? []) {
+        subscriber.closed = true;
+        this.#wake(subscriber);
+      }
+      throw error;
+    }
     for (const subscriber of this.#subscribers.get(persisted.runId) ?? []) {
       if (subscriber.closed) continue;
       if (subscriber.queue.length >= this.#maxBufferedEvents) {
@@ -43,12 +54,25 @@ export class LocalEventHub {
     }
   }
 
-  subscribe(runId: string, afterEventId?: string): AsyncIterable<AdapterEvent> {
-    return { [Symbol.asyncIterator]: () => this.#iterate(runId, afterEventId) };
+  subscribe(runId: string, afterEventId?: string, options: { signal?: AbortSignal } = {}): AsyncIterable<AdapterEvent> {
+    return { [Symbol.asyncIterator]: () => this.#iterate(runId, afterEventId, options.signal) };
   }
 
-  async *#iterate(runId: string, afterEventId?: string): AsyncGenerator<AdapterEvent> {
-    const subscriber: Subscriber = { queue: [], waiters: [], closed: false, overflowed: false };
+  async *#iterate(runId: string, afterEventId?: string, signal?: AbortSignal): AsyncGenerator<AdapterEvent> {
+    const subscriber: Subscriber = {
+      queue: [],
+      waiters: [],
+      closed: signal?.aborted ?? false,
+      overflowed: false,
+      ...(signal === undefined ? {} : { signal }),
+    };
+    if (signal) {
+      subscriber.onAbort = () => {
+        subscriber.closed = true;
+        this.#wake(subscriber);
+      };
+      signal.addEventListener('abort', subscriber.onAbort, { once: true });
+    }
     const runSubscribers = this.#subscribers.get(runId) ?? new Set<Subscriber>();
     runSubscribers.add(subscriber);
     this.#subscribers.set(runId, runSubscribers);
@@ -82,6 +106,9 @@ export class LocalEventHub {
         await new Promise<void>((resolve) => subscriber.waiters.push(resolve));
       }
     } finally {
+      if (subscriber.signal && subscriber.onAbort) {
+        subscriber.signal.removeEventListener('abort', subscriber.onAbort);
+      }
       subscriber.closed = true;
       this.#wake(subscriber);
       runSubscribers.delete(subscriber);

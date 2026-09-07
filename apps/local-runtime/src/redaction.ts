@@ -5,7 +5,8 @@ export type RedactionOptions = {
   workspaceRoots?: readonly string[];
 };
 
-const sensitiveKey = /(?:api[-_]?key|authorization|cookie|credential|password|secret|token)/i;
+const sensitiveKey =
+  /^(?:api[-_]?key|authorization|cookie|credentials?|password|secret|(?:access|auth|refresh)?[-_]?token)$/i;
 const absolutePath = /(?:[A-Za-z]:[\\/][^\s"']+|\/(?:Users|home|private|tmp|var)\/[^\s"']+)/g;
 
 export function redactEventForPersistence(event: AdapterEvent, options: RedactionOptions = {}): AdapterEvent {

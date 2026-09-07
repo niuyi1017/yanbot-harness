@@ -18,6 +18,17 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@yanbot-harness/contracts": "workspace:*"
+    "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/config-loader": "workspace:*",
+    "@yanbot-harness/contracts": "workspace:*",
+    "@yanbot-harness/core": "workspace:*",
+    "@yanbot-harness/extension-kit": "workspace:*",
+    "@yanbot-harness/permission-engine": "workspace:*",
+    "express": "5.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@yanbot-harness/adapter-reference": "workspace:*"
   }
 }
