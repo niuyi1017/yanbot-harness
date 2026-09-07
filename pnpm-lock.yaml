@@ -33,6 +33,12 @@ importers:
         specifier: 4.0.18
         version: 4.0.18(@types/node@22.19.15)
 
+  apps/local-runtime:
+    dependencies:
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+
   examples/sdk-basic:
     dependencies:
       '@yanbot-harness/adapter-api':

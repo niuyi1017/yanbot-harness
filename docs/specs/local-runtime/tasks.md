@@ -4,7 +4,8 @@
 
 - 已完成：LR-T1本地Session、Run、Workspace Grant、游标和错误contracts及测试。
 - 已完成：LR-T2 Managed Run控制器、Interaction幂等/协议约束和Permission Engine。
-- 下一步：LR-T3 LocalStateStore与Event Hub。
+- 已完成：LR-T3文件型LocalStateStore、持久化脱敏、重启中断恢复与Event Hub游标重放。
+- 下一步：LR-T4认证与Workspace Grant。
 
 ## 1. 执行规则
 

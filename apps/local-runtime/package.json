@@ -1,0 +1,23 @@
+{
+  "name": "@yanbot-harness/local-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@yanbot-harness/contracts": "workspace:*"
+  }
+}
