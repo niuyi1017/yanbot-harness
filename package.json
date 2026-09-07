@@ -9,13 +9,14 @@
   "packageManager": "pnpm@11.10.0",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm typecheck && pnpm test",
+    "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm build && pnpm typecheck && pnpm test:unit",
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "smoke:codebuddy": "pnpm build && node scripts/smoke-codebuddy.mjs",
     "test": "pnpm build && pnpm -r --if-present test:unit",
+    "test:unit": "pnpm -r --if-present test:unit",
     "typecheck": "pnpm -r --if-present typecheck"
   },
   "devDependencies": {
