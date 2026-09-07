@@ -4,7 +4,8 @@
 
 - M0/M1的协议、Adapter、fixture、Sidecar Schema、文档、本地门禁和远端CI已经实现并通过。
 - 受控环境未提供`CODEBUDDY_API_KEY`，真实CodeBuddy探针仍待执行；该风险保留为发布前门禁，但经确认不再阻塞M2离线开发。
-- M2子Spec已经建立；M2实现必须先使用Reference Adapter和CodeBuddy fixture完成，不得宣称真实CodeBuddy环境已验证。
+- M2 Local Runtime已完成离线实现与Reference Adapter黑盒验证，M3 SDK/CLI可以在建立子Spec后开始。
+- 真实CodeBuddy探针仍未执行，不得宣称真实CodeBuddy环境或生产可用性已经验证。
 
 ## 使用方式
 
@@ -119,6 +120,8 @@ M0 仓库、Adapter SPI与SDK探针
 - 核心代码不存在按 `codebuddy`、`deepseek`、`pi` 分支处理运行语义的逻辑。
 
 ## M2. Local Runtime与安全边界
+
+**状态**：离线实现与CI门禁已完成；真实CodeBuddy探针作为生产发布前门禁保留。
 
 **目标**：提供业务无关、可独立运行的loopback Agent服务。
 

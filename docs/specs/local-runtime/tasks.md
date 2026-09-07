@@ -9,7 +9,8 @@
 - 已完成：LR-T5 Config Loader五层合并、安全读取与Extension Kit只读发现/能力协商。
 - 已完成：LR-T6 Run Supervisor、Adapter装配、HTTP/SSE Local API与统一错误Envelope。
 - 已完成：LR-T7 loopback Server、0600启动描述、独立入口、信号关闭与限时资源释放。
-- 下一步：LR-T8 Reference Adapter端到端与阶段门禁。
+- 已完成：LR-T8 Reference Adapter黑盒端到端、测试客户端、敏感状态扫描与静态边界门禁。
+- 阶段结论：M2离线开发门禁完成，M3 SDK/CLI可在建立子Spec后开始；真实CodeBuddy探针仍是生产发布前门禁。
 
 ## 1. 执行规则
 

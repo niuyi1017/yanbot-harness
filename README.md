@@ -3,11 +3,12 @@
 Yanbot Harness is a business-neutral agent runtime built around a stable adapter protocol. CodeBuddy is the first
 production adapter; future harnesses can integrate without changing the public SDK or clients.
 
-The foundation and the core of the M2 Local Runtime are complete for offline development: contracts, adapter SPI,
-managed runs, local persistence, authentication, workspace grants, configuration, extension discovery, and the
-HTTP/SSE API are in place. The real CodeBuddy probe remains pending until an explicit credentialed environment is
-provided; it is still required before a production-ready claim. Local Web, Electron, Admin, and cloud execution are
-not scaffolded yet.
+The foundation and M2 Local Runtime are complete for offline development: contracts, adapter SPI, managed runs,
+local persistence, authentication, workspace grants, configuration, extension discovery, loopback lifecycle, and
+the HTTP/SSE API are covered by Reference Adapter black-box tests. M3 SDK/CLI work can now begin after its child Spec
+is established. The real CodeBuddy probe remains pending until an explicit credentialed environment is provided and
+is still required before a production-ready claim. Local Web, Electron, Admin, and cloud execution are not
+scaffolded yet.
 
 ## Requirements
 
@@ -54,6 +55,7 @@ Reference Adapter tests still pass, while real CodeBuddy model calls remain unav
 - `packages/adapter-reference`: deterministic, offline reference implementation.
 - `packages/adapter-codebuddy`: CodeBuddy 0.3.43 translation and the only package allowed to import its vendor SDK.
 - `packages/adapter-sidecar`: protocol schemas only during the foundation phase.
+- `packages/testing`: deterministic clocks/IDs and the black-box Local Runtime test client.
 - `apps/local-runtime`: loopback-only HTTP/SSE service, local state, authentication, workspace grants, and run
   supervision.
 
