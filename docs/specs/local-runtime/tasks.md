@@ -3,7 +3,8 @@
 ## 进度快照（2026-09-07）
 
 - 已完成：LR-T1本地Session、Run、Workspace Grant、游标和错误contracts及测试。
-- 下一步：LR-T2 Managed Run与Permission Engine。
+- 已完成：LR-T2 Managed Run控制器、Interaction幂等/协议约束和Permission Engine。
+- 下一步：LR-T3 LocalStateStore与Event Hub。
 
 ## 1. 执行规则
 
