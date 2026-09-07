@@ -18,6 +18,7 @@ export type WorkspaceGrantRegistryOptions = {
   now?: () => number;
   generateId?: () => string;
   generateSecret?: () => string;
+  onGrant?: (canonicalRoot: string) => void;
 };
 
 export class WorkspaceGrantError extends Error {
@@ -34,12 +35,14 @@ export class WorkspaceGrantRegistry {
   readonly #now: () => number;
   readonly #generateId: () => string;
   readonly #generateSecret: () => string;
+  readonly #onGrant: ((canonicalRoot: string) => void) | undefined;
   readonly #grants = new Map<string, WorkspaceGrantRecord>();
 
   constructor(options: WorkspaceGrantRegistryOptions = {}) {
     this.#now = options.now ?? Date.now;
     this.#generateId = options.generateId ?? randomUUID;
     this.#generateSecret = options.generateSecret ?? (() => randomBytes(32).toString('base64url'));
+    this.#onGrant = options.onGrant;
   }
 
   async issue(
@@ -52,6 +55,7 @@ export class WorkspaceGrantRegistry {
     expiresAt: string;
   }> {
     const canonicalRoot = await canonicalDirectory(workspacePath);
+    this.#onGrant?.(canonicalRoot);
     const grantId = this.#generateId();
     const workspaceRef = this.#generateId();
     const secret = this.#generateSecret();

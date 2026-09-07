@@ -14,11 +14,13 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run"
   },
   "dependencies": {
     "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/adapter-codebuddy": "workspace:*",
     "@yanbot-harness/config-loader": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
     "@yanbot-harness/core": "workspace:*",

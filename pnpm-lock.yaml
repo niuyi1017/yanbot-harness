@@ -38,6 +38,9 @@ importers:
       '@yanbot-harness/adapter-api':
         specifier: workspace:*
         version: link:../../packages/adapter-api
+      '@yanbot-harness/adapter-codebuddy':
+        specifier: workspace:*
+        version: link:../../packages/adapter-codebuddy
       '@yanbot-harness/config-loader':
         specifier: workspace:*
         version: link:../../packages/config-loader

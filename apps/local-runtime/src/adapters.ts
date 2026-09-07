@@ -29,6 +29,25 @@ export type LocalAdapterDescriptor = {
   capabilities: HarnessCapabilities;
 };
 
+export function createEnvironmentContextProvider(options: {
+  allowedEnvironmentKeys: readonly string[];
+  environment?: Readonly<Record<string, string | undefined>>;
+}): AdapterContextProvider {
+  const allowed = new Set(options.allowedEnvironmentKeys);
+  const environment = options.environment ?? process.env;
+  return ({ adapterConfig, credentialRefs }) => {
+    const credentials: Record<string, string> = {};
+    for (const [credentialKey, reference] of Object.entries(credentialRefs)) {
+      if (!reference.startsWith('env:')) continue;
+      const environmentKey = reference.slice(4);
+      if (!allowed.has(environmentKey)) continue;
+      const value = environment[environmentKey];
+      if (value) credentials[credentialKey] = value;
+    }
+    return { config: adapterConfig, credentials };
+  };
+}
+
 export type AdapterConfiguration = {
   adapterConfig: Readonly<Record<string, JsonValue>>;
   credentialRefs: Readonly<Record<string, string>>;

@@ -92,6 +92,7 @@ export class RunSupervisor {
   readonly #pendingInteractions = new Map<string, PendingInteraction>();
   readonly #responses = new Map<string, RecordedResponse>();
   readonly #idempotency = new Map<string, { fingerprint: string; runId: string }>();
+  readonly #idleWaiters = new Set<() => void>();
   #createQueue = Promise.resolve();
   #acceptingRuns = true;
 
@@ -294,9 +295,17 @@ export class RunSupervisor {
     }));
   }
 
-  async shutdown(reason = 'The local runtime is shutting down.'): Promise<void> {
+  async shutdown(reason = 'The local runtime is shutting down.', graceMs = 5_000): Promise<void> {
     this.#acceptingRuns = false;
-    await Promise.all([...this.#activeRuns.values()].map((active) => this.cancelRun(active.runId, reason)));
+    for (const active of this.#activeRuns.values()) {
+      active.cancelReason ??= reason;
+      if (active.controller) void active.controller.cancel(reason).catch(() => undefined);
+    }
+    if (await this.#waitForIdle(graceMs)) return;
+    for (const active of this.#activeRuns.values()) {
+      if (active.controller) void active.controller.dispose().catch(() => undefined);
+    }
+    await this.#waitForIdle(graceMs);
   }
 
   #resolveResumeSession(
@@ -457,6 +466,29 @@ export class RunSupervisor {
     this.#activeRuns.delete(active.runId);
     if (this.#activeSessionRuns.get(active.sessionId) === active.runId)
       this.#activeSessionRuns.delete(active.sessionId);
+    if (this.#activeRuns.size === 0) {
+      for (const resolve of this.#idleWaiters) resolve();
+      this.#idleWaiters.clear();
+    }
+  }
+
+  async #waitForIdle(graceMs: number): Promise<boolean> {
+    if (this.#activeRuns.size === 0) return true;
+    const timeoutMs = positiveInteger(graceMs, 5_000);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let idleWaiter: (() => void) | undefined;
+    const idle = new Promise<true>((resolve) => {
+      idleWaiter = () => resolve(true);
+      this.#idleWaiters.add(idleWaiter);
+    });
+    const expired = new Promise<false>((resolve) => {
+      timeout = setTimeout(() => resolve(false), timeoutMs);
+      timeout.unref();
+    });
+    const result = await Promise.race([idle, expired]);
+    if (timeout) clearTimeout(timeout);
+    if (idleWaiter) this.#idleWaiters.delete(idleWaiter);
+    return result;
   }
 
   #runTimer(runId: string): ReturnType<typeof setTimeout> {

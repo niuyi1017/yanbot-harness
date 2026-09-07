@@ -62,6 +62,10 @@ export class LocalAuthManager {
     return this.#accessToken;
   }
 
+  getAccessTokenExpiresAt(): string {
+    return new Date(this.#accessTokenExpiresAt).toISOString();
+  }
+
   authenticate(request: LocalAuthRequest): LocalAuthPrincipal {
     const bearer = parseBearer(request.authorization);
     if (bearer && this.#now() < this.#accessTokenExpiresAt && secretMatches(bearer, this.#accessTokenHash)) {
