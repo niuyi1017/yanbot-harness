@@ -110,8 +110,26 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/config-loader:
+    dependencies:
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   packages/contracts:
     dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/extension-kit:
+    dependencies:
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       zod:
         specifier: 4.4.3
         version: 4.4.3

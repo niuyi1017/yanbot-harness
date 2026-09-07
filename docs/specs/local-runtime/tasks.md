@@ -6,7 +6,8 @@
 - 已完成：LR-T2 Managed Run控制器、Interaction幂等/协议约束和Permission Engine。
 - 已完成：LR-T3文件型LocalStateStore、持久化脱敏、重启中断恢复与Event Hub游标重放。
 - 已完成：LR-T4 Bearer/浏览器绑定认证、Origin隔离与opaque Workspace Grant边界。
-- 下一步：LR-T5 Config Loader与Extension Kit。
+- 已完成：LR-T5 Config Loader五层合并、安全读取与Extension Kit只读发现/能力协商。
+- 下一步：LR-T6 Run Supervisor与Local API。
 
 ## 1. 执行规则
 
