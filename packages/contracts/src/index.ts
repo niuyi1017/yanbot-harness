@@ -273,6 +273,110 @@ export const adapterEventSchema = z.discriminatedUnion('type', [
   runCancelledEventSchema,
 ]);
 
+export const localSessionStatusSchema = z.enum(['idle', 'running', 'failed']);
+export const localRunStatusSchema = z.enum(['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted']);
+export const terminalEventTypeSchema = z.enum(['run.completed', 'run.failed', 'run.cancelled']);
+
+export const localSessionSchema = z
+  .object({
+    protocolVersion: protocolVersionSchema,
+    sessionId: uuidSchema,
+    adapterId: adapterIdSchema,
+    adapterSessionId: opaqueIdSchema.optional(),
+    title: z.string().trim().min(1).max(256).optional(),
+    status: localSessionStatusSchema,
+    createdAt: z.string().datetime({ offset: true }),
+    updatedAt: z.string().datetime({ offset: true }),
+    lastRunId: uuidSchema.optional(),
+    workspaceRef: uuidSchema.optional(),
+  })
+  .strict();
+
+export const localRunSchema = z
+  .object({
+    protocolVersion: protocolVersionSchema,
+    runId: uuidSchema,
+    sessionId: uuidSchema,
+    adapterId: adapterIdSchema,
+    status: localRunStatusSchema,
+    prompt: z.string().min(1).max(1_000_000),
+    model: modelRefSchema.optional(),
+    permissionPolicy: permissionPolicySchema,
+    adapterSessionId: opaqueIdSchema.optional(),
+    firstSequence: z.number().int().positive().optional(),
+    lastSequence: z.number().int().positive().optional(),
+    terminalEventType: terminalEventTypeSchema.optional(),
+    createdAt: z.string().datetime({ offset: true }),
+    startedAt: z.string().datetime({ offset: true }).optional(),
+    completedAt: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict();
+
+export const createLocalSessionRequestSchema = z
+  .object({
+    adapterId: adapterIdSchema,
+    title: z.string().trim().min(1).max(256).optional(),
+  })
+  .strict();
+
+export const relativeWorkspacePathSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(4_096)
+  .refine((value) => !value.includes('\0'), 'Relative workspace paths cannot contain null bytes.')
+  .refine(
+    (value) => !value.startsWith('/') && !value.startsWith('\\') && !/^[A-Za-z]:[\\/]/.test(value),
+    'The workspace path must be relative.',
+  )
+  .refine(
+    (value) => !value.split(/[\\/]+/u).includes('..'),
+    'The workspace path cannot traverse outside the granted root.',
+  );
+
+export const createLocalRunRequestSchema = z
+  .object({
+    prompt: z.string().min(1).max(1_000_000),
+    workspaceGrant: opaqueIdSchema,
+    relativeCwd: relativeWorkspacePathSchema.optional(),
+    model: modelRefSchema.optional(),
+    maxTurns: z.number().int().positive().max(1_000).optional(),
+    permissionPolicy: permissionPolicySchema.default('interactive'),
+    configScopes: z.array(configScopeSchema).default([]),
+    extensions: z.array(extensionSelectionSchema).default([]),
+    resume: z.boolean().default(false),
+  })
+  .strict();
+
+export const createWorkspaceGrantRequestSchema = z
+  .object({
+    path: z.string().trim().min(1).max(4_096),
+    ttlMs: z.number().int().min(1_000).max(86_400_000).optional(),
+  })
+  .strict();
+
+export const workspaceGrantSchema = z
+  .object({
+    grantId: uuidSchema,
+    grant: opaqueIdSchema,
+    workspaceRef: uuidSchema,
+    expiresAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+export const eventCursorSchema = z
+  .object({
+    afterEventId: uuidSchema.optional(),
+  })
+  .strict();
+
+export const localApiErrorSchema = z
+  .object({
+    error: harnessErrorSchema,
+    requestId: uuidSchema,
+  })
+  .strict();
+
 export type AdapterEvent = z.infer<typeof adapterEventSchema>;
 export type AdapterManifest = z.infer<typeof adapterManifestSchema>;
 export type CapabilityId = z.infer<typeof capabilityIdSchema>;
@@ -285,9 +389,20 @@ export type HarnessError = z.infer<typeof harnessErrorSchema>;
 export type HarnessErrorCode = z.infer<typeof harnessErrorCodeSchema>;
 export type InteractionRequest = z.infer<typeof interactionRequestSchema>;
 export type InteractionResponse = z.infer<typeof interactionResponseSchema>;
+export type CreateLocalRunRequest = z.infer<typeof createLocalRunRequestSchema>;
+export type CreateLocalSessionRequest = z.infer<typeof createLocalSessionRequestSchema>;
+export type CreateWorkspaceGrantRequest = z.infer<typeof createWorkspaceGrantRequestSchema>;
+export type EventCursor = z.infer<typeof eventCursorSchema>;
+export type LocalApiError = z.infer<typeof localApiErrorSchema>;
+export type LocalRun = z.infer<typeof localRunSchema>;
+export type LocalRunStatus = z.infer<typeof localRunStatusSchema>;
+export type LocalSession = z.infer<typeof localSessionSchema>;
+export type LocalSessionStatus = z.infer<typeof localSessionStatusSchema>;
 export type ModelDescriptor = z.infer<typeof modelDescriptorSchema>;
 export type ModelRef = z.infer<typeof modelRefSchema>;
 export type PermissionPolicy = z.infer<typeof permissionPolicySchema>;
 export type RunRequest = z.infer<typeof runRequestSchema>;
 export type RuntimeKind = z.infer<typeof runtimeKindSchema>;
+export type TerminalEventType = z.infer<typeof terminalEventTypeSchema>;
 export type Usage = z.infer<typeof usageSchema>;
+export type WorkspaceGrant = z.infer<typeof workspaceGrantSchema>;

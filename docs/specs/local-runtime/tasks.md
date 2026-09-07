@@ -1,5 +1,10 @@
 # M2 Local Runtime 任务拆解
 
+## 进度快照（2026-09-07）
+
+- 已完成：LR-T1本地Session、Run、Workspace Grant、游标和错误contracts及测试。
+- 下一步：LR-T2 Managed Run与Permission Engine。
+
 ## 1. 执行规则
 
 - 本Spec提交并通过Review后才能写实现代码。
