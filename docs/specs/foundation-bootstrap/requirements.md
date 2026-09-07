@@ -12,7 +12,7 @@
 - 冻结第一版Harness核心类型、事件和错误语义。
 - 建立Adapter SPI、能力协商、Reference Adapter和Conformance Kit。
 - 完成首个生产Adapter `adapter-codebuddy` 的最小闭环。
-- 通过真实CodeBuddy冒烟验证关键假设，并形成能力矩阵。
+- 准备受控CodeBuddy冒烟并形成分层证据能力矩阵；真实探针缺少显式凭据时记录为发布前风险，不阻塞后续离线开发。
 - 只设计Sidecar协议Schema和握手，不实现Sidecar进程管理。
 
 ## 3. 功能需求与验收标准
@@ -146,8 +146,10 @@
 
 - 所有普通CI命令通过。
 - Reference和CodeBuddy fixture Adapter通过Conformance Kit。
-- 受控环境完成真实CodeBuddy冒烟并形成能力矩阵。
+- 能力矩阵明确区分文档、fixture和真实探针状态；缺少显式凭据时真实探针可以保持pending，但不得被表述为已验证。
 - 上层示例只依赖公共协议和Adapter API。
 - `rg '@tencent-ai/agent-sdk'` 只命中 `adapter-codebuddy` 的依赖与源码。
 - Sidecar协议Schema通过版本协商与序列化测试，但不存在生产Sidecar运行实现。
 - README明确下一阶段是M2 Local Runtime。
+
+真实CodeBuddy探针仍是发布或生产可用声明前的硬门禁。2026-09-07在未配置`CODEBUDDY_API_KEY`的环境中按设计安全退出，确认不发起模型请求；经用户确认，将其降为M2离线开发的非阻塞风险。

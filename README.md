@@ -3,9 +3,11 @@
 Yanbot Harness is a business-neutral agent runtime built around a stable adapter protocol. CodeBuddy is the first
 production adapter; future harnesses can integrate without changing the public SDK or clients.
 
-The repository is currently implementing the `foundation-bootstrap` specification: contracts, adapter SPI,
-reference adapter, conformance tests, and the CodeBuddy compatibility probe. Local Web, Electron, Admin, and cloud
-execution are intentionally not scaffolded yet.
+The `foundation-bootstrap` specification is complete for offline development: contracts, adapter SPI, reference
+adapter, conformance tests, CodeBuddy fixtures, and the controlled compatibility probe are in place. M2 Local Runtime
+is specified next. The real CodeBuddy probe remains pending until an explicit credentialed environment is provided;
+it is still required before a production-ready claim. Local Web, Electron, Admin, and cloud execution are not
+scaffolded yet.
 
 ## Requirements
 

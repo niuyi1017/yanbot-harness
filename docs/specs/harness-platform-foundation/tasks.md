@@ -1,10 +1,10 @@
 # Yanbot Harness 平台基座开发任务大纲
 
-## 当前状态（2026-09-04）
+## 当前状态（2026-09-07）
 
-- M0/M1的协议、Adapter、fixture、Sidecar Schema、文档和本地CI门禁已经实现并通过。
-- M0尚待受控环境真实CodeBuddy探针，以及GitHub邀请处理后的远端Actions验证。
-- 未开始M2；在真实探针结论写回能力矩阵前，不进入Local Runtime开发。
+- M0/M1的协议、Adapter、fixture、Sidecar Schema、文档、本地门禁和远端CI已经实现并通过。
+- 受控环境未提供`CODEBUDDY_API_KEY`，真实CodeBuddy探针仍待执行；该风险保留为发布前门禁，但经确认不再阻塞M2离线开发。
+- M2子Spec已经建立；M2实现必须先使用Reference Adapter和CodeBuddy fixture完成，不得宣称真实CodeBuddy环境已验证。
 
 ## 使用方式
 
@@ -122,7 +122,7 @@ M0 仓库、Adapter SPI与SDK探针
 
 **目标**：提供业务无关、可独立运行的loopback Agent服务。
 
-**前置依赖**：M1。
+**前置依赖**：M1。真实CodeBuddy探针不是开始M2离线实现的硬依赖，但仍是M2发布或对外标记生产可用前的硬门禁。
 
 **主要文件**：
 

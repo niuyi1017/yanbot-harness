@@ -450,4 +450,4 @@ CI不配置CodeBuddy Key，不执行真实冒烟。冒烟结果由受控环境�
 
 ## 15. 后续衔接
 
-完成本阶段后进入M2 `local-runtime-foundation` 子Spec。M2只能使用本阶段公开exports；若需要修改协议，先更新本Spec和兼容版本说明。
+完成本阶段后进入M2 `local-runtime` 子Spec。M2只能使用本阶段公开exports；若需要修改协议，先更新本Spec和兼容版本说明。真实CodeBuddy探针缺少显式凭据时可保持pending并作为发布前风险保留，不阻塞Reference Adapter驱动的M2离线开发。

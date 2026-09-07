@@ -48,6 +48,11 @@ from failures. It performs an initial run, a resume, and a cancellation. Tool, p
 agent, and hook behavior still require a separately controlled scenario before their “Real probe” cells can be
 marked verified.
 
+On 2026-09-07 the probe was invoked without `CODEBUDDY_API_KEY` and exited safely before creating a model run. No
+credential was discovered from another source and no model cost was incurred. The real probe remains a release gate,
+but is an explicitly accepted non-blocking risk for M2 offline development; all “Real probe” cells therefore remain
+pending.
+
 ## Sources
 
 - [CodeBuddy Agent SDK documentation](https://www.codebuddy.cn/docs/cli/sdk)
