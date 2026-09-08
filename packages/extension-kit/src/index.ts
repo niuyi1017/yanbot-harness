@@ -2,36 +2,16 @@ import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  capabilityIdSchema,
-  jsonObjectSchema,
-  semverSchema,
+  extensionDescriptorSchema,
   type CapabilityId,
+  type ExtensionDescriptor,
   type ExtensionSelection,
   type HarnessCapabilities,
 } from '@yanbot-harness/contracts';
-import { z } from 'zod';
 
 const MAX_EXTENSION_FILE_BYTES = 262_144;
-const extensionIdSchema = z
-  .string()
-  .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/)
-  .max(256);
-
-export const extensionDescriptorSchema = z
-  .object({
-    extensionId: extensionIdSchema,
-    kind: z.enum(['mcp', 'skill', 'agent', 'hook']),
-    version: semverSchema,
-    displayName: z.string().trim().min(1).max(256),
-    description: z.string().trim().max(1_024).optional(),
-    source: z.enum(['bundled', 'user', 'project']),
-    configSchema: jsonObjectSchema.optional(),
-    requiredCapabilities: z.array(capabilityIdSchema).default([]),
-    credentialRefs: z.array(z.string().trim().min(1).max(128)).default([]),
-  })
-  .strict();
-
-export type ExtensionDescriptor = z.infer<typeof extensionDescriptorSchema>;
+export { extensionDescriptorSchema } from '@yanbot-harness/contracts';
+export type { ExtensionDescriptor } from '@yanbot-harness/contracts';
 export type DiscoveredExtension = { descriptor: ExtensionDescriptor; resourcePath: string };
 
 export class ExtensionKitError extends Error {

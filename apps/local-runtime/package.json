@@ -15,12 +15,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
+    "start:reference": "node dist/main.js --reference",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run"
   },
   "dependencies": {
     "@yanbot-harness/adapter-api": "workspace:*",
     "@yanbot-harness/adapter-codebuddy": "workspace:*",
+    "@yanbot-harness/adapter-reference": "workspace:*",
     "@yanbot-harness/config-loader": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
     "@yanbot-harness/core": "workspace:*",
@@ -31,7 +33,6 @@
   },
   "devDependencies": {
     "@types/express": "5.0.6",
-    "@yanbot-harness/adapter-reference": "workspace:*",
     "@yanbot-harness/testing": "workspace:*"
   }
 }

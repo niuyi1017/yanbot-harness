@@ -1,20 +1,20 @@
-import { AdapterRegistry } from '@yanbot-harness/adapter-api';
-import { ReferenceAdapter } from '@yanbot-harness/adapter-reference';
-import { executeAdapterRun } from '@yanbot-harness/core';
+import { HarnessClient } from '@yanbot-harness/sdk';
 
-const registry = new AdapterRegistry();
-registry.register(new ReferenceAdapter({ scenario: { kind: 'text', chunks: ['Hello from Yanbot Harness.'] } }));
-
-const adapter = registry.get('cn.yanbot.reference');
-const request = {
-  runId: '11111111-1111-4111-8111-111111111111',
-  sessionId: '22222222-2222-4222-8222-222222222222',
-  prompt: 'Say hello.',
-  permissionPolicy: 'interactive' as const,
+const client = await HarnessClient.fromDaemon();
+await client.health();
+const adapter = (await client.listAdapters())[0];
+if (!adapter) throw new Error('The Runtime has no available Adapter.');
+const grant = await client.grantWorkspace({ path: process.cwd() });
+const session = await client.createSession({ adapterId: adapter.manifest.adapterId, title: 'SDK basic example' });
+const run = await client.createRun(session.sessionId, {
+  prompt: process.argv.slice(2).join(' ') || 'Say hello from the Yanbot Harness SDK.',
+  workspaceGrant: grant.grant,
+  permissionPolicy: 'read-only',
   configScopes: [],
   extensions: [],
-};
+  resume: false,
+});
 
-for await (const event of executeAdapterRun(adapter, {}, request)) {
+for await (const event of run.events()) {
   console.log(JSON.stringify(event));
 }

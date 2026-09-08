@@ -1,0 +1,32 @@
+{
+  "name": "@yanbot-harness/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "yanbot-harness": "dist/main.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@yanbot-harness/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@yanbot-harness/adapter-reference": "workspace:*",
+    "@yanbot-harness/local-runtime": "workspace:*",
+    "@yanbot-harness/testing": "workspace:*"
+  }
+}

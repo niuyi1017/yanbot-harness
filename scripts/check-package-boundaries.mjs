@@ -60,6 +60,19 @@ for (const file of await walk(repositoryRoot)) {
         violations.push(`${relative}: vendor composition is only allowed in the standalone entrypoint`);
       }
     }
+    if (relative.startsWith('packages/sdk/src/')) {
+      if (/@yanbot-harness\/(?:adapter-|core|local-runtime)/u.test(content)) {
+        violations.push(`${relative}: public SDK source may only depend on contracts`);
+      }
+    }
+    if (relative.startsWith('apps/cli/src/')) {
+      if (/@yanbot-harness\/(?!sdk(?:['"/]))/u.test(content)) {
+        violations.push(`${relative}: CLI source may only consume the public SDK`);
+      }
+      if (/bypassPermissions/u.test(content)) {
+        violations.push(`${relative}: CLI source must not expose permission bypasses`);
+      }
+    }
   }
   if (relative !== 'pnpm-lock.yaml' && ['package-lock.json', 'pnpm-lock.yaml'].includes(basename)) {
     violations.push(`${relative}: nested lockfiles are forbidden`);

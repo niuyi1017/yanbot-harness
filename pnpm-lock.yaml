@@ -33,6 +33,22 @@ importers:
         specifier: 4.0.18
         version: 4.0.18(@types/node@22.19.15)
 
+  apps/cli:
+    dependencies:
+      '@yanbot-harness/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@yanbot-harness/adapter-reference':
+        specifier: workspace:*
+        version: link:../../packages/adapter-reference
+      '@yanbot-harness/local-runtime':
+        specifier: workspace:*
+        version: link:../local-runtime
+      '@yanbot-harness/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+
   apps/local-runtime:
     dependencies:
       '@yanbot-harness/adapter-api':
@@ -41,6 +57,9 @@ importers:
       '@yanbot-harness/adapter-codebuddy':
         specifier: workspace:*
         version: link:../../packages/adapter-codebuddy
+      '@yanbot-harness/adapter-reference':
+        specifier: workspace:*
+        version: link:../../packages/adapter-reference
       '@yanbot-harness/config-loader':
         specifier: workspace:*
         version: link:../../packages/config-loader
@@ -66,24 +85,15 @@ importers:
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6
-      '@yanbot-harness/adapter-reference':
-        specifier: workspace:*
-        version: link:../../packages/adapter-reference
       '@yanbot-harness/testing':
         specifier: workspace:*
         version: link:../../packages/testing
 
   examples/sdk-basic:
     dependencies:
-      '@yanbot-harness/adapter-api':
+      '@yanbot-harness/sdk':
         specifier: workspace:*
-        version: link:../../packages/adapter-api
-      '@yanbot-harness/adapter-reference':
-        specifier: workspace:*
-        version: link:../../packages/adapter-reference
-      '@yanbot-harness/core':
-        specifier: workspace:*
-        version: link:../../packages/harness-core
+        version: link:../../packages/sdk
 
   packages/adapter-api:
     dependencies:
@@ -185,6 +195,22 @@ importers:
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/sdk:
+    dependencies:
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@yanbot-harness/adapter-reference':
+        specifier: workspace:*
+        version: link:../adapter-reference
+      '@yanbot-harness/local-runtime':
+        specifier: workspace:*
+        version: link:../../apps/local-runtime
+      '@yanbot-harness/testing':
+        specifier: workspace:*
+        version: link:../testing
 
   packages/testing:
     dependencies:

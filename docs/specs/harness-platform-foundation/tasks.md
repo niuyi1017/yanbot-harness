@@ -1,10 +1,10 @@
 # Yanbot Harness 平台基座开发任务大纲
 
-## 当前状态（2026-09-07）
+## 当前状态（2026-09-08）
 
 - M0/M1的协议、Adapter、fixture、Sidecar Schema、文档、本地门禁和远端CI已经实现并通过。
 - 受控环境未提供`CODEBUDDY_API_KEY`，真实CodeBuddy探针仍待执行；该风险保留为发布前门禁，但经确认不再阻塞M2离线开发。
-- M2 Local Runtime已完成离线实现与Reference Adapter黑盒验证，M3 SDK/CLI可以在建立子Spec后开始。
+- M2 Local Runtime与M3 SDK/CLI已完成离线实现和Reference Adapter黑盒验证，M4 Local Web可以在建立子Spec后开始。
 - 真实CodeBuddy探针仍未执行，不得宣称真实CodeBuddy环境或生产可用性已经验证。
 
 ## 使用方式
@@ -152,6 +152,8 @@ M0 仓库、Adapter SPI与SDK探针
 - 真实SDK冒烟覆盖一次运行、权限确认、用户提问、恢复和中断。
 
 ## M3. 自有TypeScript SDK与CLI
+
+**状态**：已完成（2026-09-08），详细实现与验收见 `docs/specs/sdk-cli/`。
 
 **目标**：形成第一个可交付的编程接口和终端产品。
 

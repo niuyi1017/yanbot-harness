@@ -3,13 +3,24 @@
 ## 状态
 
 - [x] M3-S0：建立 M3 子 Spec。
-- [ ] M3-S1：补齐客户端响应 contracts。
-- [ ] M3-S2：实现 TypeScript SDK transport、client 和 daemon 发现。
-- [ ] M3-S3：完成 SDK 单元及真实 Runtime 黑盒测试。
-- [ ] M3-S4：实现 CLI 命令、输出、交互和退出码。
-- [ ] M3-S5：完成 CLI 子进程 E2E 与离线第三方调用模拟。
-- [ ] M3-S6：改写 SDK 示例、README 和包边界门禁。
-- [ ] M3-S7：执行全量检查并记录 M3 结论。
+- [x] M3-S1：补齐客户端响应 contracts。
+- [x] M3-S2：实现 TypeScript SDK transport、client 和 daemon 发现。
+- [x] M3-S3：完成 SDK 单元及真实 Runtime 黑盒测试。
+- [x] M3-S4：实现 CLI 命令、输出、交互和退出码。
+- [x] M3-S5：完成 CLI 子进程 E2E 与离线第三方调用模拟。
+- [x] M3-S6：改写 SDK 示例、README 和包边界门禁。
+- [x] M3-S7：执行全量检查并记录 M3 结论。
+
+## 完成结论（2026-09-08）
+
+- `packages/sdk` 已覆盖显式端点、嵌入式 handle 和受保护 daemon descriptor，所有核心 HTTP 响应及 SSE 事件均经过公共 schema 校验。
+- `apps/cli` 已提供 run/adapters/models/sessions/run-status/cancel、text/JSONL、TTY Interaction、权限策略、配置 scope、resume、稳定错误和退出码。
+- SDK 真实 Runtime 黑盒测试、CLI 构建产物子进程 E2E、Session resume 及失败退出码测试均通过。
+- `pnpm check` 全量通过，共 104 项测试；contracts 12、SDK 7、CLI 3，其余既有 82 项。
+- contracts、SDK、CLI tarball 已在临时空目录通过 npm 安装，`node_modules/.bin/yanbot-harness --version` 返回 `0.1.0`。
+- 已人工启动 Reference daemon，并由另一个 CLI 进程通过 descriptor + Bearer + HTTP/SSE 完成离线调用；收到 sequence 1–6 及 `run.completed`，退出码为 0。
+- 临时测试目录、daemon 和打包目录均已清理，未写入真实凭据。
+- 真实 CodeBuddy 探针仍 pending，继续作为生产发布门禁；该状态不影响 M3 Reference Adapter 离线验收。
 
 ## M3-S0. 建立 M3 子 Spec
 

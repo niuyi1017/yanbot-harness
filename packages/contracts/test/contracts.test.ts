@@ -4,13 +4,17 @@ import {
   HARNESS_PROTOCOL_VERSION,
   adapterEventSchema,
   adapterManifestSchema,
+  adapterSummarySchema,
   createLocalRunRequestSchema,
   createLocalSessionRequestSchema,
   eventCursorSchema,
+  effectiveConfigSummarySchema,
+  extensionSummarySchema,
   harnessCapabilitiesSchema,
   localApiErrorSchema,
   localRunSchema,
   localSessionSchema,
+  runtimeHealthSchema,
   runRequestSchema,
   workspaceGrantSchema,
 } from '../src/index.js';
@@ -138,6 +142,57 @@ describe('contracts', () => {
       createLocalSessionRequestSchema.parse({
         adapterId: 'cn.yanbot.reference',
         vendorPermissionMode: 'bypassPermissions',
+      }),
+    ).toThrow();
+  });
+
+  it('validates client discovery response contracts', () => {
+    const manifest = adapterManifestSchema.parse({
+      protocolVersion: HARNESS_PROTOCOL_VERSION,
+      adapterId: 'cn.yanbot.reference',
+      adapterVersion: '0.1.0',
+      displayName: 'Reference',
+      harness: { name: 'Reference Harness' },
+      runtimeKinds: ['in-process'],
+    });
+    expect(
+      adapterSummarySchema.parse({ manifest, capabilities: { 'runs.cancel': { level: 'native' } } }),
+    ).toBeDefined();
+    expect(
+      extensionSummarySchema.parse({
+        descriptor: {
+          extensionId: 'sample.skill',
+          kind: 'skill',
+          version: '1.0.0',
+          displayName: 'Sample',
+          source: 'project',
+        },
+        supported: true,
+      }),
+    ).toBeDefined();
+    expect(
+      effectiveConfigSummarySchema.parse({
+        scopes: ['project', 'enforced'],
+        adapterKeys: [],
+        extensionIds: [],
+        credentialKeys: [],
+      }),
+    ).toBeDefined();
+    expect(
+      runtimeHealthSchema.parse({
+        service: 'yanbot-harness-local-runtime',
+        protocolVersion: HARNESS_PROTOCOL_VERSION,
+        status: 'ok',
+        startedAt: '2026-09-07T08:00:00.000Z',
+      }),
+    ).toBeDefined();
+    expect(() =>
+      runtimeHealthSchema.parse({
+        service: 'yanbot-harness-local-runtime',
+        protocolVersion: HARNESS_PROTOCOL_VERSION,
+        status: 'ok',
+        startedAt: '2026-09-07T08:00:00.000Z',
+        token: 'forbidden',
       }),
     ).toThrow();
   });
