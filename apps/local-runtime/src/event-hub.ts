@@ -16,6 +16,7 @@ type Subscriber = {
   waiters: Array<() => void>;
   closed: boolean;
   overflowed: boolean;
+  lastSequence: number;
   signal?: AbortSignal;
   onAbort?: () => void;
 };
@@ -43,6 +44,7 @@ export class LocalEventHub {
     }
     for (const subscriber of this.#subscribers.get(persisted.runId) ?? []) {
       if (subscriber.closed) continue;
+      if (persisted.sequence <= subscriber.lastSequence) continue;
       if (subscriber.queue.length >= this.#maxBufferedEvents) {
         subscriber.overflowed = true;
         subscriber.closed = true;
@@ -64,6 +66,7 @@ export class LocalEventHub {
       waiters: [],
       closed: signal?.aborted ?? false,
       overflowed: false,
+      lastSequence: 0,
       ...(signal === undefined ? {} : { signal }),
     };
     if (signal) {
@@ -79,9 +82,14 @@ export class LocalEventHub {
 
     try {
       const history = await this.#store.readEvents(runId, afterEventId);
-      let lastSequence = 0;
+      const historicalLastSequence = history.at(-1)?.sequence ?? 0;
+      // The subscriber is registered before the history read so no live event
+      // can be missed. Remove events already captured by that history snapshot
+      // before yielding; otherwise a duplicate can consume the bounded live
+      // queue while the generator is paused on its first historical event.
+      subscriber.queue = subscriber.queue.filter((event) => event.sequence > historicalLastSequence);
       for (const event of history) {
-        lastSequence = event.sequence;
+        subscriber.lastSequence = event.sequence;
         yield event;
       }
       if (history.some((event) => terminalTypes.has(event.type))) return;
@@ -95,8 +103,8 @@ export class LocalEventHub {
       while (true) {
         const event = subscriber.queue.shift();
         if (event) {
-          if (event.sequence <= lastSequence) continue;
-          lastSequence = event.sequence;
+          if (event.sequence <= subscriber.lastSequence) continue;
+          subscriber.lastSequence = event.sequence;
           yield event;
           if (terminalTypes.has(event.type)) return;
           continue;

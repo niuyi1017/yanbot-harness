@@ -3,5 +3,7 @@ packages:
   - 'packages/*'
   - 'examples/*'
 
+injectWorkspacePackages: true
+
 allowBuilds:
   esbuild: true

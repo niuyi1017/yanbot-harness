@@ -1,10 +1,29 @@
 {
   "name": "@yanbot-harness/contracts",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.0-preview.1",
   "type": "module",
+  "description": "Public schemas and protocol types for Yanbot Harness.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.22.0 <23"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niuyi1017/yanbot-harness.git",
+    "directory": "packages/contracts"
+  },
+  "homepage": "https://github.com/niuyi1017/yanbot-harness#readme",
+  "bugs": {
+    "url": "https://github.com/niuyi1017/yanbot-harness/issues"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.example.invalid"
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "exports": {
     ".": {

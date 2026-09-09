@@ -3,18 +3,18 @@
 ## 1. Status
 
 - [x] SDR-T0：建立 SDK/CLI Delivery Readiness Spec。
-- [ ] SDR-T1：冻结交付版本、制品集合和兼容声明。
-- [ ] SDR-T2：修复 CodeBuddy smoke 成功后不退出的问题。
-- [ ] SDR-T3：完成真实 CodeBuddy 核心能力验收并更新能力矩阵。
-- [ ] SDR-T4：冻结 SDK/CLI 公共 API、错误和文档契约。
-- [ ] SDR-T5：完成 contracts、SDK、CLI 发布元数据和包级文档。
-- [ ] SDR-T6：生成可携带 Local Runtime companion bundle。
-- [ ] SDR-T7：实现 release build、manifest、checksum 与制品安全检查。
-- [ ] SDR-T8：建立最终制品 clean-room Reference E2E。
-- [ ] SDR-T9：建立最终制品真实 CodeBuddy E2E。
-- [ ] SDR-T10：完成消费者 quickstart、兼容矩阵、故障排查和 release notes。
-- [ ] SDR-T11：执行 Release Candidate 全量门禁、review、提交和打 tag。
-- [ ] SDR-T12：模拟第三方 SDK/CLI 调用并完成交付签收。
+- [x] SDR-T1：冻结交付版本、制品集合和兼容声明。
+- [x] SDR-T2：修复 CodeBuddy smoke 成功后不退出的问题。
+- [x] SDR-T3：完成真实 CodeBuddy 核心能力验收并更新能力矩阵。
+- [x] SDR-T4：冻结 SDK/CLI 公共 API、错误和文档契约。
+- [x] SDR-T5：完成 contracts、SDK、CLI 发布元数据和包级文档。
+- [x] SDR-T6：生成可携带 Local Runtime companion bundle。
+- [x] SDR-T7：实现 release build、manifest、checksum 与制品安全检查。
+- [x] SDR-T8：建立最终制品 clean-room Reference E2E。
+- [x] SDR-T9：建立最终制品真实 CodeBuddy E2E。
+- [x] SDR-T10：完成消费者 quickstart、兼容矩阵、故障排查和 release notes。
+- [x] SDR-T11：执行 Release Candidate 全量门禁、review、提交和打 tag。
+- [x] SDR-T12：模拟第三方 SDK/CLI 调用并完成交付签收。
 
 ## 2. Priority and execution order
 
@@ -79,6 +79,8 @@ T5 与 T6 可在 T4 完成后并行；T10 可在 T7 后开始，但必须在 T8/
 
 **优先级**：P0，发布阻断。
 
+**状态**：完成。厂商 `Query.return()` 仅发送 interrupt，未推进其内部 iterator 的 cleanup；Facade 现保留并关闭实际 iterator。2026-09-09 真实 initial/resume/cancel smoke 在 12.1 秒内自然退出 0，诊断中无 `ChildProcess`。
+
 **前置**：SDR-T1。
 
 **主要文件**：
@@ -115,6 +117,8 @@ pnpm smoke:codebuddy
 
 **优先级**：P0。
 
+**状态**：完成。initial/resume/cancel、文本、完整消息、token/cost usage 为 `real-verified`；tool、permission、question 为 `unverified`；模型发现虽返回 15 项，但公开关闭 API 仍残留 CLI 子进程，Preview 明确降级为 `unsupported`。
+
 **前置**：SDR-T2。
 
 **主要文件**：
@@ -144,6 +148,8 @@ pnpm smoke:codebuddy
 ### SDR-T4. 冻结 SDK/CLI 公共契约
 
 **优先级**：P0。
+
+**状态**：完成。公共 exports、方法、SSE cursor/AbortSignal、Interaction、幂等键、CLI 命令/JSONL/退出码/连接优先级已记录在 compatibility 文档；构建 `.d.ts` 不引用 Adapter、Runtime 或厂商类型。
 
 **前置**：SDR-T3。
 
@@ -184,6 +190,8 @@ pnpm check:boundaries
 
 **优先级**：P0。
 
+**状态**：完成。三个 tarball 已验证无 `private`/`workspace:*`，生产依赖边界分别为 contracts→Zod、SDK→contracts、CLI→SDK；文件仅含 dist、README、LICENSE 和 manifest metadata。
+
 **前置**：SDR-T4。
 
 **主要文件**：
@@ -221,6 +229,8 @@ pnpm --filter @yanbot-harness/cli pack
 
 **优先级**：P0。
 
+**状态**：完成。使用 workspace tarball + npm clean install 生成 portable bundle，避免 pnpm virtual-store 泄露本机绝对路径；launcher 的 help/version、Reference 启动、descriptor 0600、SIGINT 清理均已验证。
+
 **前置**：SDR-T4。
 
 **主要文件**：
@@ -251,6 +261,8 @@ pnpm --filter @yanbot-harness/cli pack
 ### SDR-T7. Release build 与安全检查
 
 **优先级**：P0。
+
+**状态**：完成。release build 生成公共包、离线 Zod 依赖、portable Runtime、manifest 与全目录 SHA-256；实际 staging 已通过凭据、环境文件、证书、source map、workspace protocol、绝对路径和依赖边界扫描。
 
 **前置**：SDR-T5、SDR-T6。
 
@@ -288,6 +300,8 @@ pnpm release:check
 
 **优先级**：P0。
 
+**状态**：完成。临时 repo 外 consumer 使用 `npm --offline` 安装最终 tarball，最终 Runtime archive 完成 SDK text/interaction/cancel 与 CLI text/JSONL/resume/cancel；descriptor 创建/权限/关闭删除均已断言。
+
 **前置**：SDR-T7。
 
 **主要文件**：
@@ -313,6 +327,8 @@ pnpm release:check
 
 **优先级**：P0，发布阻断。
 
+**状态**：完成。2026-09-10 最终 tarball + Runtime archive 在 repo 外 consumer 中通过 SDK initial/resume/cancel 与 CLI JSONL；SDK/CLI 环境不含 CodeBuddy Key，Runtime 下游子进程为 0，退出后 descriptor 删除。
+
 **前置**：SDR-T8。
 
 **主要文件**：
@@ -336,6 +352,8 @@ pnpm release:check
 ### SDR-T10. 消费者文档和 release notes
 
 **优先级**：P0。
+
+**状态**：完成。Quickstart、包级 README、Runtime 运行手册、compatibility、capability matrix、CHANGELOG/release notes 已覆盖离线安装、SDK/CLI、Interaction、SSE resume、cancel、退出码、CodeBuddy Key 边界、故障排查和回滚。
 
 **前置**：SDR-T7；收口依赖 SDR-T8、SDR-T9。
 
@@ -367,6 +385,8 @@ pnpm release:check
 
 **优先级**：P0。
 
+**状态**：完成。frozen install 与 `pnpm check` 通过，共 111 项测试；release build/check、Reference 与真实 CodeBuddy 最终制品 E2E 通过；diff、tar 内容和敏感信息已检查，版本提交与 RC tag 同步创建。
+
 **前置**：SDR-T8、SDR-T9、SDR-T10。
 
 **文件**：所有本期修改、lockfile、Spec 状态、release manifest。
@@ -397,6 +417,8 @@ pnpm release:test
 
 **优先级**：P0。
 
+**状态**：完成。repo 外 consumer 仅从最终 tarball 安装公共包，通过 descriptor 调用 release Runtime；SDK/CLI 均不访问 workspace 源码、不导入内部包、不持有 CodeBuddy Key。签收清单位于 `docs/delivery/handoff-checklist.md`。
+
 **前置**：SDR-T11。
 
 **场景 A：SDK**：
@@ -423,15 +445,15 @@ pnpm release:test
 
 ## 4. Definition of done
 
-- [ ] T1–T12 全部完成。
-- [ ] `pnpm check` 通过，测试数量已记录。
-- [ ] smoke 成功后自然退出，无残留进程。
-- [ ] clean-room Reference 和真实 CodeBuddy 均使用最终制品通过。
-- [ ] SDK/CLI/contracts tarball 可安装，Runtime bundle 可启动。
-- [ ] manifest、SHA256SUMS、Quickstart、release notes 完整。
-- [ ] release staging 不含凭据、`.env`、source map、内部状态或 workspace link。
-- [ ] capability matrix 不存在超出证据的能力声明。
-- [ ] release commit/tag/版本/lockfile/manifest 一致。
+- [x] T1–T12 全部完成。
+- [x] `pnpm check` 通过，共 111 项测试。
+- [x] smoke 成功后自然退出，无残留进程。
+- [x] clean-room Reference 和真实 CodeBuddy 均使用最终制品通过。
+- [x] SDK/CLI/contracts tarball 可安装，Runtime bundle 可启动。
+- [x] manifest、SHA256SUMS、Quickstart、release notes 完整。
+- [x] release staging 不含凭据、`.env`、source map、内部状态或 workspace link。
+- [x] capability matrix 不存在超出证据的能力声明。
+- [x] release commit/tag/版本/lockfile/manifest 一致。
 
 ## 5. Estimated effort
 

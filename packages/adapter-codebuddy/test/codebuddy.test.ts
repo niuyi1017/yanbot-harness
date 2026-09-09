@@ -7,6 +7,7 @@ import { createDeterministicClock, createDeterministicIdGenerator } from '@yanbo
 
 import {
   CodeBuddyAdapter,
+  type CodeBuddyAdapterOptions,
   type CodeBuddyPermissionResult,
   type CodeBuddyQueryInput,
   type CodeBuddyQueryStream,
@@ -57,11 +58,12 @@ function facadeWith(messages: readonly unknown[]) {
   return { sdk, getLastInput: () => lastInput };
 }
 
-function adapter(sdk: CodeBuddySdkFacade): CodeBuddyAdapter {
+function adapter(sdk: CodeBuddySdkFacade, options: Omit<CodeBuddyAdapterOptions, 'sdk'> = {}): CodeBuddyAdapter {
   return new CodeBuddyAdapter({
     sdk,
     now: createDeterministicClock(),
     generateId: createDeterministicIdGenerator(),
+    ...options,
   });
 }
 
@@ -69,7 +71,7 @@ describe('CodeBuddyAdapter', () => {
   it('reports missing credentials without exposing values', async () => {
     await expect(new CodeBuddyAdapter().probe({})).resolves.toEqual({
       available: false,
-      harnessVersion: '0.3.43',
+      harnessVersion: '0.3.254',
       diagnostics: ['Missing credential: CODEBUDDY_API_KEY'],
     });
   });
@@ -106,6 +108,62 @@ describe('CodeBuddyAdapter', () => {
     });
   });
 
+  it('releases the vendor stream after a successful result', async () => {
+    const interrupt = vi.fn(async () => undefined);
+    const closeStream = vi.fn(async () => ({ value: undefined, done: true }) as IteratorResult<unknown, void>);
+    const sdk: CodeBuddySdkFacade = {
+      query() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { type: 'system', subtype: 'init', session_id: 'cleanup-session' };
+            yield { type: 'result', subtype: 'success', is_error: false, session_id: 'cleanup-session' };
+          },
+          interrupt,
+          return: closeStream,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+
+    const report = await runAdapterConformance({ adapter: adapter(sdk), request, context });
+
+    expect(report.events.at(-1)?.type).toBe('run.completed');
+    expect(interrupt).toHaveBeenCalledOnce();
+    expect(closeStream).toHaveBeenCalledOnce();
+  });
+
+  it('does not repeat vendor cleanup when runtime disposal follows completion', async () => {
+    const interrupt = vi.fn(async () => undefined);
+    const closeStream = vi.fn(async () => ({ value: undefined, done: true }) as IteratorResult<unknown, void>);
+    const sdk: CodeBuddySdkFacade = {
+      query() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { type: 'system', subtype: 'init', session_id: 'idempotent-cleanup-session' };
+            yield { type: 'result', subtype: 'success', is_error: false };
+          },
+          interrupt,
+          return: closeStream,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const runtime = await adapter(sdk).createRuntime(context);
+
+    const events = [];
+    for await (const event of runtime.startRun(request)) events.push(event);
+    await runtime.dispose();
+    await runtime.dispose();
+
+    expect(events.at(-1)?.type).toBe('run.completed');
+    expect(interrupt).toHaveBeenCalledOnce();
+    expect(closeStream).toHaveBeenCalledOnce();
+  });
+
   it('normalizes a top-level tool result exactly once', async () => {
     const fake = facadeWith(await fixture('top-level-tool-result'));
     const report = await runAdapterConformance({ adapter: adapter(fake.sdk), request, context });
@@ -120,6 +178,108 @@ describe('CodeBuddyAdapter', () => {
       type: 'run.failed',
       payload: { error: { code: 'HARNESS_PROTOCOL_ERROR' } },
     });
+  });
+
+  it('turns a legacy assistant-form 401 into an authentication failure', async () => {
+    const interrupt = vi.fn(async () => undefined);
+    const sdk: CodeBuddySdkFacade = {
+      query() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { type: 'system', subtype: 'init', session_id: 'unauthorized-session' };
+            yield {
+              type: 'assistant',
+              message: { content: [{ type: 'text', text: '401 Unauthorized' }] },
+            };
+            yield {
+              type: 'assistant',
+              message: {
+                content: [{ type: 'text', text: 'Request completed unexpectedly. Please try again.' }],
+              },
+            };
+            await new Promise<void>(() => undefined);
+          },
+          interrupt,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const report = await runAdapterConformance({
+      adapter: adapter(sdk, { terminalSignalGraceMs: 20, shutdownGraceMs: 10 }),
+      request,
+      context,
+    });
+
+    expect(report.events.at(-1)).toMatchObject({
+      type: 'run.failed',
+      payload: { error: { code: 'AUTHENTICATION_FAILED', message: '401 Unauthorized' } },
+    });
+    expect(report.events.some((event) => event.type === 'assistant.message')).toBe(false);
+    expect(interrupt).toHaveBeenCalledOnce();
+  });
+
+  it('fails an idle vendor stream without waiting indefinitely', async () => {
+    const interrupt = vi.fn(() => new Promise<void>(() => undefined));
+    const sdk: CodeBuddySdkFacade = {
+      query() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { type: 'system', subtype: 'init', session_id: 'idle-session' };
+            await new Promise<void>(() => undefined);
+          },
+          interrupt,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const report = await runAdapterConformance({
+      adapter: adapter(sdk, { idleTimeoutMs: 20, runTimeoutMs: 1_000, shutdownGraceMs: 10 }),
+      request,
+      context,
+    });
+
+    expect(report.events.at(-1)).toMatchObject({
+      type: 'run.failed',
+      payload: { error: { code: 'RUN_TIMEOUT', adapterCode: 'CODEBUDDY_IDLE_TIMEOUT' } },
+    });
+    expect(interrupt).toHaveBeenCalledOnce();
+  });
+
+  it('applies the wall-clock deadline independently of idle activity', async () => {
+    let permissionResult: CodeBuddyPermissionResult | undefined;
+    const sdk: CodeBuddySdkFacade = {
+      query(input) {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { type: 'system', subtype: 'init', session_id: 'wall-session' };
+            permissionResult = await input.canUseTool(
+              'Write',
+              { path: 'pending.txt' },
+              { toolUseID: 'pending-until-wall-timeout' },
+            );
+          },
+          async interrupt() {},
+        };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const report = await runAdapterConformance({
+      adapter: adapter(sdk, { idleTimeoutMs: 5, runTimeoutMs: 30, shutdownGraceMs: 10 }),
+      request,
+      context,
+    });
+
+    expect(report.events.at(-1)).toMatchObject({
+      type: 'run.failed',
+      payload: { error: { code: 'RUN_TIMEOUT', adapterCode: 'CODEBUDDY_RUN_TIMEOUT' } },
+    });
+    expect(permissionResult).toEqual({ behavior: 'deny', message: 'Run timed out.' });
   });
 
   it('maps resume, permission responses, and permission policy', async () => {
@@ -268,16 +428,44 @@ describe('CodeBuddyAdapter', () => {
     expect(interrupt).toHaveBeenCalledOnce();
   });
 
-  it('lists models through the isolated facade', async () => {
+  it('does not let a non-responsive interrupt block cancellation', async () => {
+    const interrupt = vi.fn(() => new Promise<void>(() => undefined));
+    const closeStream = vi.fn(async () => ({ value: undefined, done: true }) as IteratorResult<unknown, void>);
+    const sdk: CodeBuddySdkFacade = {
+      query() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { type: 'system', subtype: 'init', session_id: 'stuck-cancel-session' };
+            await new Promise<void>(() => undefined);
+          },
+          interrupt,
+          return: closeStream,
+        };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const report = await runAdapterConformance({
+      adapter: adapter(sdk, { shutdownGraceMs: 10 }),
+      request,
+      context,
+      cancelAfterEvents: 2,
+    });
+
+    expect(report.events.filter((event) => event.type === 'run.cancelled')).toHaveLength(1);
+    expect(report.events.at(-1)?.type).toBe('run.cancelled');
+    expect(interrupt).toHaveBeenCalledOnce();
+    expect(closeStream).toHaveBeenCalledOnce();
+  });
+
+  it('does not expose model discovery while the vendor subprocess cannot be released', async () => {
     const fake = facadeWith([]);
     const runtime = await adapter(fake.sdk).createRuntime(context);
-    await expect(runtime.listModels?.()).resolves.toEqual([
-      {
-        ref: { adapterId: 'cn.tencent.codebuddy', modelId: 'fixture-model' },
-        name: 'Fixture Model',
-        description: 'Offline fixture',
-      },
-    ]);
+    await expect(runtime.capabilities()).resolves.toMatchObject({
+      'models.list': { level: 'unsupported' },
+    });
+    expect(runtime.listModels).toBeUndefined();
     await runtime.dispose();
   });
 

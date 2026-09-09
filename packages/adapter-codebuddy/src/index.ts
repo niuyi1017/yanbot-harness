@@ -7,7 +7,6 @@ import {
   type HarnessError,
   type InteractionResponse,
   type JsonValue,
-  type ModelDescriptor,
 } from '@yanbot-harness/contracts';
 import type {
   AdapterProbeResult,
@@ -39,8 +38,12 @@ export type {
 } from './sdk-facade.js';
 
 const ADAPTER_ID = 'cn.tencent.codebuddy';
-const SDK_VERSION = '0.3.43';
+const SDK_VERSION = '0.3.254';
 const credentialKeys = ['CODEBUDDY_API_KEY'] as const;
+const DEFAULT_RUN_TIMEOUT_MS = 30 * 60 * 1_000;
+const DEFAULT_IDLE_TIMEOUT_MS = 2 * 60 * 1_000;
+const DEFAULT_SHUTDOWN_GRACE_MS = 5_000;
+const DEFAULT_TERMINAL_SIGNAL_GRACE_MS = 5_000;
 
 const capabilities: HarnessCapabilities = {
   'sessions.resume': { level: 'native' },
@@ -53,7 +56,10 @@ const capabilities: HarnessCapabilities = {
   'extensions.skills': { level: 'unsupported', reason: 'Extension translation is deferred.' },
   'extensions.agents': { level: 'unsupported', reason: 'Extension translation is deferred.' },
   'extensions.hooks': { level: 'unsupported', reason: 'Extension translation is deferred.' },
-  'models.list': { level: 'native' },
+  'models.list': {
+    level: 'unsupported',
+    reason: 'CodeBuddy SDK 0.3.254 model discovery does not release its CLI subprocess reliably.',
+  },
   'usage.tokens': { level: 'native' },
   'usage.cost': { level: 'native' },
 };
@@ -62,6 +68,10 @@ export type CodeBuddyAdapterOptions = {
   sdk?: CodeBuddySdkFacade;
   now?: () => Date;
   generateId?: () => string;
+  runTimeoutMs?: number;
+  idleTimeoutMs?: number;
+  shutdownGraceMs?: number;
+  terminalSignalGraceMs?: number;
 };
 
 export class CodeBuddyAdapter implements HarnessAdapter {
@@ -79,6 +89,9 @@ export class CodeBuddyAdapter implements HarnessAdapter {
         baseUrl: { type: 'string' },
         pathToCodebuddyCode: { type: 'string' },
         systemPrompt: { type: 'string' },
+        runTimeoutMs: { type: 'integer', minimum: 1_000, maximum: 86_400_000 },
+        idleTimeoutMs: { type: 'integer', minimum: 1_000, maximum: 3_600_000 },
+        shutdownGraceMs: { type: 'integer', minimum: 1, maximum: 60_000 },
       },
       additionalProperties: false,
     },
@@ -121,6 +134,13 @@ type ActiveRun = {
   factory: AdapterEventFactory;
   cancelled: boolean;
   cancelReason: string;
+  terminal: boolean;
+  lastActivityAt: number;
+  runningTools: Map<string, string>;
+  settledTools: Set<string>;
+  pendingFailure?: HarnessError;
+  pendingFailureAt?: number;
+  stopPromise?: Promise<void>;
 };
 
 class CodeBuddyRuntime implements AdapterRuntime {
@@ -128,6 +148,10 @@ class CodeBuddyRuntime implements AdapterRuntime {
   readonly #sdk: CodeBuddySdkFacade;
   readonly #now: (() => Date) | undefined;
   readonly #generateId: (() => string) | undefined;
+  readonly #runTimeoutMs: number;
+  readonly #idleTimeoutMs: number;
+  readonly #shutdownGraceMs: number;
+  readonly #terminalSignalGraceMs: number;
   readonly #pendingInteractions = new Map<string, PendingInteraction>();
   #active: ActiveRun | undefined;
   #disposed = false;
@@ -137,24 +161,23 @@ class CodeBuddyRuntime implements AdapterRuntime {
     this.#sdk = options.sdk ?? defaultCodeBuddySdkFacade;
     this.#now = options.now;
     this.#generateId = options.generateId;
+    this.#runTimeoutMs = positiveInteger(
+      options.runTimeoutMs ?? this.#context.config?.runTimeoutMs,
+      DEFAULT_RUN_TIMEOUT_MS,
+    );
+    this.#idleTimeoutMs = positiveInteger(
+      options.idleTimeoutMs ?? this.#context.config?.idleTimeoutMs,
+      DEFAULT_IDLE_TIMEOUT_MS,
+    );
+    this.#shutdownGraceMs = positiveInteger(
+      options.shutdownGraceMs ?? this.#context.config?.shutdownGraceMs,
+      DEFAULT_SHUTDOWN_GRACE_MS,
+    );
+    this.#terminalSignalGraceMs = positiveInteger(options.terminalSignalGraceMs, DEFAULT_TERMINAL_SIGNAL_GRACE_MS);
   }
 
   async capabilities(): Promise<HarnessCapabilities> {
     return capabilities;
-  }
-
-  async listModels(): Promise<ModelDescriptor[]> {
-    this.#assertUsable();
-    const models = await this.#sdk.listModels({
-      env: this.#buildEnv(),
-      settingSources: this.#settingSources([]),
-      ...this.#optionalSdkConfig(),
-    });
-    return models.map((model) => ({
-      ref: { adapterId: ADAPTER_ID, modelId: model.modelId },
-      name: model.name || model.modelId,
-      ...(model.description === undefined ? {} : { description: model.description }),
-    }));
   }
 
   startRun(input: AdapterRunInput): AsyncIterable<AdapterEvent> {
@@ -175,6 +198,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
       });
     }
     this.#pendingInteractions.delete(response.requestId);
+    this.#active.lastActivityAt = Date.now();
 
     let result: CodeBuddyPermissionResult;
     let outcome: 'allowed' | 'denied' | 'answered';
@@ -204,21 +228,13 @@ class CodeBuddyRuntime implements AdapterRuntime {
 
   async cancel(input: { runId: string; reason?: string }): Promise<void> {
     const active = this.#active;
-    if (!active || active.runId !== input.runId || active.cancelled) return;
+    if (!active || active.runId !== input.runId || active.terminal) return;
     active.cancelled = true;
     active.cancelReason = input.reason ?? 'Run cancelled.';
-    active.abortController.abort(active.cancelReason);
-    for (const [requestId, pending] of this.#pendingInteractions) {
-      this.#pendingInteractions.delete(requestId);
-      active.queue.push(
-        active.factory.create('interaction.resolved', {
-          requestId,
-          outcome: 'cancelled',
-        }),
-      );
-      pending.resolve({ behavior: 'deny', message: active.cancelReason });
-    }
-    await active.stream.interrupt().catch(() => undefined);
+    this.#settleRunningTools(active.runningTools, active.settledTools, active.queue, active.factory, true);
+    this.#resolvePendingInteractions(active, active.cancelReason);
+    this.#emitTerminal(active, active.factory.create('run.cancelled', { reason: active.cancelReason }));
+    await this.#stopVendor(active);
   }
 
   async dispose(): Promise<void> {
@@ -278,7 +294,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
       yield factory.create('run.failed', { error: this.#classifyError(errorMessage(error)) });
       return;
     }
-    this.#active = {
+    const active: ActiveRun = {
       runId: input.runId,
       abortController,
       stream,
@@ -286,9 +302,14 @@ class CodeBuddyRuntime implements AdapterRuntime {
       factory,
       cancelled: false,
       cancelReason: 'Run cancelled.',
+      terminal: false,
+      lastActivityAt: Date.now(),
+      runningTools: new Map(),
+      settledTools: new Set(),
     };
+    this.#active = active;
     let producerDone = false;
-    const producer = this.#consume(stream, queue, factory).finally(() => {
+    const producer = this.#consume(active).finally(() => {
       producerDone = true;
     });
     if (input.abortSignal?.aborted) void this.cancel({ runId: input.runId });
@@ -296,12 +317,12 @@ class CodeBuddyRuntime implements AdapterRuntime {
     try {
       yield startedEvent;
       for await (const event of queue) yield event;
-      await producer;
+      await settleWithin(producer, this.#shutdownGraceMs);
     } finally {
       input.abortSignal?.removeEventListener('abort', onAbort);
       if (!producerDone) await this.cancel({ runId: input.runId, reason: 'Event consumer closed.' });
-      await producer.catch(() => undefined);
-      this.#active = undefined;
+      await this.#stopVendor(active);
+      if (this.#active === active) this.#active = undefined;
       for (const [requestId, pending] of this.#pendingInteractions) {
         this.#pendingInteractions.delete(requestId);
         pending.resolve({ behavior: 'deny', message: 'Run ended.' });
@@ -309,25 +330,49 @@ class CodeBuddyRuntime implements AdapterRuntime {
     }
   }
 
-  async #consume(
-    stream: CodeBuddyQueryStream,
-    queue: AsyncQueue<AdapterEvent>,
-    factory: AdapterEventFactory,
-  ): Promise<void> {
-    const runningTools = new Map<string, string>();
-    const settledTools = new Set<string>();
-    let terminal = false;
+  async #consume(active: ActiveRun): Promise<void> {
+    const { stream, queue, factory, runningTools, settledTools } = active;
+    const iterator = stream[Symbol.asyncIterator]();
+    const startedAt = Date.now();
     let sessionInitialized = false;
     try {
-      for await (const raw of stream) {
-        if (terminal) break;
-        const message = asRecord(raw);
-        const type = stringValue(message.type);
-        if (this.#active?.cancelled) {
-          terminal = true;
-          queue.push(factory.create('run.cancelled', { reason: this.#active.cancelReason }));
+      while (!active.terminal) {
+        const watchdog = createWatchdog(
+          active,
+          startedAt,
+          this.#runTimeoutMs,
+          this.#idleTimeoutMs,
+          this.#terminalSignalGraceMs,
+          () => this.#pendingInteractions.size > 0,
+        );
+        const outcome = await Promise.race([
+          iterator.next().then((value) => ({ kind: 'next' as const, value })),
+          watchdog.promise,
+        ]).finally(watchdog.cancel);
+        if (outcome.kind === 'timeout') {
+          this.#settleRunningTools(runningTools, settledTools, queue, factory, true);
+          this.#resolvePendingInteractions(active, 'Run timed out.');
+          const error =
+            outcome.timeout === 'authentication' && active.pendingFailure
+              ? active.pendingFailure
+              : {
+                  code: 'RUN_TIMEOUT' as const,
+                  message:
+                    outcome.timeout === 'run'
+                      ? `CodeBuddy run exceeded ${this.#runTimeoutMs}ms.`
+                      : `CodeBuddy stream produced no activity for ${this.#idleTimeoutMs}ms.`,
+                  retryable: true,
+                  adapterCode: outcome.timeout === 'run' ? 'CODEBUDDY_RUN_TIMEOUT' : 'CODEBUDDY_IDLE_TIMEOUT',
+                };
+          this.#emitTerminal(active, factory.create('run.failed', { error }));
+          void this.#stopVendor(active);
           break;
         }
+        if (outcome.value.done) break;
+        active.lastActivityAt = Date.now();
+        const message = asRecord(outcome.value.value);
+        const type = stringValue(message.type);
+        if (active.cancelled) break;
         const messageContent = asRecord(message.message).content;
         if (Array.isArray(messageContent)) {
           for (const block of messageContent.map(asRecord)) {
@@ -358,7 +403,13 @@ class CodeBuddyRuntime implements AdapterRuntime {
               .filter((block) => block.type === 'text')
               .map((block) => stringValue(block.text))
               .join('');
-            if (text) queue.push(factory.create('assistant.message', { text }));
+            const authenticationFailure = legacyAuthenticationFailure(text);
+            if (authenticationFailure) {
+              active.pendingFailure = this.#classifyError(authenticationFailure);
+              active.pendingFailureAt = Date.now();
+              continue;
+            }
+            if (text && !active.pendingFailure) queue.push(factory.create('assistant.message', { text }));
             for (const block of messageContent.map(asRecord)) {
               if (block.type === 'tool_use') this.#startTool(block, runningTools, settledTools, queue, factory);
             }
@@ -366,53 +417,82 @@ class CodeBuddyRuntime implements AdapterRuntime {
         } else if (type === 'tool_result') {
           this.#settleTool(message, runningTools, settledTools, queue, factory);
         } else if (type === 'error') {
-          terminal = true;
           this.#settleRunningTools(runningTools, settledTools, queue, factory, true);
-          queue.push(factory.create('run.failed', { error: this.#classifyError(stringValue(message.error)) }));
+          this.#emitTerminal(
+            active,
+            factory.create('run.failed', { error: this.#classifyError(stringValue(message.error)) }),
+          );
         } else if (type === 'result') {
-          terminal = true;
           const usage = this.#usage(message);
           if (message.is_error === true) {
             this.#settleRunningTools(runningTools, settledTools, queue, factory, true);
             const errors = Array.isArray(message.errors)
               ? message.errors.map(String).join('\n')
               : 'CodeBuddy run failed.';
-            queue.push(factory.create('run.failed', { error: this.#classifyError(errors) }));
+            this.#emitTerminal(active, factory.create('run.failed', { error: this.#classifyError(errors) }));
           } else {
             this.#settleRunningTools(runningTools, settledTools, queue, factory, false);
             if (Object.keys(usage).length > 0) queue.push(factory.create('usage.updated', usage));
-            queue.push(factory.create('run.completed', Object.keys(usage).length > 0 ? { usage } : {}));
+            this.#emitTerminal(active, factory.create('run.completed', Object.keys(usage).length > 0 ? { usage } : {}));
           }
         }
       }
 
-      if (!terminal) {
-        const active = this.#active;
-        if (active?.cancelled) {
-          queue.push(factory.create('run.cancelled', { reason: active.cancelReason }));
-        } else {
-          queue.push(
-            factory.create('run.failed', {
-              error: {
-                code: 'HARNESS_PROTOCOL_ERROR',
-                message: 'CodeBuddy stream ended without a result message.',
-                retryable: false,
-              },
-            }),
-          );
-        }
+      if (!active.terminal && !active.cancelled) {
+        this.#emitTerminal(
+          active,
+          factory.create('run.failed', {
+            error: active.pendingFailure ?? {
+              code: 'HARNESS_PROTOCOL_ERROR',
+              message: 'CodeBuddy stream ended without a result message.',
+              retryable: false,
+            },
+          }),
+        );
       }
-      queue.end();
     } catch (error) {
-      const active = this.#active;
-      if (active?.cancelled) {
-        queue.push(factory.create('run.cancelled', { reason: active.cancelReason }));
-        queue.end();
-      } else {
-        queue.push(factory.create('run.failed', { error: this.#classifyError(errorMessage(error)) }));
-        queue.end();
+      if (!active.terminal) {
+        this.#settleRunningTools(runningTools, settledTools, queue, factory, true);
+        this.#emitTerminal(
+          active,
+          active.cancelled
+            ? factory.create('run.cancelled', { reason: active.cancelReason })
+            : factory.create('run.failed', { error: this.#classifyError(errorMessage(error)) }),
+        );
       }
     }
+  }
+
+  #emitTerminal(active: ActiveRun, event: AdapterEvent): void {
+    if (active.terminal) return;
+    active.terminal = true;
+    active.queue.push(event);
+    active.queue.end();
+  }
+
+  #resolvePendingInteractions(active: ActiveRun, message: string): void {
+    for (const [requestId, pending] of this.#pendingInteractions) {
+      this.#pendingInteractions.delete(requestId);
+      active.queue.push(
+        active.factory.create('interaction.resolved', {
+          requestId,
+          outcome: 'cancelled',
+        }),
+      );
+      pending.resolve({ behavior: 'deny', message });
+    }
+  }
+
+  #stopVendor(active: ActiveRun): Promise<void> {
+    active.stopPromise ??= (async () => {
+      active.abortController.abort(active.cancelReason);
+      const shutdownTasks: Promise<unknown>[] = [active.stream.interrupt().catch(() => undefined)];
+      if (active.stream.return) {
+        shutdownTasks.push(active.stream.return().catch(() => undefined));
+      }
+      await settleWithin(Promise.all(shutdownTasks), this.#shutdownGraceMs);
+    })();
+    return active.stopPromise;
   }
 
   #createPermissionHandler(
@@ -613,6 +693,81 @@ function isHighRiskTool(name: string): boolean {
 function configString(config: AdapterRuntimeContext['config'], key: string): string | undefined {
   const value = config?.[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function positiveInteger(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function legacyAuthenticationFailure(text: string): string | undefined {
+  const normalized = text.trim();
+  return /^(?:error:\s*)?401\b.*(?:unauthorized|authentication required)/i.test(normalized) ? normalized : undefined;
+}
+
+function createWatchdog(
+  active: ActiveRun,
+  startedAt: number,
+  runTimeoutMs: number,
+  idleTimeoutMs: number,
+  terminalSignalGraceMs: number,
+  hasPendingInteraction: () => boolean,
+): {
+  promise: Promise<{ kind: 'timeout'; timeout: 'run' | 'idle' | 'authentication' }>;
+  cancel: () => void;
+} {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancelled = false;
+  let resolveTimeout: (value: { kind: 'timeout'; timeout: 'run' | 'idle' | 'authentication' }) => void = () =>
+    undefined;
+  const promise = new Promise<{ kind: 'timeout'; timeout: 'run' | 'idle' | 'authentication' }>((resolve) => {
+    resolveTimeout = resolve;
+  });
+  const schedule = () => {
+    if (cancelled || active.terminal) return;
+    const now = Date.now();
+    const runRemaining = startedAt + runTimeoutMs - now;
+    if (runRemaining <= 0) {
+      resolveTimeout({ kind: 'timeout', timeout: 'run' });
+      return;
+    }
+    const authenticationRemaining =
+      active.pendingFailureAt === undefined
+        ? Number.POSITIVE_INFINITY
+        : active.pendingFailureAt + terminalSignalGraceMs - now;
+    if (authenticationRemaining <= 0) {
+      resolveTimeout({ kind: 'timeout', timeout: 'authentication' });
+      return;
+    }
+    const interactionPending = hasPendingInteraction();
+    const idleRemaining = active.lastActivityAt + idleTimeoutMs - now;
+    if (!interactionPending && idleRemaining <= 0) {
+      resolveTimeout({ kind: 'timeout', timeout: 'idle' });
+      return;
+    }
+    const nextCheck = interactionPending
+      ? Math.min(runRemaining, authenticationRemaining, 1_000)
+      : Math.min(runRemaining, idleRemaining, authenticationRemaining);
+    timer = setTimeout(schedule, Math.max(1, nextCheck));
+  };
+  schedule();
+  return {
+    promise,
+    cancel: () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    },
+  };
+}
+
+async function settleWithin(promise: Promise<unknown>, timeoutMs: number): Promise<boolean> {
+  if (timeoutMs <= 0) return false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), timeoutMs);
+  });
+  const settled = await Promise.race([promise.then(() => true), timedOut]);
+  if (timer) clearTimeout(timer);
+  return settled;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

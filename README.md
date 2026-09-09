@@ -6,14 +6,20 @@ production adapter; future harnesses can integrate without changing the public S
 The foundation, M2 Local Runtime, and M3 TypeScript SDK/CLI are complete for offline development. Contracts, adapter
 SPI, managed runs, local persistence, authentication, workspace grants, configuration, extension discovery,
 loopback lifecycle, HTTP/SSE, the public SDK, and CLI process boundary are covered by Reference Adapter black-box
-tests. The real CodeBuddy probe remains pending until an explicit credentialed environment is provided and is still
-required before a production-ready claim. Local Web, Electron, Admin, and cloud execution are not scaffolded yet.
+tests. A controlled CodeBuddy SDK 0.3.254 probe now verifies initial runs, resume, cancellation, text streaming, and
+usage with natural process cleanup. Tool/permission/question scenarios remain unverified, and CodeBuddy model listing
+is disabled because the vendor discovery API leaves a CLI subprocess alive. Local Web, Electron, Admin, and cloud
+execution are not scaffolded yet.
 
 ## Requirements
 
 - Node.js >=22.22.0 <23 (CI uses 22.22.0)
 - Corepack
 - pnpm 11.10.0
+
+The current delivery candidate is `0.1.0-preview.1`. Build its offline artifacts with `pnpm release:build`, validate
+them with `pnpm release:check`, and run the repo-independent Reference acceptance with `pnpm release:test`. See the
+[SDK/CLI Local Preview quickstart](docs/delivery/sdk-cli-quickstart.md) for consumer installation and operation.
 
 ## Commands
 
@@ -110,7 +116,7 @@ Reference Adapter tests still pass, while real CodeBuddy model calls remain unav
 - `packages/harness-core`: runtime orchestration over the adapter API.
 - `packages/adapter-kit`: adapter authoring helpers and conformance checks.
 - `packages/adapter-reference`: deterministic, offline reference implementation.
-- `packages/adapter-codebuddy`: CodeBuddy 0.3.43 translation and the only package allowed to import its vendor SDK.
+- `packages/adapter-codebuddy`: CodeBuddy 0.3.254 translation and the only package allowed to import its vendor SDK.
 - `packages/adapter-sidecar`: protocol schemas only during the foundation phase.
 - `packages/testing`: deterministic clocks/IDs and the black-box Local Runtime test client.
 - `packages/sdk`: stable TypeScript client for the public HTTP/SSE protocol and protected daemon discovery.
