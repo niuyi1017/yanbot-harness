@@ -23,6 +23,7 @@
 - 前置：任务 1、2。
 - 内容：使用 release Runtime archive 中的可执行文件，验证 SDK-owned 和 CLI ephemeral 路径，确认无 repo `node_modules` 解析、descriptor 清理和无残留子进程。
 - 发布脚本约束：`--skip-check` 只能跳过 lint/typecheck/test 等门禁，不能跳过 public package 和 Runtime 的构建，避免把陈旧 `dist` 打入新版本 tarball。
+- 离线第三方依赖必须先从 pnpm store 解引用复制到普通 staging 目录再 pack，避免不同平台对虚拟存储路径打包不完整。
 - 验收：`pnpm release:build --skip-check`、`pnpm release:check`、`pnpm release:test`。
 
 ## 4. Runtime 平台包与解析器

@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
-import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
@@ -33,11 +34,18 @@ for (const packageName of [contractsPackage.name, sdkPackage.name, cliPackage.na
   await runPnpm(['--filter', packageName, 'pack', '--pack-destination', path.join(releaseRoot, 'packages')]);
 }
 const zodRoot = path.dirname(requireFromContracts.resolve('zod/package.json'));
-await executeFile(
-  process.platform === 'win32' ? 'npm.cmd' : 'npm',
-  ['pack', zodRoot, '--pack-destination', path.join(releaseRoot, 'packages')],
-  { cwd: repositoryRoot, env: { ...process.env, CI: 'true' }, maxBuffer: 20 * 1024 * 1024 },
-);
+const zodPackRoot = await mkdtemp(path.join(tmpdir(), 'yanbot-harness-zod-pack-'));
+try {
+  const zodStaging = path.join(zodPackRoot, 'zod');
+  await cp(zodRoot, zodStaging, { recursive: true, dereference: true });
+  await executeFile(
+    process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    ['pack', zodStaging, '--pack-destination', path.join(releaseRoot, 'packages')],
+    { cwd: repositoryRoot, env: { ...process.env, CI: 'true' }, maxBuffer: 20 * 1024 * 1024 },
+  );
+} finally {
+  await rm(zodPackRoot, { recursive: true, force: true });
+}
 await executeFile(
   process.execPath,
   [path.join(repositoryRoot, 'scripts/build-runtime-bundle.mjs'), path.join(releaseRoot, 'runtime')],
