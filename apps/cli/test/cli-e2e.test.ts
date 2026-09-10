@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -18,6 +18,62 @@ afterEach(async () => {
 });
 
 describe('CLI process boundary', () => {
+  it('owns an installed Runtime for one command and cleans its temporary state', async () => {
+    const temporary = await createTemporaryStateRoot('yanbot-cli-managed-');
+    cleanups.push(temporary.cleanup);
+    const workspace = path.join(temporary.path, 'workspace');
+    const managedTemp = path.join(temporary.path, 'managed-temp');
+    await Promise.all([mkdir(workspace), mkdir(managedTemp)]);
+    const cli = path.resolve(import.meta.dirname, '../dist/main.js');
+    const runtimeEntry = path.resolve(import.meta.dirname, '../../local-runtime/dist/main.js');
+
+    const result = await executeFile(
+      process.execPath,
+      [cli, 'run', 'managed runtime client', '--managed-runtime', runtimeEntry, '--json', '--log-level', 'silent'],
+      {
+        cwd: workspace,
+        env: {
+          ...process.env,
+          TMPDIR: managedTemp,
+          YANBOT_HARNESS_ADAPTER: 'reference',
+        },
+      },
+    );
+
+    expect(result.stdout).toContain('"type":"run.completed"');
+    expect(result.stderr).toBe('');
+    expect(await readdir(managedTemp)).toEqual([]);
+  });
+
+  it('cleans an owned Runtime when a JSONL run requires interaction', async () => {
+    const temporary = await createTemporaryStateRoot('yanbot-cli-managed-interaction-');
+    cleanups.push(temporary.cleanup);
+    const workspace = path.join(temporary.path, 'workspace');
+    const managedTemp = path.join(temporary.path, 'managed-temp');
+    await Promise.all([mkdir(workspace), mkdir(managedTemp)]);
+    const cli = path.resolve(import.meta.dirname, '../dist/main.js');
+    const runtimeEntry = path.resolve(import.meta.dirname, '../../local-runtime/dist/main.js');
+
+    const failure = await executeFile(
+      process.execPath,
+      [cli, 'run', 'managed interaction client', '--managed-runtime', runtimeEntry, '--json', '--log-level', 'silent'],
+      {
+        cwd: workspace,
+        env: {
+          ...process.env,
+          TMPDIR: managedTemp,
+          YANBOT_HARNESS_ADAPTER: 'reference',
+          YANBOT_HARNESS_REFERENCE_SCENARIO: 'question',
+        },
+      },
+    ).catch((error: unknown) => error);
+
+    const result = failure as { code?: unknown; stdout?: unknown; stderr?: unknown };
+    expect(result.code).toBe(11);
+    expect(String(result.stdout)).toContain('"type":"interaction.requested"');
+    expect(await readdir(managedTemp)).toEqual([]);
+  });
+
   it('invokes the Reference Adapter through daemon HTTP/SSE in text and JSONL modes', async () => {
     const temporary = await createTemporaryStateRoot('yanbot-cli-e2e-');
     cleanups.push(temporary.cleanup);

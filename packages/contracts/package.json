@@ -1,6 +1,6 @@
 {
   "name": "@yanbot-harness/contracts",
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "type": "module",
   "description": "Public schemas and protocol types for Yanbot Harness.",
   "license": "UNLICENSED",

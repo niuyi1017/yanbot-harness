@@ -15,4 +15,14 @@ describe('CLI arguments', () => {
     });
     expect(() => parseArguments(['sessions', '--token', 'secret'])).toThrow(CliUsageError);
   });
+
+  it('accepts one explicit connection mode', () => {
+    expect(parseArguments(['adapters', '--managed-runtime', '/runtime'])).toMatchObject({
+      name: 'adapters',
+      managedRuntimePath: '/runtime',
+    });
+    expect(() =>
+      parseArguments(['adapters', '--managed-runtime', '/runtime', '--descriptor', '/descriptor']),
+    ).toThrowError(/mutually exclusive/u);
+  });
 });

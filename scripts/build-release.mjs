@@ -27,7 +27,8 @@ await mkdir(path.join(releaseRoot, 'runtime'), { recursive: true, mode: 0o700 })
 await mkdir(path.join(releaseRoot, 'examples/sdk-basic/src'), { recursive: true, mode: 0o700 });
 await mkdir(path.join(releaseRoot, 'docs'), { recursive: true, mode: 0o700 });
 
-if (!skipCheck) await runPnpm(['check']);
+if (skipCheck) await runPnpm(['build']);
+else await runPnpm(['check']);
 for (const packageName of [contractsPackage.name, sdkPackage.name, cliPackage.name]) {
   await runPnpm(['--filter', packageName, 'pack', '--pack-destination', path.join(releaseRoot, 'packages')]);
 }

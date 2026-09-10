@@ -2,6 +2,7 @@
 
 ## 1. SDK-owned Runtime 核心原语
 
+- 状态：完成。
 - 文件：新增 `packages/sdk/src/managed-runtime.ts` 和 `packages/sdk/test/managed-runtime.test.ts`；修改 `packages/sdk/src/index.ts`、SDK README。
 - 前置：无。
 - 内容：实现可执行文件解析、专用 stateRoot、子进程启动、descriptor + health 就绪、启动超时、提前退出、幂等关闭和 SDK-owned 临时目录清理。
@@ -9,6 +10,7 @@
 
 ## 2. CLI ephemeral managed 模式
 
+- 状态：完成。
 - 文件：修改 `apps/cli/src/arguments.ts`、`apps/cli/src/index.ts`、CLI README 和对应测试。
 - 前置：任务 1。
 - 内容：在不改变 `--runtime`/`--descriptor` 优先级的前提下，为已安装 Runtime 增加显式 `--managed-runtime PATH` 或等价入口；CLI 命令结束时必须关闭自己启动的 Runtime，并保留原有 JSONL/stdout 与退出码语义。
@@ -16,6 +18,7 @@
 
 ## 3. 脱离仓库的 managed clean-room 验收
 
+- 状态：完成。
 - 文件：修改 `scripts/test-release-clean-room.mjs`、`docs/delivery/sdk-cli-quickstart.md`、`docs/delivery/handoff-checklist.md`。
 - 前置：任务 1、2。
 - 内容：使用 release Runtime archive 中的可执行文件，验证 SDK-owned 和 CLI ephemeral 路径，确认无 repo `node_modules` 解析、descriptor 清理和无残留子进程。
@@ -52,6 +55,8 @@
 
 ## 8. 跨平台发布与正式门禁
 
+- 状态：部分完成。已配置 `ubuntu-24.04` x64 与 `macos-15` arm64 的无凭据 release build/check/clean-room
+  Reference matrix；签名、provenance、Windows、Intel Mac 与受控 CodeBuddy gate 尚未完成。
 - 文件：GitHub Actions workflow、release 脚本、compatibility/handoff/capability 文档。
 - 前置：任务 3–7；发布凭据、license 和签名身份就绪。
 - 内容：CI matrix 构建、聚合、签名、生成 provenance，在各目标运行 clean-room Reference，并在受控环境完成 CodeBuddy 验证。

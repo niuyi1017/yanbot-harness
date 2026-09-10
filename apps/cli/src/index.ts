@@ -1,10 +1,16 @@
-import { HarnessClient, HarnessSdkError, type HarnessErrorCode, type LocalSession } from '@yanbot-harness/sdk';
+import {
+  HarnessClient,
+  HarnessSdkError,
+  startManagedRuntime,
+  type HarnessErrorCode,
+  type LocalSession,
+} from '@yanbot-harness/sdk';
 
 import { CliUsageError, parseArguments, type CliCommand } from './arguments.js';
 import { promptForInteraction } from './interactions.js';
 import { EventRenderer, type CliIo, writeAdapters, writeJson, writeModels, writeRun, writeSessions } from './output.js';
 
-export const CLI_VERSION = '0.1.0-preview.1';
+export const CLI_VERSION = '0.1.0-preview.2';
 export const CLI_EXIT = {
   success: 0,
   usage: 2,
@@ -35,10 +41,13 @@ export async function runCli(
       io.stdout.write(`${CLI_VERSION}\n`);
       return CLI_EXIT.success;
     }
-    const client = await connect(command, options.environment, options.fetch);
-    await client.health();
-    const exitCode = await execute(command, client, io);
-    return exitCode;
+    const connection = await connect(command, options.environment, options.fetch);
+    try {
+      await connection.client.health();
+      return await execute(command, connection.client, io);
+    } finally {
+      await connection.close();
+    }
   } catch (error) {
     const mapped = mapCliError(error);
     io.stderr.write(`${mapped.message}\n`);
@@ -50,22 +59,36 @@ async function connect(
   command: Exclude<CliCommand, { name: 'help' | 'version' }>,
   environment: Readonly<Record<string, string | undefined>> = process.env,
   fetchImplementation?: typeof fetch,
-): Promise<HarnessClient> {
+): Promise<{ client: HarnessClient; close(): Promise<void> }> {
   if (command.runtimeOrigin) {
     const accessToken = environment.YANBOT_HARNESS_ACCESS_TOKEN;
     if (!accessToken)
       throw new CliFailure(CLI_EXIT.authentication, 'YANBOT_HARNESS_ACCESS_TOKEN is required with --runtime.');
-    return new HarnessClient({
-      origin: command.runtimeOrigin,
-      accessToken,
+    return {
+      client: new HarnessClient({
+        origin: command.runtimeOrigin,
+        accessToken,
+        ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
+      }),
+      close: async () => undefined,
+    };
+  }
+  if (command.managedRuntimePath) {
+    const runtime = await startManagedRuntime({
+      executablePath: command.managedRuntimePath,
+      environment,
       ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
     });
+    return { client: runtime.client, close: () => runtime.close() };
   }
-  return HarnessClient.fromDaemon({
-    ...(command.descriptorPath === undefined ? {} : { descriptorPath: command.descriptorPath }),
-    environment,
-    ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
-  });
+  return {
+    client: await HarnessClient.fromDaemon({
+      ...(command.descriptorPath === undefined ? {} : { descriptorPath: command.descriptorPath }),
+      environment,
+      ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
+    }),
+    close: async () => undefined,
+  };
 }
 
 async function execute(
@@ -186,6 +209,8 @@ Usage:
 Connection:
   --runtime URL       Use URL with YANBOT_HARNESS_ACCESS_TOKEN.
   --descriptor PATH  Use a protected local Runtime descriptor.
+  --managed-runtime PATH
+                      Start and own an installed Runtime for this command.
   Otherwise YANBOT_HARNESS_RUNTIME_DESCRIPTOR or ~/.yanbot-harness/runtime.json is used.
 
 Output:

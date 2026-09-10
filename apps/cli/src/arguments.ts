@@ -24,6 +24,7 @@ type CommonOptions = {
   json: boolean;
   runtimeOrigin?: string;
   descriptorPath?: string;
+  managedRuntimePath?: string;
   logLevel: 'silent' | 'error' | 'info' | 'debug';
 };
 
@@ -41,11 +42,17 @@ export function parseArguments(argv: readonly string[], cwd = process.cwd()): Cl
   const parsed = parseOptions(argv.slice(1));
   const runtimeOrigin = option(parsed, 'runtime');
   const descriptorPath = option(parsed, 'descriptor');
+  const managedRuntimePath = option(parsed, 'managed-runtime');
+  const connectionOptions = [runtimeOrigin, descriptorPath, managedRuntimePath].filter((value) => value !== undefined);
+  if (connectionOptions.length > 1) {
+    throw new CliUsageError('--runtime, --descriptor, and --managed-runtime are mutually exclusive.');
+  }
   const common: CommonOptions = {
     json: flag(parsed, 'json'),
     logLevel: enumOption(parsed, 'log-level', ['silent', 'error', 'info', 'debug'], 'info'),
     ...(runtimeOrigin === undefined ? {} : { runtimeOrigin }),
     ...(descriptorPath === undefined ? {} : { descriptorPath }),
+    ...(managedRuntimePath === undefined ? {} : { managedRuntimePath }),
   };
   assertOnly(parsed, commonOptionNames(name));
 
@@ -118,7 +125,7 @@ function parseOptions(argv: readonly string[]): ParsedOptions {
 }
 
 function commonOptionNames(command: string | undefined): Set<string> {
-  const names = new Set(['json', 'runtime', 'descriptor', 'log-level']);
+  const names = new Set(['json', 'runtime', 'descriptor', 'managed-runtime', 'log-level']);
   const extras: Record<string, string[]> = {
     run: ['adapter', 'session', 'workspace', 'cwd', 'model', 'permission', 'config-scope', 'resume'],
     models: ['adapter'],

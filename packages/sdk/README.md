@@ -27,6 +27,27 @@ Use `HarnessClient.connect({ origin, accessToken })` for an explicit Runtime, `f
 Runtime, or `fromDaemon()` for the protected local descriptor. Keep the last event ID and pass it as `afterEventId`
 when explicitly resuming SSE. Pass an `AbortSignal` to stop reading without creating a hidden retry.
 
+To explicitly own the lifecycle of an already installed Runtime executable, use `startManagedRuntime()`:
+
+```ts
+import { startManagedRuntime } from '@yanbot-harness/sdk';
+
+const runtime = await startManagedRuntime({
+  executablePath: '/verified/install/bin/yanbot-harness-runtime',
+  reference: true,
+});
+try {
+  console.log(await runtime.client.listAdapters());
+} finally {
+  await runtime.close();
+}
+```
+
+`YANBOT_HARNESS_RUNTIME_PATH` may be used instead of `executablePath`. This API never downloads a Runtime and does
+not accept a vendor-specific API key field. If a custom `environment` is supplied, it becomes the complete child
+process environment; inject only values intended for the Runtime. A temporary mode-0700 state directory is created
+and removed by default. Pass a dedicated `stateRoot` when the caller owns persistent Runtime state.
+
 Permission and question requests arrive as `interaction.requested`; reply through `run.respond(response)`. Cancel a
 run through `run.cancel(reason)`. Errors are `HarnessSdkError` with stable `kind`, optional HTTP status/request ID,
 and an optional normalized Harness error. The SDK never accepts a CodeBuddy API key.

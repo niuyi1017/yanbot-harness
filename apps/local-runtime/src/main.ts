@@ -9,7 +9,7 @@ import { createEnvironmentContextProvider } from './adapters.js';
 import { startLocalRuntime } from './server.js';
 
 const credentialEnvironmentKey = 'CODEBUDDY_API_KEY';
-const RUNTIME_VERSION = '0.1.0-preview.1';
+const RUNTIME_VERSION = '0.1.0-preview.2';
 
 async function main(): Promise<void> {
   const arguments_ = process.argv.slice(2);

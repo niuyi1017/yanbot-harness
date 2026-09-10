@@ -1,6 +1,6 @@
 {
   "name": "@yanbot-harness/sdk",
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "type": "module",
   "description": "Node.js client for the Yanbot Harness Runtime HTTP/SSE protocol.",
   "license": "UNLICENSED",

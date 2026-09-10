@@ -1,6 +1,6 @@
 # SDK/CLI Local Preview Quickstart
 
-This guide uses the `0.1.0-preview.1` offline bundle. Node `>=22.22.0 <23` is required. The SDK and CLI connect to the
+This guide uses the `0.1.0-preview.2` offline bundle. Node `>=22.22.0 <23` is required. The SDK and CLI connect to the
 included loopback Runtime; neither client calls CodeBuddy directly.
 
 ## 1. Verify and unpack
@@ -12,7 +12,7 @@ shasum -a 256 -c SHA256SUMS
 mkdir consumer runtime
 npm init -y --prefix consumer
 npm install --offline --prefix consumer --ignore-scripts --no-audit --no-fund --no-package-lock packages/*.tgz
-tar -xzf runtime/yanbot-harness-runtime-0.1.0-preview.1-<platform>-<arch>.tar.gz -C runtime
+tar -xzf runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>.tar.gz -C runtime
 ```
 
 The included Zod tarball makes the public package install independent of a public Registry. Do not replace a
@@ -20,9 +20,39 @@ checksum-verified artifact after installation.
 
 ## 2. Start the credential-free Runtime
 
+For an SDK- or CLI-owned Runtime, skip the manual background process and use the managed examples below with the
+verified launcher path. Managed mode never downloads or updates the Runtime.
+
+SDK-owned startup:
+
+```js
+import { startManagedRuntime } from '@yanbot-harness/sdk';
+
+const runtime = await startManagedRuntime({
+  executablePath: './runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>/bin/yanbot-harness-runtime',
+  reference: true,
+});
+try {
+  console.log(await runtime.client.listAdapters());
+} finally {
+  await runtime.close();
+}
+```
+
+CLI-owned startup:
+
+```bash
+export YANBOT_HARNESS_ADAPTER=reference
+./consumer/node_modules/.bin/yanbot-harness adapters \
+  --managed-runtime ./runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>/bin/yanbot-harness-runtime \
+  --json
+```
+
+For a shared Daemon used by multiple SDK/CLI processes, start it manually:
+
 ```bash
 export YANBOT_HARNESS_STATE_DIR="$PWD/runtime-state"
-./runtime/yanbot-harness-runtime-0.1.0-preview.1-<platform>-<arch>/bin/yanbot-harness-runtime --reference
+./runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>/bin/yanbot-harness-runtime --reference
 ```
 
 The Runtime prints only its loopback origin. It writes a mode-0600 descriptor to
@@ -30,7 +60,7 @@ The Runtime prints only its loopback origin. It writes a mode-0600 descriptor to
 
 ## 3. Call through the CLI
 
-In a second terminal:
+In a second terminal when using the shared Daemon:
 
 ```bash
 export YANBOT_HARNESS_RUNTIME_DESCRIPTOR="$PWD/runtime-state/runtime.json"
@@ -96,7 +126,7 @@ read -s CODEBUDDY_API_KEY
 export CODEBUDDY_API_KEY
 export CODEBUDDY_INTERNET_ENVIRONMENT=internal
 export YANBOT_HARNESS_STATE_DIR="$PWD/codebuddy-runtime-state"
-./runtime/yanbot-harness-runtime-0.1.0-preview.1-<platform>-<arch>/bin/yanbot-harness-runtime
+./runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>/bin/yanbot-harness-runtime
 ```
 
 SDK/CLI consumer processes need only the new Runtime descriptor. Do not put the CodeBuddy key in source code,

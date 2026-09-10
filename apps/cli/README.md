@@ -11,6 +11,11 @@ yanbot-harness run "Reply with a delivery check" --json --log-level silent
 By default the CLI discovers the mode-0600 local Runtime descriptor. Use `--descriptor PATH`, or use `--runtime URL`
 with `YANBOT_HARNESS_ACCESS_TOKEN`. There is deliberately no token or CodeBuddy key command-line option.
 
+Use `--managed-runtime PATH` to start an already installed Runtime only for the current command. The CLI waits for
+the protected descriptor and health response, then shuts down the owned Runtime and removes its temporary state on
+every exit path. The option is mutually exclusive with `--descriptor` and `--runtime`; it never downloads or updates
+the executable.
+
 Commands are `run`, `adapters`, `models`, `sessions`, `run-status`, and `cancel`. `run --json` emits a
 `cli.run-created` record followed by public Adapter events, one JSON value per stdout line; diagnostics remain on
 stderr. In text mode a TTY can answer permission/question interactions. JSON/non-TTY mode returns exit code `11`

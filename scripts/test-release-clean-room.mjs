@@ -45,6 +45,38 @@ try {
 
   const sdkScript = path.join(consumerRoot, 'sdk-consumer.mjs');
   await writeFile(sdkScript, sdkConsumerSource());
+  const managedSdkScript = path.join(consumerRoot, 'managed-sdk-consumer.mjs');
+  await writeFile(managedSdkScript, managedSdkConsumerSource());
+
+  const managedSdk = await runProcess(process.execPath, [managedSdkScript, runtimeLauncher, workspace], {
+    cwd: consumerRoot,
+    env: {
+      ...consumerEnvironment(),
+      YANBOT_HARNESS_ADAPTER: 'reference',
+      YANBOT_HARNESS_REFERENCE_SCENARIO: 'text',
+    },
+  });
+  const managedSdkSummary = JSON.parse(managedSdk.stdout);
+  assert(managedSdkSummary.terminal === 'run.completed', 'Packaged managed SDK run did not complete.');
+  assert(managedSdkSummary.cleaned === true, 'Packaged managed SDK did not clean its temporary state.');
+
+  const managedCliTemp = path.join(temporaryRoot, 'managed-cli-temp');
+  await mkdir(managedCliTemp, { mode: 0o700 });
+  const managedCli = await runProcess(
+    process.execPath,
+    [cli, 'run', 'clean room managed CLI', '--managed-runtime', runtimeLauncher, '--json', '--log-level', 'silent'],
+    {
+      cwd: workspace,
+      env: {
+        ...consumerEnvironment(),
+        TMPDIR: managedCliTemp,
+        YANBOT_HARNESS_ADAPTER: 'reference',
+        YANBOT_HARNESS_REFERENCE_SCENARIO: 'text',
+      },
+    },
+  );
+  assert(jsonLines(managedCli.stdout).at(-1)?.type === 'run.completed', 'Packaged managed CLI did not complete.');
+  assert((await readdir(managedCliTemp)).length === 0, 'Packaged managed CLI left temporary state behind.');
 
   const textRuntime = await startRuntime('text', runtimeLauncher);
   const textSdk = await runProcess(process.execPath, [sdkScript, 'text', textRuntime.descriptorPath, workspace], {
@@ -130,7 +162,7 @@ try {
   await stopRuntime(cancelRuntime);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, version, sdk: ['text', 'interaction', 'cancel'], cli: ['text', 'jsonl', 'resume', 'cancel'] })}\n`,
+    `${JSON.stringify({ ok: true, version, sdk: ['managed', 'text', 'interaction', 'cancel'], cli: ['managed', 'text', 'jsonl', 'resume', 'cancel'] })}\n`,
   );
 } finally {
   await Promise.allSettled(activeRuntimes.map((runtime) => stopRuntime(runtime)));
@@ -310,5 +342,51 @@ for await (const event of run.events()) {
   if (event.type === 'run.completed' || event.type === 'run.cancelled' || event.type === 'run.failed') terminal = event.type;
 }
 console.log(JSON.stringify({ terminal, interaction, models: models.length }));
+`;
+}
+
+function managedSdkConsumerSource() {
+  return `
+import { stat } from 'node:fs/promises';
+import path from 'node:path';
+import { startManagedRuntime } from '@yanbot-harness/sdk';
+
+const [runtimePath, workspace] = process.argv.slice(2);
+const runtime = await startManagedRuntime({
+  executablePath: runtimePath,
+  environment: process.env,
+  startupTimeoutMs: 10_000,
+  shutdownTimeoutMs: 10_000,
+});
+let terminal;
+try {
+  const adapters = await runtime.client.listAdapters();
+  const adapterId = adapters[0]?.manifest.adapterId;
+  if (!adapterId) throw new Error('No Adapter.');
+  const grant = await runtime.client.grantWorkspace({ path: workspace });
+  const session = await runtime.client.createSession({ adapterId });
+  const run = await runtime.client.createRun(session.sessionId, {
+    prompt: 'Packaged managed SDK clean-room test',
+    workspaceGrant: grant.grant,
+    permissionPolicy: 'read-only',
+    configScopes: [],
+    extensions: [],
+    resume: false,
+  });
+  for await (const event of run.events()) {
+    if (event.type === 'run.completed' || event.type === 'run.cancelled' || event.type === 'run.failed') {
+      terminal = event.type;
+    }
+  }
+} finally {
+  await runtime.close();
+}
+let cleaned = false;
+try {
+  await stat(path.dirname(runtime.descriptorPath));
+} catch (error) {
+  cleaned = error && typeof error === 'object' && error.code === 'ENOENT';
+}
+console.log(JSON.stringify({ terminal, cleaned }));
 `;
 }
