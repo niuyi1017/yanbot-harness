@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 
-import { createRuntimeArchive, runtimeArchiveSuffix } from './lib/release-platform.mjs';
+import { createRuntimeArchive, npmInvocation, runtimeArchiveSuffix } from './lib/release-platform.mjs';
 
 const executeFile = promisify(execFile);
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
@@ -40,11 +40,20 @@ try {
     .filter((name) => name.endsWith('.tgz'))
     .map((name) => path.join(packDirectory, name));
   await writeFile(path.join(installDirectory, 'package.json'), '{"private":true}\n');
-  await executeFile(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock', ...archives],
-    { cwd: installDirectory, env: { ...process.env, CI: 'true' }, maxBuffer: 20 * 1024 * 1024 },
-  );
+  const npm = npmInvocation([
+    'install',
+    '--omit=dev',
+    '--ignore-scripts',
+    '--no-audit',
+    '--no-fund',
+    '--no-package-lock',
+    ...archives,
+  ]);
+  await executeFile(npm.command, npm.arguments, {
+    cwd: installDirectory,
+    env: { ...process.env, CI: 'true' },
+    maxBuffer: 20 * 1024 * 1024,
+  });
 
   const installedRuntime = path.join(installDirectory, 'node_modules/@yanbot-harness/local-runtime');
   await mkdir(stagingDirectory, { recursive: true });

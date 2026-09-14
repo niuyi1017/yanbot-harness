@@ -7,6 +7,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 
+import { npmInvocation } from './lib/release-platform.mjs';
+
 const executeFile = promisify(execFile);
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const requireFromContracts = createRequire(path.join(repositoryRoot, 'packages/contracts/package.json'));
@@ -38,11 +40,12 @@ const zodPackRoot = await mkdtemp(path.join(tmpdir(), 'yanbot-harness-zod-pack-'
 try {
   const zodStaging = path.join(zodPackRoot, 'zod');
   await cp(zodRoot, zodStaging, { recursive: true, dereference: true });
-  await executeFile(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    ['pack', zodStaging, '--pack-destination', path.join(releaseRoot, 'packages')],
-    { cwd: repositoryRoot, env: { ...process.env, CI: 'true' }, maxBuffer: 20 * 1024 * 1024 },
-  );
+  const npm = npmInvocation(['pack', zodStaging, '--pack-destination', path.join(releaseRoot, 'packages')]);
+  await executeFile(npm.command, npm.arguments, {
+    cwd: repositoryRoot,
+    env: { ...process.env, CI: 'true' },
+    maxBuffer: 20 * 1024 * 1024,
+  });
 } finally {
   await rm(zodPackRoot, { recursive: true, force: true });
 }

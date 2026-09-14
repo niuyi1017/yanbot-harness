@@ -8,6 +8,7 @@ import {
   directChildProcessIds,
   extractRuntimeArchive,
   findRuntimeArchive,
+  npmInvocation,
   runtimeInvocation,
   runtimeLauncherPath,
   terminateRuntimeProcess,
@@ -43,11 +44,16 @@ async function run(secret) {
     const packageArchives = (await readdir(path.join(releaseRoot, 'packages')))
       .filter((name) => name.endsWith('.tgz'))
       .map((name) => path.join(releaseRoot, 'packages', name));
-    await runProcess(
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock', ...packageArchives],
-      { cwd: consumerRoot, env: consumerEnvironment() },
-    );
+    const npm = npmInvocation([
+      'install',
+      '--offline',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--no-package-lock',
+      ...packageArchives,
+    ]);
+    await runProcess(npm.command, npm.arguments, { cwd: consumerRoot, env: consumerEnvironment() });
 
     const runtimeArchive = await findRuntimeArchive(path.join(releaseRoot, 'runtime'));
     await extractRuntimeArchive(runtimeArchive, runtimeRoot);

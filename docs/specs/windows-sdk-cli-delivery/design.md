@@ -66,6 +66,7 @@ Windows 上 `ChildProcess.kill()` 的信号并不具备 POSIX 等价语义，因
 
 - 按平台生成 `.cmd` 或 POSIX shell launcher。
 - Windows 使用系统 PowerShell `Compress-Archive` 生成 zip；POSIX 保持 `tar`。
+- Windows 上的 npm pack/install 由当前 `node.exe` 直接执行随 Node 安装的 `npm-cli.js`，不使用无法被 `execFile` 直接启动的 `npm.cmd`，也不启用 `shell:true`。
 - 对 PowerShell 路径和参数使用 `execFile` 参数数组，不拼接包含凭证的命令字符串。
 - manifest 继续记录 `platform`、`arch`、Node 范围和 CodeBuddy SDK 版本。
 

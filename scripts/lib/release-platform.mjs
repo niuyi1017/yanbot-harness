@@ -77,6 +77,12 @@ export function runtimeInvocation(launcherPath, arguments_ = []) {
     : { command: launcherPath, arguments: arguments_ };
 }
 
+export function npmInvocation(arguments_) {
+  if (process.platform !== 'win32') return { command: 'npm', arguments: arguments_ };
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  return { command: process.execPath, arguments: [npmCli, ...arguments_] };
+}
+
 export async function terminateRuntimeProcess(child, timeoutMs = 10_000) {
   if (child.exitCode !== null || child.signalCode !== null) return waitForExit(child, timeoutMs);
 
