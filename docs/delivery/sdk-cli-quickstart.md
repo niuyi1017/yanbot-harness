@@ -170,12 +170,26 @@ only the SSE reader does not cancel the run. Handle `HarnessSdkError.kind` and i
 
 ## 5. Start CodeBuddy mode
 
-Stop the Reference Runtime with Ctrl-C and confirm its descriptor was removed. Inject the CodeBuddy credential only
-into the Runtime process environment:
+Stop the Reference Runtime with Ctrl-C and confirm its descriptor was removed. Each tester may supply and replace
+their own internal-test key without rebuilding any artifact. Configure exactly one of `CODEBUDDY_API_KEY` or
+`CODEBUDDY_API_KEY_FILE`; the protected file option is recommended for repeated testing.
+
+On macOS, create a current-user-only credential file without putting the key in shell history, then start the
+Runtime:
 
 ```bash
-read -s CODEBUDDY_API_KEY
-export CODEBUDDY_API_KEY
+credential_dir="$HOME/.config/yanbot-harness"
+credential_file="$credential_dir/codebuddy.key"
+mkdir -p "$credential_dir"
+chmod 700 "$credential_dir"
+printf 'CodeBuddy API key: ' >&2
+read -r -s codebuddy_key
+printf '\n' >&2
+umask 077
+printf '%s' "$codebuddy_key" > "$credential_file"
+unset codebuddy_key CODEBUDDY_API_KEY
+chmod 600 "$credential_file"
+export CODEBUDDY_API_KEY_FILE="$credential_file"
 export CODEBUDDY_INTERNET_ENVIRONMENT=internal
 export YANBOT_HARNESS_STATE_DIR="$PWD/codebuddy-runtime-state"
 ./runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>/bin/yanbot-harness-runtime
@@ -185,24 +199,35 @@ SDK/CLI consumer processes need only the new Runtime descriptor. Do not put the 
 command arguments, `.env` files, descriptors, logs, or client requests. CodeBuddy model listing is intentionally
 unsupported in this Preview; tool, permission, and question scenarios are implemented but not real-certified.
 
-On Windows PowerShell, read the key without placing it in command history, convert it only for the current process,
-and then start the Runtime:
+On Windows PowerShell, create a credential file for the current tester and replace inherited access with an ACL for
+that Windows identity. The plaintext exists only while the file is being written:
 
 ```powershell
 $secureKey = Read-Host 'CodeBuddy API key' -AsSecureString
 $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey)
+$credentialDirectory = Join-Path $env:LOCALAPPDATA 'YanbotHarness'
+$credentialFile = Join-Path $credentialDirectory 'codebuddy.key'
+New-Item -ItemType Directory -Force -Path $credentialDirectory | Out-Null
 try {
-  $env:CODEBUDDY_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+  $plainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+  $utf8 = New-Object System.Text.UTF8Encoding($false)
+  [IO.File]::WriteAllText($credentialFile, $plainKey, $utf8)
 } finally {
+  $plainKey = $null
   [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
 }
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+icacls $credentialFile /inheritance:r /grant:r "${identity}:F" | Out-Null
+Remove-Item Env:CODEBUDDY_API_KEY -ErrorAction SilentlyContinue
+$env:CODEBUDDY_API_KEY_FILE = $credentialFile
 $env:CODEBUDDY_INTERNET_ENVIRONMENT = 'internal'
 $env:YANBOT_HARNESS_STATE_DIR = Join-Path $PWD 'codebuddy-runtime-state'
 $runtimeLauncher = Resolve-Path .\runtime\yanbot-harness-runtime-0.1.0-preview.2-win32-x64\bin\yanbot-harness-runtime.js
 node $runtimeLauncher
 ```
 
-After stopping the Runtime, run `Remove-Item Env:CODEBUDDY_API_KEY` in that PowerShell process.
+After stopping the Runtime, run `Remove-Item Env:CODEBUDDY_API_KEY_FILE` in that PowerShell process. Delete the
+credential file when the test cycle ends; rotate the key immediately if the file or terminal session was exposed.
 
 ## 6. Troubleshooting and shutdown
 

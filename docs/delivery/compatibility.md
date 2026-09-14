@@ -78,7 +78,12 @@ The certified China service configuration is:
 CODEBUDDY_INTERNET_ENVIRONMENT=internal
 ```
 
-`CODEBUDDY_API_KEY` is injected only into the Local Runtime process environment. Internal routing must not set a custom base URL. Enterprise, iOA, cloud-hosted, and self-hosted routing require separate certification.
+Configure exactly one Local Runtime credential source: `CODEBUDDY_API_KEY`, or `CODEBUDDY_API_KEY_FILE` pointing to
+a protected one-line UTF-8 file. The file source lets each tester replace the internal-test key without rebuilding
+the SDK, CLI, or Runtime. The Runtime reads it once at startup and does not pass it to SDK/CLI processes. POSIX
+systems require mode `0600` or stricter; Windows testers must restrict the file ACL to their own account. Internal
+routing must not set a custom base URL. Enterprise, iOA, cloud-hosted, and self-hosted routing require separate
+certification.
 
 The Windows Runtime bundle requires PowerShell 5.1+ for the documented archive workflow and ships a Node launcher for SDK/CLI managed mode plus a `.cmd` convenience launcher. Windows arm64 and native `.exe`/MSI delivery are not part of this Preview.
 

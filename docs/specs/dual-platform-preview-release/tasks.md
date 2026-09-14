@@ -10,11 +10,11 @@
 
 ## B. 测试方 BYOK 配置
 
-- [ ] B1. 新增 `CODEBUDDY_API_KEY_FILE` 安全读取与双来源冲突检查。
+- [x] B1. 新增 `CODEBUDDY_API_KEY_FILE` 安全读取与双来源冲突检查。
   - 执行：Codex。
   - 文件：`apps/local-runtime/src/main.ts`、新增凭证模块及测试。
   - 验收：文件边界、权限、格式、脱敏与环境变量回归测试全部通过。
-- [ ] B2. 更新 macOS/Windows Quickstart，提供测试方自行配置 Key 的步骤。
+- [x] B2. 更新 macOS/Windows Quickstart，提供测试方自行配置 Key 的步骤。
   - 执行：Codex。
   - 验收：文档不包含真实 Key，不要求修改交付包内文件。
 

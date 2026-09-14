@@ -6,6 +6,7 @@ import { CodeBuddyAdapter } from '@yanbot-harness/adapter-codebuddy';
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
 
 import { createEnvironmentContextProvider } from './adapters.js';
+import { resolveRuntimeCredential, RuntimeCredentialError } from './runtime-credential.js';
 import { startLocalRuntime } from './server.js';
 
 const credentialEnvironmentKey = 'CODEBUDDY_API_KEY';
@@ -24,12 +25,17 @@ async function main(): Promise<void> {
   const unknownArguments = arguments_.filter((argument) => argument !== '--reference');
   if (unknownArguments.length > 0) throw new Error('Unsupported Runtime argument.');
   const stateRoot = process.env.YANBOT_HARNESS_STATE_DIR ?? path.join(homedir(), '.yanbot-harness');
-  const adapterCredential = process.env[credentialEnvironmentKey];
   const adapterMode = process.argv.includes('--reference')
     ? 'reference'
     : (process.env.YANBOT_HARNESS_ADAPTER ?? 'codebuddy');
   if (adapterMode !== 'codebuddy' && adapterMode !== 'reference') throw new Error('Unsupported Runtime Adapter.');
   const usesCodeBuddy = adapterMode === 'codebuddy';
+  const adapterCredential = usesCodeBuddy
+    ? await resolveRuntimeCredential({
+        environmentKey: credentialEnvironmentKey,
+        fileEnvironmentKey: 'CODEBUDDY_API_KEY_FILE',
+      })
+    : undefined;
   const configuredReferenceScenario = referenceScenario();
   const adapterConfig = codeBuddyAdapterConfig();
   const runtime = await startLocalRuntime({
@@ -58,7 +64,10 @@ async function main(): Promise<void> {
               },
             },
           ],
-          contextProvider: createEnvironmentContextProvider({ allowedEnvironmentKeys: [credentialEnvironmentKey] }),
+          contextProvider: createEnvironmentContextProvider({
+            allowedEnvironmentKeys: [credentialEnvironmentKey],
+            environment: adapterCredential ? { [credentialEnvironmentKey]: adapterCredential } : {},
+          }),
           ...(adapterCredential ? { redactionSecrets: [adapterCredential] } : {}),
         }
       : {}),
@@ -113,6 +122,7 @@ Options:
 
 Environment:
   CODEBUDDY_API_KEY                  CodeBuddy credential (Runtime process only).
+  CODEBUDDY_API_KEY_FILE             Protected one-line credential file; mutually exclusive with CODEBUDDY_API_KEY.
   CODEBUDDY_INTERNET_ENVIRONMENT     Use internal for the certified China route.
   YANBOT_HARNESS_ADAPTER             codebuddy (default) or reference.
   YANBOT_HARNESS_STATE_DIR           Runtime state and descriptor directory.
@@ -130,7 +140,11 @@ function parseOrigins(value: string | undefined): string[] {
     : [];
 }
 
-void main().catch(() => {
-  process.stderr.write('Yanbot Harness Local Runtime failed to start.\n');
+void main().catch((error: unknown) => {
+  const message =
+    error instanceof RuntimeCredentialError
+      ? `Yanbot Harness Local Runtime failed to start: ${error.message}`
+      : 'Yanbot Harness Local Runtime failed to start.';
+  process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 });

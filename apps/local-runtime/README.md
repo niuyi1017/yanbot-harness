@@ -6,9 +6,11 @@ Portable companion process for the Yanbot Harness SDK and CLI.
 ./bin/yanbot-harness-runtime --reference
 ```
 
-Reference mode requires no credential. CodeBuddy mode reads `CODEBUDDY_API_KEY` only from the Runtime process
-environment; the certified China route also uses `CODEBUDDY_INTERNET_ENVIRONMENT=internal`. Never place the key in a
-client request, command argument, descriptor, or repository file.
+Reference mode requires no credential. CodeBuddy mode accepts exactly one Runtime-only credential source:
+`CODEBUDDY_API_KEY`, or `CODEBUDDY_API_KEY_FILE` pointing to a protected one-line UTF-8 file. On POSIX the file must
+be mode `0600` or stricter; on Windows restrict its ACL to the current tester account. The certified China route also
+uses `CODEBUDDY_INTERNET_ENVIRONMENT=internal`. Never place the key in a client request, command argument,
+descriptor, release archive, or repository file.
 
 For deterministic acceptance only, `YANBOT_HARNESS_REFERENCE_SCENARIO` can select `text`, `permission`, `question`,
 or `wait-for-cancel` while `--reference` is active. It has no effect on CodeBuddy mode.
