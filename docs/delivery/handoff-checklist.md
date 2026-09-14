@@ -20,7 +20,8 @@ Always take the exact hashes from `SHA256SUMS`; do not copy a hash from chat or 
 - Full workspace gate: 122 tests plus formatting, lint, package boundaries, build, and typecheck.
 - Clean-room Reference: offline repo-independent installation; SDK text/interaction/cancel; CLI
   text/JSONL/resume/cancel; SDK-owned and CLI-owned managed startup; descriptor mode and cleanup verified.
-- Windows 10/11 x64 Reference release CI and downloadable artifact are pending the first Windows matrix run.
+- Windows 10/11 x64 Reference release CI passed on commit `fb9f080`; the successful run publishes the immutable
+  `yanbot-harness-win32-x64` artifact: <https://github.com/niuyi1017/yanbot-harness/actions/runs/34811874911>.
 - Packaged CodeBuddy re-certification for `preview.2` is pending formal key rotation. The previous immutable
   `preview.1` candidate passed SDK initial/resume/cancel and CLI JSONL with the vendor key excluded from SDK/CLI
   process environments.

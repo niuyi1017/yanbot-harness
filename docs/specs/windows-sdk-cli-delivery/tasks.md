@@ -1,5 +1,8 @@
 # Windows SDK/CLI 内测交付任务
 
+当前状态：任务 1-5 的 Reference 构建与验证已在 Windows runner 通过；任务 6 的 Windows 实机 CodeBuddy
+认证、最终文档冻结和 preview 标签仍待完成。
+
 ## 1. 建立 Windows Runtime 构建产物
 
 - 文件：`scripts/build-runtime-bundle.mjs`。
