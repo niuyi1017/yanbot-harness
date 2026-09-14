@@ -22,7 +22,7 @@ if (manifest.version !== version || manifest.protocolVersion !== '1.0.0') violat
 const checksums = await readChecksums();
 const releaseFiles = (await filesIn(releaseRoot)).filter((file) => path.basename(file) !== 'SHA256SUMS');
 for (const file of releaseFiles) {
-  const relative = path.relative(releaseRoot, file);
+  const relative = relativePath(releaseRoot, file);
   if (!checksums.has(relative)) violations.push(`${relative}: missing checksum`);
 }
 for (const [relative, expected] of checksums) {
@@ -113,7 +113,7 @@ for (const archive of runtimeArchives) {
 }
 
 for (const file of releaseFiles.filter((item) => !/\.(?:tgz|tar\.gz|zip)$/u.test(item))) {
-  await scanTextFile(file, path.relative(releaseRoot, file));
+  await scanTextFile(file, relativePath(releaseRoot, file));
 }
 
 if (violations.length > 0) {
@@ -185,4 +185,8 @@ function assertReleaseRoot(directory) {
   if (path.dirname(directory) !== parent || path.basename(directory) !== version) {
     throw new Error('Release checks must target the versioned repository release directory.');
   }
+}
+
+function relativePath(root, file) {
+  return path.relative(root, file).split(path.sep).join('/');
 }
