@@ -8,7 +8,8 @@ import { createRuntimeArchive, npmInvocation, runtimeArchiveSuffix } from './lib
 
 const executeFile = promisify(execFile);
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
-const outputDirectory = path.resolve(process.argv[2] ?? path.join(repositoryRoot, 'release-runtime'));
+const positionalArguments = process.argv.slice(2).filter((argument) => argument !== '--' && !argument.startsWith('--'));
+const outputDirectory = path.resolve(positionalArguments[0] ?? path.join(repositoryRoot, 'release-work', 'runtime'));
 const runtimePackagePath = path.join(repositoryRoot, 'apps/local-runtime/package.json');
 const runtimePackage = JSON.parse(await readFile(runtimePackagePath, 'utf8'));
 const vendorSdkPackageName = ['@tencent-ai', 'agent-sdk'].join('/');
@@ -23,6 +24,7 @@ const installDirectory = path.join(stagingParent, 'install');
 const packDirectory = path.join(stagingParent, 'packs');
 const stagingDirectory = path.join(stagingParent, bundleName);
 const archivePath = path.join(outputDirectory, `${bundleName}${runtimeArchiveSuffix()}`);
+const skipBuild = process.argv.includes('--skip-build');
 
 assertSafeOutput(outputDirectory);
 await rm(stagingParent, { recursive: true, force: true });
@@ -31,7 +33,7 @@ await mkdir(installDirectory, { recursive: true, mode: 0o700 });
 await mkdir(outputDirectory, { recursive: true, mode: 0o700 });
 
 try {
-  await runPnpm(['build']);
+  if (!skipBuild) await runPnpm(['build']);
   const packageNames = await runtimeWorkspaceDependencyNames();
   for (const packageName of packageNames) {
     await runPnpm(['--filter', packageName, 'pack', '--pack-destination', packDirectory]);

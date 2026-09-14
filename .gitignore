@@ -9,5 +9,6 @@ coverage/
 *.tsbuildinfo
 release/
 release-runtime/
+release-work/
 .idea/
 .vscode/

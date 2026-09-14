@@ -17,7 +17,9 @@ Contracts, SDK, and CLI are released together and must use the same Preview vers
 
 ## Delivery channel
 
-The first release is a Local Preview delivered as an offline release bundle. The same public package artifacts may be uploaded to an approved private npm registry without rebuilding them. Public npm publication is not part of this release.
+The first release is a Local Preview delivered as a platform-named outer ZIP plus a separate SHA-256 file. The same
+common contracts, SDK, CLI, and Zod package artifacts are assembled into each platform candidate and may be uploaded
+to an approved private npm registry without rebuilding them. Public npm publication is not part of this release.
 
 The SDK and CLI require a compatible Harness Runtime. They do not connect directly to CodeBuddy and do not accept a CodeBuddy credential from an SDK or CLI request.
 

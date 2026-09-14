@@ -17,9 +17,10 @@ execution are not scaffolded yet.
 - Corepack
 - pnpm 11.10.0
 
-The current development candidate is `0.1.0-preview.2`. Build its offline artifacts with `pnpm release:build`, validate
-them with `pnpm release:check`, and run the repo-independent Reference acceptance with `pnpm release:test`. See the
-[SDK/CLI Local Preview quickstart](docs/delivery/sdk-cli-quickstart.md) for consumer installation and operation.
+The current development candidate is `0.1.0-preview.2`. Build its offline artifacts and a platform-named outer ZIP
+with `pnpm release:build`, validate them with `pnpm release:check`, and run the repo-independent Reference acceptance
+with `pnpm release:test`. See the [SDK/CLI Local Preview quickstart](docs/delivery/sdk-cli-quickstart.md) for consumer
+installation and operation.
 
 ## Commands
 

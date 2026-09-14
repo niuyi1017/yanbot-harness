@@ -81,6 +81,23 @@ const runtimeArchives = (await filesIn(path.join(releaseRoot, 'runtime'))).filte
   isRuntimeArchive(path.basename(file)),
 );
 if (runtimeArchives.length !== 1) violations.push('expected exactly one Runtime archive');
+if (runtimeArchives.length === 1) {
+  const runtimeName = path.basename(runtimeArchives[0]);
+  const expectedTarget = runtimeName
+    .replace(`yanbot-harness-runtime-${version}-`, '')
+    .replace(/\.(?:tar\.gz|zip)$/u, '');
+  if (manifest.target !== expectedTarget) violations.push('manifest target mismatch');
+  const outerArchive = path.join(path.dirname(releaseRoot), `yanbot-harness-${version}-${expectedTarget}.zip`);
+  const outerChecksum = `${outerArchive}.sha256`;
+  try {
+    const expectedLine = `${await sha256(outerArchive)}  ${path.basename(outerArchive)}`;
+    if ((await readFile(outerChecksum, 'utf8')).trim() !== expectedLine) {
+      violations.push(`${path.basename(outerChecksum)}: outer archive checksum mismatch`);
+    }
+  } catch {
+    violations.push('versioned outer archive or checksum missing');
+  }
+}
 for (const archive of runtimeArchives) {
   const extractionRoot = await mkdtemp(path.join(releaseRoot, '.artifact-check-'));
   try {

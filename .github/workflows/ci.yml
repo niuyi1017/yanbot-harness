@@ -20,8 +20,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
 
-  release-reference:
+  common-packages:
     needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-client-packages.mjs release-work/common
+      - uses: actions/upload-artifact@v7
+        with:
+          name: yanbot-harness-common
+          path: release-work/common
+          if-no-files-found: error
+          retention-days: 14
+
+  release-reference:
+    needs: [check, common-packages]
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +67,12 @@ jobs:
           node-version: 22.22.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm release:build -- --skip-check
+      - uses: actions/download-artifact@v8
+        with:
+          name: yanbot-harness-common
+          path: release-work/common
+      - run: node scripts/build-runtime-bundle.mjs release-work/runtime
+      - run: node scripts/assemble-release.mjs release-work/common release-work/runtime
       - run: pnpm release:check
       - run: pnpm release:test
       - uses: actions/upload-artifact@v7
@@ -54,3 +81,14 @@ jobs:
           path: release/*
           if-no-files-found: error
           retention-days: 14
+
+  verify-common-package-hashes:
+    needs: release-reference
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: yanbot-harness-*-*
+          path: release-candidates
+      - run: node scripts/check-common-package-hashes.mjs release-candidates darwin-arm64 win32-x64

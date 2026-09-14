@@ -45,6 +45,30 @@ export async function createRuntimeArchive(sourceDirectory, archivePath) {
   });
 }
 
+export async function createZipArchive(sourceDirectory, archivePath) {
+  if (process.platform === 'win32') {
+    await executeFile(
+      'powershell.exe',
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '& { param($source, $destination) Compress-Archive -LiteralPath $source -DestinationPath $destination -Force }',
+        sourceDirectory,
+        archivePath,
+      ],
+      { maxBuffer: 50 * 1024 * 1024 },
+    );
+    return;
+  }
+
+  await executeFile('zip', ['-q', '-r', archivePath, path.basename(sourceDirectory)], {
+    cwd: path.dirname(sourceDirectory),
+    maxBuffer: 50 * 1024 * 1024,
+  });
+}
+
 export async function extractRuntimeArchive(archivePath, destinationDirectory) {
   if (archivePath.endsWith('.zip')) {
     await executeFile(

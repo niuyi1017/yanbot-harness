@@ -2,7 +2,12 @@
 
 ## Artifact set
 
-The development candidate is generated under `release/0.1.0-preview.2/`:
+The downloadable candidates are generated beside the expanded release directory:
+
+- `release/yanbot-harness-0.1.0-preview.2-darwin-arm64.zip` plus `.zip.sha256`
+- `release/yanbot-harness-0.1.0-preview.2-win32-x64.zip` plus `.zip.sha256`
+
+Each outer ZIP contains one platform-named directory with:
 
 - `packages/yanbot-harness-contracts-0.1.0-preview.2.tgz`
 - `packages/yanbot-harness-sdk-0.1.0-preview.2.tgz`
@@ -14,6 +19,9 @@ The development candidate is generated under `release/0.1.0-preview.2/`:
 - `QUICKSTART.md`, `RELEASE_NOTES.md`, compatibility and capability documents
 
 Always take the exact hashes from `SHA256SUMS`; do not copy a hash from chat or an earlier build.
+Verify the outer `.zip.sha256` before extraction, then verify the enclosed `SHA256SUMS`. The contracts, SDK, CLI,
+and Zod tgz hashes must be identical in the macOS and Windows manifests because both candidates consume the same CI
+common-package artifact.
 
 ## Acceptance evidence
 
