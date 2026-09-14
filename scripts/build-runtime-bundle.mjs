@@ -4,6 +4,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 
+import { createRuntimeArchive, runtimeArchiveSuffix } from './lib/release-platform.mjs';
+
 const executeFile = promisify(execFile);
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const outputDirectory = path.resolve(process.argv[2] ?? path.join(repositoryRoot, 'release-runtime'));
@@ -20,7 +22,7 @@ const stagingParent = path.join(outputDirectory, `.staging-${process.pid}`);
 const installDirectory = path.join(stagingParent, 'install');
 const packDirectory = path.join(stagingParent, 'packs');
 const stagingDirectory = path.join(stagingParent, bundleName);
-const archivePath = path.join(outputDirectory, `${bundleName}.tar.gz`);
+const archivePath = path.join(outputDirectory, `${bundleName}${runtimeArchiveSuffix()}`);
 
 assertSafeOutput(outputDirectory);
 await rm(stagingParent, { recursive: true, force: true });
@@ -59,16 +61,27 @@ try {
     force: true,
   });
   await rm(path.join(stagingDirectory, 'node_modules/.bin/yanbot-harness-runtime'), { force: true });
+  await rm(path.join(stagingDirectory, 'node_modules/.bin/yanbot-harness-runtime.cmd'), { force: true });
+  await rm(path.join(stagingDirectory, 'node_modules/.bin/yanbot-harness-runtime.ps1'), { force: true });
   await removeGeneratedFiles(stagingDirectory);
 
   await mkdir(path.join(stagingDirectory, 'bin'), { recursive: true });
-  const launcherPath = path.join(stagingDirectory, 'bin', 'yanbot-harness-runtime');
-  await writeFile(
-    launcherPath,
-    '#!/bin/sh\nset -eu\nexec "${NODE_BINARY:-node}" "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/../dist/main.js" "$@"\n',
-    { mode: 0o755 },
-  );
-  await chmod(launcherPath, 0o755);
+  if (process.platform === 'win32') {
+    const launcherBase = path.join(stagingDirectory, 'bin', 'yanbot-harness-runtime');
+    await writeFile(path.join(`${launcherBase}.js`), "import '../dist/main.js';\n");
+    await writeFile(
+      path.join(`${launcherBase}.cmd`),
+      '@echo off\r\nsetlocal\r\nif defined NODE_BINARY (\r\n  "%NODE_BINARY%" "%~dp0yanbot-harness-runtime.js" %*\r\n) else (\r\n  node "%~dp0yanbot-harness-runtime.js" %*\r\n)\r\n',
+    );
+  } else {
+    const launcherPath = path.join(stagingDirectory, 'bin', 'yanbot-harness-runtime');
+    await writeFile(
+      launcherPath,
+      '#!/bin/sh\nset -eu\nexec "${NODE_BINARY:-node}" "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/../dist/main.js" "$@"\n',
+      { mode: 0o755 },
+    );
+    await chmod(launcherPath, 0o755);
+  }
   await writeFile(
     path.join(stagingDirectory, 'runtime-manifest.json'),
     `${JSON.stringify(
@@ -84,10 +97,7 @@ try {
       2,
     )}\n`,
   );
-  await executeFile('tar', ['-czf', archivePath, '-C', stagingParent, bundleName], {
-    cwd: repositoryRoot,
-    maxBuffer: 20 * 1024 * 1024,
-  });
+  await createRuntimeArchive(stagingDirectory, archivePath);
   process.stdout.write(`${archivePath}\n`);
 } finally {
   await rm(stagingParent, { recursive: true, force: true });

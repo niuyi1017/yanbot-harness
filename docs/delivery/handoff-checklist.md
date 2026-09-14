@@ -8,7 +8,8 @@ The development candidate is generated under `release/0.1.0-preview.2/`:
 - `packages/yanbot-harness-sdk-0.1.0-preview.2.tgz`
 - `packages/yanbot-harness-cli-0.1.0-preview.2.tgz`
 - `packages/zod-4.4.3.tgz` for offline installation
-- `runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>.tar.gz`
+- `runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>.tar.gz` on macOS/Linux
+- `runtime/yanbot-harness-runtime-0.1.0-preview.2-win32-x64.zip` on Windows
 - `manifest.json` and `SHA256SUMS`
 - `QUICKSTART.md`, `RELEASE_NOTES.md`, compatibility and capability documents
 
@@ -19,6 +20,7 @@ Always take the exact hashes from `SHA256SUMS`; do not copy a hash from chat or 
 - Full workspace gate: 122 tests plus formatting, lint, package boundaries, build, and typecheck.
 - Clean-room Reference: offline repo-independent installation; SDK text/interaction/cancel; CLI
   text/JSONL/resume/cancel; SDK-owned and CLI-owned managed startup; descriptor mode and cleanup verified.
+- Windows 10/11 x64 Reference release CI and downloadable artifact are pending the first Windows matrix run.
 - Packaged CodeBuddy re-certification for `preview.2` is pending formal key rotation. The previous immutable
   `preview.1` candidate passed SDK initial/resume/cancel and CLI JSONL with the vendor key excluded from SDK/CLI
   process environments.
@@ -40,6 +42,8 @@ Always take the exact hashes from `SHA256SUMS`; do not copy a hash from chat or 
 
 - CodeBuddy model discovery is disabled because SDK 0.3.254 does not reliably release its CLI process.
 - CodeBuddy tool/permission/question scenarios have fixture coverage but are not real-certified.
-- Windows, browser clients, cloud multi-tenancy, Web/Electron/Admin, MCP, skills, agents, and hooks are not included.
+- Windows arm64, native `.exe`/MSI installers, browser clients, cloud multi-tenancy, Web/Electron/Admin, MCP,
+  skills, agents, and hooks are not included.
+- Windows x64 must remain a candidate until both the Windows Reference CI and a Windows real CodeBuddy run pass.
 - To roll back, stop distributing this candidate and restore the previous checksum-verified version directory. If a
   credential was exposed, revoke or rotate it separately; reverting artifacts does not invalidate credentials.

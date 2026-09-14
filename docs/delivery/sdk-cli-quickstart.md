@@ -5,7 +5,7 @@ included loopback Runtime; neither client calls CodeBuddy directly.
 
 ## 1. Verify and unpack
 
-From the versioned release directory:
+From the versioned release directory on macOS/Linux:
 
 ```bash
 shasum -a 256 -c SHA256SUMS
@@ -17,6 +17,24 @@ tar -xzf runtime/yanbot-harness-runtime-0.1.0-preview.2-<platform>-<arch>.tar.gz
 
 The included Zod tarball makes the public package install independent of a public Registry. Do not replace a
 checksum-verified artifact after installation.
+
+On Windows 10/11 x64, use PowerShell from the versioned release directory:
+
+```powershell
+Get-Content .\SHA256SUMS | ForEach-Object {
+  $expected, $relative = $_ -split '\s{2}', 2
+  $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $relative).Hash.ToLowerInvariant()
+  if ($actual -ne $expected) { throw "Checksum mismatch: $relative" }
+}
+
+New-Item -ItemType Directory -Force .\consumer, .\runtime | Out-Null
+npm init -y --prefix .\consumer
+$packages = (Get-ChildItem .\packages\*.tgz).FullName
+npm install --offline --prefix .\consumer --ignore-scripts --no-audit --no-fund --no-package-lock $packages
+Expand-Archive -LiteralPath .\runtime\yanbot-harness-runtime-0.1.0-preview.2-win32-x64.zip -DestinationPath .\runtime
+```
+
+The Windows bundle requires Node `>=22.22.0 <23`. It does not contain Node or install a system service.
 
 ## 2. Start the credential-free Runtime
 
@@ -39,6 +57,15 @@ try {
 }
 ```
 
+On Windows, set `executablePath` to the canonical Node launcher:
+
+```js
+const runtime = await startManagedRuntime({
+  executablePath: './runtime/yanbot-harness-runtime-0.1.0-preview.2-win32-x64/bin/yanbot-harness-runtime.js',
+  reference: true,
+});
+```
+
 CLI-owned startup:
 
 ```bash
@@ -58,6 +85,22 @@ export YANBOT_HARNESS_STATE_DIR="$PWD/runtime-state"
 The Runtime prints only its loopback origin. It writes a mode-0600 descriptor to
 `$YANBOT_HARNESS_STATE_DIR/runtime.json`; that file contains the Runtime access token and must not be shared.
 
+Windows PowerShell equivalents use the `.js` launcher for managed mode so the SDK can retain exact PID ownership:
+
+```powershell
+$runtimeLauncher = Resolve-Path .\runtime\yanbot-harness-runtime-0.1.0-preview.2-win32-x64\bin\yanbot-harness-runtime.js
+$cli = Resolve-Path .\consumer\node_modules\@yanbot-harness\cli\dist\main.js
+$env:YANBOT_HARNESS_ADAPTER = 'reference'
+node $cli adapters --managed-runtime $runtimeLauncher --json
+
+# Shared Daemon, when required by multiple SDK/CLI processes:
+$env:YANBOT_HARNESS_STATE_DIR = Join-Path $PWD 'runtime-state'
+node $runtimeLauncher --reference
+```
+
+The sibling `yanbot-harness-runtime.cmd` is a convenience launcher for manual PowerShell/cmd use. Managed SDK/CLI
+may also receive that exact bundled `.cmd` path and will resolve its verified same-name `.js` launcher.
+
 ## 3. Call through the CLI
 
 In a second terminal when using the shared Daemon:
@@ -66,6 +109,15 @@ In a second terminal when using the shared Daemon:
 export YANBOT_HARNESS_RUNTIME_DESCRIPTOR="$PWD/runtime-state/runtime.json"
 ./consumer/node_modules/.bin/yanbot-harness adapters --json
 ./consumer/node_modules/.bin/yanbot-harness run "Reply with a delivery check" --json --log-level silent
+```
+
+In a second Windows PowerShell terminal:
+
+```powershell
+$cli = Resolve-Path .\consumer\node_modules\@yanbot-harness\cli\dist\main.js
+$env:YANBOT_HARNESS_RUNTIME_DESCRIPTOR = Join-Path $PWD 'runtime-state\runtime.json'
+node $cli adapters --json
+node $cli run 'Reply with a delivery check' --json --log-level silent
 ```
 
 `--json` writes a `cli.run-created` record and public Adapter events as JSONL on stdout. Diagnostics remain on
@@ -133,16 +185,38 @@ SDK/CLI consumer processes need only the new Runtime descriptor. Do not put the 
 command arguments, `.env` files, descriptors, logs, or client requests. CodeBuddy model listing is intentionally
 unsupported in this Preview; tool, permission, and question scenarios are implemented but not real-certified.
 
+On Windows PowerShell, read the key without placing it in command history, convert it only for the current process,
+and then start the Runtime:
+
+```powershell
+$secureKey = Read-Host 'CodeBuddy API key' -AsSecureString
+$pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey)
+try {
+  $env:CODEBUDDY_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+} finally {
+  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
+}
+$env:CODEBUDDY_INTERNET_ENVIRONMENT = 'internal'
+$env:YANBOT_HARNESS_STATE_DIR = Join-Path $PWD 'codebuddy-runtime-state'
+$runtimeLauncher = Resolve-Path .\runtime\yanbot-harness-runtime-0.1.0-preview.2-win32-x64\bin\yanbot-harness-runtime.js
+node $runtimeLauncher
+```
+
+After stopping the Runtime, run `Remove-Item Env:CODEBUDDY_API_KEY` in that PowerShell process.
+
 ## 6. Troubleshooting and shutdown
 
 - `descriptor could not be read`: start the Runtime or set `YANBOT_HARNESS_RUNTIME_DESCRIPTOR` to its descriptor.
-- `descriptor permissions are too broad`: restrict it to the current user (`chmod 600`).
+- `descriptor permissions are too broad`: on POSIX, restrict it to the current user (`chmod 600`). On Windows,
+  keep the state directory private to the current Windows account and do not copy `runtime.json`.
 - `AUTHENTICATION_FAILED`: verify the Runtime—not the client—received a current CodeBuddy key and the `internal`
   route.
 - `CAPABILITY_UNSUPPORTED`: inspect `adapters --json`; do not assume every Adapter implements every public endpoint.
 - SSE disconnect: reconnect with the last event ID. Do not create a second run unless a new execution is intended.
 - Exit code `11` in JSON/non-TTY mode: the run needs an explicit Interaction response from an SDK/API consumer.
 
-Send SIGINT/SIGTERM to the Runtime and wait for exit. Normal shutdown cancels active work, closes loopback sockets,
-and removes the owned descriptor. Keep the entire previous checksum-verified release directory for rollback; if a
-credential was exposed, revoke/rotate it separately because artifact rollback cannot invalidate a key.
+On POSIX, send SIGINT/SIGTERM to the Runtime and wait for exit. On Windows, use Ctrl-C for a manually started Daemon;
+SDK/CLI managed mode performs bounded owned-process-tree cleanup. Normal interactive shutdown cancels active work,
+closes loopback sockets, and removes the owned descriptor. Keep the entire previous checksum-verified release
+directory for rollback; if a credential was exposed, revoke/rotate it separately because artifact rollback cannot
+invalidate a key.

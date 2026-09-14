@@ -1,6 +1,7 @@
 import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -48,6 +49,36 @@ describe('SDK-owned managed Runtime', () => {
     });
     handles.push(handle);
     await expect(handle.client.health()).resolves.toMatchObject({ status: 'ok' });
+  });
+
+  it('maps the packaged Windows batch launcher to its same-name Node launcher', async () => {
+    const root = await fixtureRoot();
+    const batchLauncher = path.join(root, 'yanbot-harness-runtime.cmd');
+    const nodeLauncher = path.join(root, 'yanbot-harness-runtime.js');
+    const runtimeEntry = path.resolve(import.meta.dirname, '../../../apps/local-runtime/dist/main.js');
+    await writeFile(batchLauncher, '@echo off\r\n');
+    await writeFile(nodeLauncher, `import ${JSON.stringify(pathToFileURL(runtimeEntry).href)};\n`);
+
+    const handle = await startManagedRuntime({
+      executablePath: batchLauncher,
+      environment: minimalEnvironment(),
+      reference: true,
+      startupTimeoutMs: 5_000,
+      shutdownTimeoutMs: 5_000,
+    });
+    handles.push(handle);
+    await expect(handle.client.health()).resolves.toMatchObject({ status: 'ok' });
+  });
+
+  it('rejects a Windows batch launcher without its paired Node launcher', async () => {
+    const root = await fixtureRoot();
+    const batchLauncher = path.join(root, 'yanbot-harness-runtime.cmd');
+    await writeFile(batchLauncher, '@echo off\r\n');
+
+    await expect(startManagedRuntime({ executablePath: batchLauncher, reference: true })).rejects.toMatchObject({
+      kind: 'runtime',
+      message: expect.stringContaining('same-name .js launcher'),
+    });
   });
 
   it('retains a caller-owned state root but removes the owned descriptor', async () => {

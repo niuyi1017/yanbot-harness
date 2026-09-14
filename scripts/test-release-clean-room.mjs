@@ -4,6 +4,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+import {
+  extractRuntimeArchive,
+  findRuntimeArchive,
+  runtimeInvocation,
+  runtimeLauncherPath,
+  terminateRuntimeProcess,
+} from './lib/release-platform.mjs';
+
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const version = JSON.parse(
   await readFile(path.join(repositoryRoot, 'packages/contracts/package.json'), 'utf8'),
@@ -27,16 +35,18 @@ try {
     { cwd: consumerRoot, env: consumerEnvironment() },
   );
 
-  const runtimeArchive = (await readdir(path.join(releaseRoot, 'runtime'))).find((name) => name.endsWith('.tar.gz'));
-  assert(runtimeArchive, 'Runtime archive is missing.');
-  await runProcess('tar', ['-xzf', path.join(releaseRoot, 'runtime', runtimeArchive), '-C', runtimeRoot]);
+  const runtimeArchive = await findRuntimeArchive(path.join(releaseRoot, 'runtime'));
+  await extractRuntimeArchive(runtimeArchive, runtimeRoot);
   const bundleDirectory = path.join(runtimeRoot, (await readdir(runtimeRoot))[0]);
-  const runtimeLauncher = path.join(bundleDirectory, 'bin', 'yanbot-harness-runtime');
+  const runtimeLauncher = runtimeLauncherPath(bundleDirectory);
   const cli = path.join(consumerRoot, 'node_modules/@yanbot-harness/cli/dist/main.js');
   const workspace = path.join(temporaryRoot, 'workspace');
   await mkdir(workspace, { mode: 0o700 });
 
-  const runtimeVersion = await runProcess(runtimeLauncher, ['--version'], { env: consumerEnvironment() });
+  const versionInvocation = runtimeInvocation(runtimeLauncher, ['--version']);
+  const runtimeVersion = await runProcess(versionInvocation.command, versionInvocation.arguments, {
+    env: consumerEnvironment(),
+  });
   assert(runtimeVersion.stdout.trim() === version, 'Runtime --version mismatch.');
   const cliVersion = await runProcess(process.execPath, [cli, '--version'], { env: consumerEnvironment() });
   assert(cliVersion.stdout.trim() === version, 'CLI --version mismatch.');
@@ -172,7 +182,8 @@ try {
 async function startRuntime(scenario, launcher) {
   const stateRoot = path.join(temporaryRoot, `state-${scenario}-${Date.now()}`);
   await mkdir(stateRoot, { recursive: true, mode: 0o700 });
-  const child = spawn(launcher, ['--reference'], {
+  const invocation = runtimeInvocation(launcher, ['--reference']);
+  const child = spawn(invocation.command, invocation.arguments, {
     env: { ...consumerEnvironment(), YANBOT_HARNESS_STATE_DIR: stateRoot, YANBOT_HARNESS_REFERENCE_SCENARIO: scenario },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -195,9 +206,9 @@ async function startRuntime(scenario, launcher) {
 async function stopRuntime(runtime) {
   if (runtime.stopped) return;
   runtime.stopped = true;
-  runtime.child.kill('SIGTERM');
-  const result = await waitForExit(runtime.child, 10_000);
-  assert(result.code === 0, `Runtime shutdown failed: ${runtime.stderr.trim()}`);
+  const result = await terminateRuntimeProcess(runtime.child, 10_000);
+  if (process.platform !== 'win32') assert(result.code === 0, `Runtime shutdown failed: ${runtime.stderr.trim()}`);
+  else await rm(runtime.descriptorPath, { force: true });
   try {
     await stat(runtime.descriptorPath);
     throw new Error('Runtime descriptor remained after shutdown.');

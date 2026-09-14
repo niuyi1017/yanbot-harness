@@ -110,16 +110,16 @@ CI artifact 是内测候选的来源，但最终发布仍需满足：同一干�
 
 ## 关键文件
 
-| 文件 | 变更 |
-|---|---|
-| `scripts/build-runtime-bundle.mjs` | Windows launcher 与 zip 构建 |
-| `scripts/check-release-artifacts.mjs` | zip 内容、解压和扫描 |
-| `scripts/test-release-clean-room.mjs` | Windows 解压、调用和进程清理 |
-| `scripts/test-release-codebuddy.mjs` | Windows 解压、调用和进程清理 |
-| `packages/sdk/src/managed-runtime.ts` | `.cmd` 调用与 Windows 进程树终止 |
-| `packages/sdk/test/managed-runtime.test.ts` | 平台调用/关闭回归测试 |
-| `.github/workflows/ci.yml` | Windows x64 job 与交付物上传 |
-| `docs/delivery/*` | Windows 安装、兼容性和认证证据 |
+| 文件                                        | 变更                             |
+| ------------------------------------------- | -------------------------------- |
+| `scripts/build-runtime-bundle.mjs`          | Windows launcher 与 zip 构建     |
+| `scripts/check-release-artifacts.mjs`       | zip 内容、解压和扫描             |
+| `scripts/test-release-clean-room.mjs`       | Windows 解压、调用和进程清理     |
+| `scripts/test-release-codebuddy.mjs`        | Windows 解压、调用和进程清理     |
+| `packages/sdk/src/managed-runtime.ts`       | `.cmd` 调用与 Windows 进程树终止 |
+| `packages/sdk/test/managed-runtime.test.ts` | 平台调用/关闭回归测试            |
+| `.github/workflows/ci.yml`                  | Windows x64 job 与交付物上传     |
+| `docs/delivery/*`                           | Windows 安装、兼容性和认证证据   |
 
 ## 验证策略
 

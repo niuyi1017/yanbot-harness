@@ -7,6 +7,8 @@
 - Add CLI `--managed-runtime` for an ephemeral Runtime owned by one command while preserving external and Daemon
   connection modes.
 - Extend workspace and clean-room Reference coverage to managed SDK/CLI lifecycle paths.
+- Add the Windows 10/11 x64 Runtime zip, paired Node/`.cmd` launchers, Windows process-tree cleanup, and a
+  downloadable Windows Reference CI artifact.
 - Preserve `0.1.0-preview.1` artifacts as the immutable previous candidate; CodeBuddy real-runtime certification
   must be repeated before `preview.2` is signed off.
 

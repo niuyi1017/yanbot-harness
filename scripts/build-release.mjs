@@ -132,7 +132,7 @@ await writeFile(
         runtime: runtimePackage.version,
         codeBuddySdk: codeBuddyPackage.dependencies[vendorSdkPackageName],
       },
-      certifiedTargets: ['darwin-arm64', 'linux-x64'],
+      certifiedTargets: ['darwin-arm64', 'linux-x64', 'win32-x64'],
       artifacts,
       capabilityMatrix: 'docs/codebuddy-capability-matrix.md',
     },

@@ -18,4 +18,5 @@ The Runtime listens only on loopback and writes `runtime.json` with mode `0600` 
 SDK/CLI clients receive only the Runtime origin and short-scope bearer token stored in that descriptor.
 
 Use `--help` and `--version` without starting the server. Node `>=22.22.0 <23` is required. This Preview certifies
-macOS arm64 and Linux x64; Windows is not yet certified.
+macOS arm64 and Linux x64. Windows 10/11 x64 packaging is a candidate until its Reference CI and real CodeBuddy
+release checks pass.

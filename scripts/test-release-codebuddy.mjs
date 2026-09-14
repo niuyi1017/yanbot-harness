@@ -4,6 +4,15 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+import {
+  directChildProcessIds,
+  extractRuntimeArchive,
+  findRuntimeArchive,
+  runtimeInvocation,
+  runtimeLauncherPath,
+  terminateRuntimeProcess,
+} from './lib/release-platform.mjs';
+
 const apiKey = process.env.CODEBUDDY_API_KEY;
 if (!apiKey) {
   console.error('Packaged CodeBuddy test skipped: missing CODEBUDDY_API_KEY.');
@@ -40,13 +49,13 @@ async function run(secret) {
       { cwd: consumerRoot, env: consumerEnvironment() },
     );
 
-    const runtimeArchive = (await readdir(path.join(releaseRoot, 'runtime'))).find((name) => name.endsWith('.tar.gz'));
-    assert(runtimeArchive, 'Runtime archive is missing.');
-    await runProcess('tar', ['-xzf', path.join(releaseRoot, 'runtime', runtimeArchive), '-C', runtimeRoot]);
+    const runtimeArchive = await findRuntimeArchive(path.join(releaseRoot, 'runtime'));
+    await extractRuntimeArchive(runtimeArchive, runtimeRoot);
     const bundleDirectory = path.join(runtimeRoot, (await readdir(runtimeRoot))[0]);
-    const runtimeLauncher = path.join(bundleDirectory, 'bin', 'yanbot-harness-runtime');
+    const runtimeLauncher = runtimeLauncherPath(bundleDirectory);
     const descriptorPath = path.join(stateRoot, 'runtime.json');
-    const child = spawn(runtimeLauncher, [], {
+    const invocation = runtimeInvocation(runtimeLauncher);
+    const child = spawn(invocation.command, invocation.arguments, {
       env: {
         ...consumerEnvironment(),
         YANBOT_HARNESS_STATE_DIR: stateRoot,
@@ -93,11 +102,8 @@ async function run(secret) {
     assert(jsonLines(cliResult.stdout).at(-1)?.type === 'run.completed', 'Packaged CodeBuddy CLI run failed.');
 
     await new Promise((resolve) => globalThis.setTimeout(resolve, 250));
-    const childCheck = await runProcess('pgrep', ['-P', String(child.pid)], {
-      acceptedExitCodes: [0, 1],
-      env: consumerEnvironment(),
-    });
-    assert(childCheck.stdout.trim() === '', 'CodeBuddy child process remained beneath the packaged Runtime.');
+    const childProcessIds = await directChildProcessIds(child.pid);
+    assert(childProcessIds.length === 0, 'CodeBuddy child process remained beneath the packaged Runtime.');
 
     await stopRuntime(runtime);
     process.stdout.write(
@@ -116,9 +122,9 @@ async function run(secret) {
 async function stopRuntime(runtime) {
   if (runtime.stopped) return;
   runtime.stopped = true;
-  runtime.child.kill('SIGTERM');
-  const result = await waitForExit(runtime.child, 10_000);
-  assert(result.code === 0, `Runtime shutdown failed: ${runtime.stderr.trim()}`);
+  const result = await terminateRuntimeProcess(runtime.child, 10_000);
+  if (process.platform !== 'win32') assert(result.code === 0, `Runtime shutdown failed: ${runtime.stderr.trim()}`);
+  else await rm(runtime.descriptorPath, { force: true });
   try {
     await stat(runtime.descriptorPath);
     throw new Error('Runtime descriptor remained after shutdown.');

@@ -1,7 +1,9 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
+import { promisify } from 'node:util';
 
 import { HarnessClient } from './client.js';
 import { readRuntimeDescriptor } from './daemon.js';
@@ -12,6 +14,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5_000;
 const MIN_TIMEOUT_MS = 100;
 const MAX_STARTUP_TIMEOUT_MS = 120_000;
 const MAX_SHUTDOWN_TIMEOUT_MS = 30_000;
+const executeFile = promisify(execFile);
 
 export type StartManagedRuntimeOptions = {
   executablePath?: string;
@@ -61,7 +64,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
   const descriptorPath = path.join(stateRoot, 'runtime.json');
   await assertDescriptorAbsent(descriptorPath);
 
-  const { command, arguments: executableArguments } = invocationFor(executablePath);
+  const { command, arguments: executableArguments } = await invocationFor(executablePath);
   const child = spawn(command, [...executableArguments, ...(options.reference ? ['--reference'] : [])], {
     env: compactEnvironment({ ...environment, YANBOT_HARNESS_STATE_DIR: stateRoot }),
     stdio: 'ignore',
@@ -166,6 +169,25 @@ async function terminateOwnedChild(
   shutdownTimeoutMs: number,
 ): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return;
+  if (process.platform === 'win32') {
+    const pid = child.pid;
+    if (!pid) throw new HarnessSdkError('runtime', 'The managed Runtime process does not have a PID.');
+    try {
+      await executeFile('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
+    } catch (error) {
+      if (!(await settlesWithin(outcome, MIN_TIMEOUT_MS))) {
+        throw new HarnessSdkError('runtime', 'The managed Runtime process tree could not be terminated.', {
+          cause: error,
+        });
+      }
+      return;
+    }
+    if (!(await settlesWithin(outcome, shutdownTimeoutMs))) {
+      throw new HarnessSdkError('runtime', 'The managed Runtime did not exit after forced termination.');
+    }
+    return;
+  }
+
   child.kill('SIGTERM');
   if (await settlesWithin(outcome, shutdownTimeoutMs)) return;
   child.kill('SIGKILL');
@@ -234,7 +256,20 @@ async function removeOwnedDescriptor(file: string, instanceId: string): Promise<
   }
 }
 
-function invocationFor(executablePath: string): { command: string; arguments: string[] } {
+async function invocationFor(executablePath: string): Promise<{ command: string; arguments: string[] }> {
+  if (/\.(?:cmd|bat)$/iu.test(executablePath)) {
+    const nodeLauncher = executablePath.replace(/\.(?:cmd|bat)$/iu, '.js');
+    try {
+      await validateExecutable(nodeLauncher);
+    } catch (error) {
+      throw new HarnessSdkError(
+        'runtime',
+        'A managed Windows Runtime batch launcher requires the same-name .js launcher from the release bundle.',
+        { cause: error },
+      );
+    }
+    return { command: process.execPath, arguments: [nodeLauncher] };
+  }
   return /\.[cm]?js$/iu.test(executablePath)
     ? { command: process.execPath, arguments: [executablePath] }
     : { command: executablePath, arguments: [] };

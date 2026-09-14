@@ -5,6 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 
+import { extractRuntimeArchive, isRuntimeArchive } from './lib/release-platform.mjs';
+
 const executeFile = promisify(execFile);
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const version = JSON.parse(
@@ -75,23 +77,25 @@ for (const archive of (await filesIn(path.join(releaseRoot, 'packages'))).filter
   }
 }
 
-const runtimeArchives = (await filesIn(path.join(releaseRoot, 'runtime'))).filter((file) => file.endsWith('.tar.gz'));
+const runtimeArchives = (await filesIn(path.join(releaseRoot, 'runtime'))).filter((file) =>
+  isRuntimeArchive(path.basename(file)),
+);
 if (runtimeArchives.length !== 1) violations.push('expected exactly one Runtime archive');
 for (const archive of runtimeArchives) {
-  const entries = (await executeFile('tar', ['-tzf', archive], { maxBuffer: 50 * 1024 * 1024 })).stdout
-    .trim()
-    .split('\n');
-  for (const entry of entries) checkEntry(entry, path.basename(archive));
   const extractionRoot = await mkdtemp(path.join(releaseRoot, '.artifact-check-'));
   try {
-    await executeFile('tar', ['-xzf', archive, '-C', extractionRoot], { maxBuffer: 50 * 1024 * 1024 });
-    for (const file of await filesIn(extractionRoot)) await scanTextFile(file, path.relative(extractionRoot, file));
+    await extractRuntimeArchive(archive, extractionRoot);
+    for (const file of await filesIn(extractionRoot)) {
+      const relative = path.relative(extractionRoot, file).split(path.sep).join('/');
+      checkEntry(relative, path.basename(archive));
+      await scanTextFile(file, relative);
+    }
   } finally {
     await rm(extractionRoot, { recursive: true, force: true });
   }
 }
 
-for (const file of releaseFiles.filter((item) => !/\.(?:tgz|tar\.gz)$/u.test(item))) {
+for (const file of releaseFiles.filter((item) => !/\.(?:tgz|tar\.gz|zip)$/u.test(item))) {
   await scanTextFile(file, path.relative(releaseRoot, file));
 }
 
@@ -140,7 +144,7 @@ async function scanTextFile(file, label) {
 }
 
 function isTextFile(file) {
-  return /(?:\.(?:cjs|d\.ts|js|json|md|mjs|sh|txt|yaml|yml)|yanbot-harness-runtime)$/u.test(file);
+  return /(?:\.(?:bat|cjs|cmd|d\.ts|js|json|md|mjs|sh|txt|yaml|yml)|yanbot-harness-runtime)$/u.test(file);
 }
 
 async function filesIn(directory) {

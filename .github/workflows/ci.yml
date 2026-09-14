@@ -30,6 +30,8 @@ jobs:
             target: linux-x64
           - runner: macos-15
             target: darwin-arm64
+          - runner: windows-2022
+            target: win32-x64
     name: Release Reference (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     steps:
@@ -46,3 +48,9 @@ jobs:
       - run: pnpm release:build -- --skip-check
       - run: pnpm release:check
       - run: pnpm release:test
+      - uses: actions/upload-artifact@v7
+        with:
+          name: yanbot-harness-${{ matrix.target }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
