@@ -20,7 +20,9 @@ execution are not scaffolded yet.
 The current development candidate is `0.1.0-preview.2`. Build its offline artifacts and a platform-named outer ZIP
 with `pnpm release:build`, validate them with `pnpm release:check`, and run the repo-independent Reference acceptance
 with `pnpm release:test`. See the [SDK/CLI Local Preview quickstart](docs/delivery/sdk-cli-quickstart.md) for consumer
-installation and operation.
+installation and operation. Windows testers can use the detailed
+[Windows SDK/CLI integration guide](docs/delivery/windows-sdk-cli-integration-guide.zh-CN.md) from download through
+desktop acceptance.
 
 ## Commands
 
@@ -106,8 +108,9 @@ It listens on a random `127.0.0.1` port and writes a mode-`0600` startup descrip
 with `YANBOT_HARNESS_STATE_DIR`; optionally inject an access token with `YANBOT_HARNESS_ACCESS_TOKEN` and a
 comma-separated browser Origin allowlist with `YANBOT_HARNESS_ALLOWED_ORIGINS`. These values are never printed.
 
-Adapter credentials are not accepted over HTTP. The standalone CodeBuddy adapter only resolves
-`CODEBUDDY_API_KEY` from its allowlisted process environment. Without that explicit credential, offline runtime and
+Adapter credentials are not accepted over HTTP. The standalone CodeBuddy adapter resolves exactly one of
+`CODEBUDDY_API_KEY` or `CODEBUDDY_API_KEY_FILE` from its allowlisted process environment. The file form is recommended
+for tester-managed credentials and is read only by the Runtime. Without an explicit credential, offline Runtime and
 Reference Adapter tests still pass, while real CodeBuddy model calls remain unavailable.
 
 ## Package boundaries

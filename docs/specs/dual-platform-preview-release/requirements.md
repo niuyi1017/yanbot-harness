@@ -28,6 +28,8 @@
 6. Windows 10/11 桌面实机因当前不可用，必须标为首位测试方验收项，不得用 Windows Server 2022 CI 冒充桌面实机证据。
 7. 最终候选必须来自干净提交，manifest 为 `gitDirty: false`，版本、提交、目标平台与校验和一致。
 8. 只有双平台发布门槛全部通过后才能更新发布日期、创建不可变 preview 标签并发布长期可下载的 Pre-release。
+9. 必须提供一份可直接交给 Windows 10/11 x64 测试同事的中文 SDK/CLI 接入手册，覆盖下载、双层校验、解压、离线安装、Reference 基线、CodeBuddy BYOK、SDK/CLI 接入、会话续跑与取消、错误处理、验收结果回传、清理和凭证轮换。
+10. Windows 手册必须明确区分 GitHub-hosted Windows Server 2022 自动证据与 Windows 10/11 实机验收，不得把前者表述为后者已经通过。
 
 ## 本期不做
 
@@ -41,7 +43,7 @@
 
 ## 外部依赖与阻塞
 
-- Mac 真实认证需要用户通过环境变量、受保护 Key 文件或 macOS Keychain 在本机提供专用内测 Key，不能通过聊天发送。
+- Mac 真实认证使用测试方提供的专用内测 Key，并且只允许落入本机受保护凭据文件和 Runtime 测试进程；不得写入仓库、交付包或测试摘要。
 - Windows 凭证化 CI 需要仓库管理员配置受保护 GitHub Environment Secret。
 - 如果测试方包含公司外部人员，现有 proprietary LICENSE 要求另有书面授权协议。
 - 最终创建 tag/Pre-release 属于对外可见的不可变发布动作，需要在执行节点由用户确认版本冻结。

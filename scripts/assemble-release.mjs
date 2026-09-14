@@ -48,6 +48,14 @@ await copyFile(
   path.join(repositoryRoot, 'docs/delivery/handoff-checklist.md'),
   path.join(releaseRoot, 'docs/handoff-checklist.md'),
 );
+await copyFile(
+  path.join(repositoryRoot, 'docs/delivery/windows-sdk-cli-integration-guide.zh-CN.md'),
+  path.join(releaseRoot, 'windows-sdk-cli-integration-guide.zh-CN.md'),
+);
+await copyFile(
+  path.join(repositoryRoot, 'docs/delivery/windows-sdk-cli-integration-guide.zh-CN.md'),
+  path.join(releaseRoot, 'docs/windows-sdk-cli-integration-guide.zh-CN.md'),
+);
 await copyFile(path.join(repositoryRoot, 'CHANGELOG.md'), path.join(releaseRoot, 'RELEASE_NOTES.md'));
 const quickstartSource = path.join(repositoryRoot, 'docs/delivery/sdk-cli-quickstart.md');
 try {

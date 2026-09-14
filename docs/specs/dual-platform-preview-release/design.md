@@ -92,6 +92,21 @@ yanbot-harness-0.1.0-preview.2-win32-x64.zip
 
 Windows Server 2022 的认证范围是 Node/Runtime/CLI/SDK/进程语义。Windows 10/11 桌面兼容性保留为内测验收，不扩大声明。
 
+## Windows 交付手册
+
+新增 `docs/delivery/windows-sdk-cli-integration-guide.zh-CN.md`，作为可直接交给 Windows 测试同事的单一入口。手册按以下顺序组织：
+
+1. 支持范围、前置条件与交付文件清单；
+2. 外层 ZIP 和内层 `SHA256SUMS` 双层校验；
+3. 公共 tgz 离线安装和 Runtime 解压；
+4. 无供应商凭证的 Reference Adapter 基线；
+5. 当前用户专属 CodeBuddy Key 文件和 ACL；
+6. 共享 Daemon、SDK 托管 Runtime、CLI 托管 Runtime 三种连接模式；
+7. SDK 端到端示例、CLI 命令面、JSONL 与退出码；
+8. Windows 10/11 实机验收、非敏感结果回传模板、故障排查、清理与轮换。
+
+所有示例使用交付包内的固定 `0.1.0-preview.2` 文件名，不依赖仓库、pnpm 或公网 Registry。SDK/CLI 示例不读取 CodeBuddy Key；只有 Runtime 启动进程持有凭证。文档明确 Windows Server 2022 CI 只是候选证据，Windows 10/11 状态在测试方完成清单前保持未认证。
+
 ## 冻结与发布
 
 双平台真实门槛通过后：

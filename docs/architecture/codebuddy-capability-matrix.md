@@ -65,6 +65,11 @@ On 2026-09-10 the same core scenarios were repeated through the final `0.1.0-pre
 archive from a repository-independent consumer directory. SDK initial/resume/cancel and CLI JSONL completed, the
 SDK/CLI processes did not receive the vendor credential, and the Runtime had no remaining CodeBuddy child process.
 
+On 2026-09-14 the clean commit `095836d` macOS arm64 `0.1.0-preview.2` candidate repeated the packaged SDK
+initial/resume/cancel and CLI JSONL scenarios successfully. The Runtime had zero remaining CodeBuddy child processes.
+The recorded result contained only the version and scenario summary; Windows CodeBuddy and Windows 10/11 desktop
+acceptance remain separate pending gates.
+
 ## Sources
 
 - [CodeBuddy Agent SDK documentation](https://www.codebuddy.cn/docs/cli/sdk)

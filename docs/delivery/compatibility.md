@@ -25,13 +25,13 @@ The SDK and CLI require a compatible Harness Runtime. They do not connect direct
 
 ## Certified environments
 
-| Environment                | Status              | Evidence                                                                                        |
-| -------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| macOS arm64, Node 22       | Candidate           | Local gate plus `macos-15` managed/Daemon clean-room CI; CodeBuddy re-certification pending     |
-| Linux x64, Node 22         | Delivery target     | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
-| Windows 10/11 x64, Node 22 | Reference certified | Windows Runtime zip and clean-room Reference CI passed; real CodeBuddy re-certification pending |
-| Browser                    | Not supported       | The Preview SDK includes Node-only Runtime discovery and process management                     |
-| Cloud multi-tenant Runtime | Not supported       | Deferred to the cloud control-plane milestones                                                  |
+| Environment                | Status            | Evidence                                                                                        |
+| -------------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| macOS arm64, Node 22       | Preview certified | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI |
+| Linux x64, Node 22         | Delivery target   | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
+| Windows 10/11 x64, Node 22 | Candidate         | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending   |
+| Browser                    | Not supported     | The Preview SDK includes Node-only Runtime discovery and process management                     |
+| Cloud multi-tenant Runtime | Not supported     | Deferred to the cloud control-plane milestones                                                  |
 
 ## Protocol compatibility
 
@@ -88,6 +88,8 @@ routing must not set a custom base URL. Enterprise, iOA, cloud-hosted, and self-
 certification.
 
 The Windows Runtime bundle requires PowerShell 5.1+ for the documented archive workflow and ships a Node launcher for SDK/CLI managed mode plus a `.cmd` convenience launcher. Windows arm64 and native `.exe`/MSI delivery are not part of this Preview.
+
+Windows testers should follow [`windows-sdk-cli-integration-guide.zh-CN.md`](./windows-sdk-cli-integration-guide.zh-CN.md). Its acceptance result is required before changing Windows 10/11 from Candidate status.
 
 ## Capability statement
 

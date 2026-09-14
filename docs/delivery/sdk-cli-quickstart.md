@@ -3,6 +3,10 @@
 This guide uses the `0.1.0-preview.2` offline bundle. Node `>=22.22.0 <23` is required. The SDK and CLI connect to the
 included loopback Runtime; neither client calls CodeBuddy directly.
 
+For a complete Windows 10/11 handoff, including PowerShell installation, SDK integration code, CodeBuddy BYOK,
+acceptance reporting, and cleanup, use
+[`windows-sdk-cli-integration-guide.zh-CN.md`](./windows-sdk-cli-integration-guide.zh-CN.md).
+
 ## 1. Verify and unpack
 
 From the versioned release directory on macOS/Linux:

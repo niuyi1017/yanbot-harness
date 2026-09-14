@@ -35,10 +35,10 @@
 
 ## D. 真实 CodeBuddy 认证
 
-- [-] D1. 在当前 Mac 执行最终候选的真实 CodeBuddy 认证。
+- [x] D1. 在当前 Mac 执行最终候选的真实 CodeBuddy 认证。
   - 执行：Codex。
-  - 阻塞：当前 Codex 进程没有 Key；用户需在受保护文件或 macOS Keychain 中提供，不能发到聊天。
   - 验收：SDK initial/resume/cancel、CLI JSONL、子进程数 0。
+  - 证据：2026-09-14，提交 `095836d` 的干净 `0.1.0-preview.2` macOS arm64 候选通过全部场景；输出仅包含版本、场景名和子进程数，凭证未进入仓库或制品。
 - [x] D2. 新增受保护的手动 Windows CodeBuddy workflow。
   - 执行：Codex。
   - 验收：仅 `workflow_dispatch`，绑定 Environment，普通 push/PR 不接触 Secret。
@@ -49,6 +49,11 @@
 - [-] D4. Windows 10/11 首位测试方实机验收。
   - 执行：测试方；Codex 提供验收脚本并分析结果。
   - 阻塞：当前没有 Windows 10/11 实机。
+- [x] D5. 编写 Windows SDK/CLI 安装、接入与实机验收手册。
+  - 执行：Codex。
+  - 文件：`docs/delivery/windows-sdk-cli-integration-guide.zh-CN.md`。
+  - 验收：Windows 同事只依赖交付包和文档即可完成双层校验、离线安装、Reference/CodeBuddy SDK 与 CLI 测试，并按模板回传不含凭证的结果。
+  - 验证：完整工作区 gate（格式、lint、边界、构建、类型检查和 136 项单测）通过；文档中的 JavaScript 示例通过 Node 22 模块语法检查。
 
 ## E. 冻结与发布
 
