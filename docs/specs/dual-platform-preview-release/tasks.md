@@ -20,15 +20,18 @@
 
 ## C. 公共包单次构建与双平台组包
 
-- [ ] C1. 拆分公共 SDK/CLI 打包、平台 Runtime 构建和 release 组装脚本。
+- [x] C1. 拆分公共 SDK/CLI 打包、平台 Runtime 构建和 release 组装脚本。
   - 执行：Codex。
   - 验收：现有 `pnpm release:build/check/test` 兼容，公共 tgz 只构建一次。
-- [ ] C2. 调整 CI，使 macOS/Windows 使用同一份公共 tgz。
+- [x] C2. 调整 CI，使 macOS/Windows 使用同一份公共 tgz。
   - 执行：Codex。
   - 验收：两个平台内同名 tgz SHA256 完全一致。
-- [ ] C3. 生成两个版本化外围 zip 和独立 checksums。
+- [x] C3. 生成两个版本化外围 zip 和独立 checksums。
   - 执行：Codex。
   - 验收：可在仓库外解压、离线安装并完成 Reference clean-room。
+
+验证证据：提交 `df6b152` 的 [CI run 34820862814](https://github.com/niuyi1017/yanbot-harness/actions/runs/34820862814)
+通过 Linux/macOS/Windows 平台组装与 clean-room，最终 common-package hash 汇总校验通过。
 
 ## D. 真实 CodeBuddy 认证
 
@@ -36,7 +39,7 @@
   - 执行：Codex。
   - 阻塞：当前 Codex 进程没有 Key；用户需在受保护文件或 macOS Keychain 中提供，不能发到聊天。
   - 验收：SDK initial/resume/cancel、CLI JSONL、子进程数 0。
-- [ ] D2. 新增受保护的手动 Windows CodeBuddy workflow。
+- [x] D2. 新增受保护的手动 Windows CodeBuddy workflow。
   - 执行：Codex。
   - 验收：仅 `workflow_dispatch`，绑定 Environment，普通 push/PR 不接触 Secret。
 - [-] D3. 配置 GitHub Environment Secret 并执行 Windows CodeBuddy gate。

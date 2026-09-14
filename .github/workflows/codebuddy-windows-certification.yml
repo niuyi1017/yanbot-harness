@@ -1,0 +1,55 @@
+name: Windows CodeBuddy Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      reference_run_id:
+        description: Successful CI run ID for the exact candidate commit
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: windows-codebuddy-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    environment: internal-preview-codebuddy
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+      - uses: actions/download-artifact@v8
+        with:
+          name: yanbot-harness-win32-x64
+          path: release
+          run-id: ${{ inputs.reference_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify candidate provenance and artifacts
+        shell: pwsh
+        run: |
+          $version = (Get-Content .\packages\contracts\package.json | ConvertFrom-Json).version
+          $manifest = Get-Content ".\release\$version\manifest.json" | ConvertFrom-Json
+          if ($manifest.gitCommit -ne $env:GITHUB_SHA) { throw 'Candidate commit does not match the selected workflow ref.' }
+          if ($manifest.gitDirty -ne $false) { throw 'Candidate manifest is dirty.' }
+          if ($manifest.target -ne 'win32-x64') { throw 'Candidate target is not win32-x64.' }
+          pnpm release:check
+      - name: Run packaged CodeBuddy certification
+        shell: pwsh
+        env:
+          CODEBUDDY_API_KEY: ${{ secrets.CODEBUDDY_API_KEY }}
+          CODEBUDDY_INTERNET_ENVIRONMENT: internal
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CODEBUDDY_API_KEY)) { throw 'The protected Environment Secret is not configured.' }
+          pnpm release:test:codebuddy

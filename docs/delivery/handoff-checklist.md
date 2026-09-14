@@ -25,11 +25,14 @@ common-package artifact.
 
 ## Acceptance evidence
 
-- Full workspace gate: 122 tests plus formatting, lint, package boundaries, build, and typecheck.
+- Full workspace gate: 136 tests plus formatting, lint, package boundaries, build, and typecheck.
 - Clean-room Reference: offline repo-independent installation; SDK text/interaction/cancel; CLI
   text/JSONL/resume/cancel; SDK-owned and CLI-owned managed startup; descriptor mode and cleanup verified.
-- Windows 10/11 x64 Reference release CI passed on commit `fb9f080`; the successful run publishes the immutable
-  `yanbot-harness-win32-x64` artifact: <https://github.com/niuyi1017/yanbot-harness/actions/runs/34811874911>.
+- GitHub-hosted Windows Server 2022 x64 Reference release CI passed on commit `df6b152`; the run publishes the
+  `yanbot-harness-win32-x64` candidate and does not claim Windows 10/11 desktop certification:
+  <https://github.com/niuyi1017/yanbot-harness/actions/runs/34820862814>.
+- The same run built public packages once, assembled them unchanged into all platform candidates, and passed the
+  cross-platform package-hash comparison.
 - Packaged CodeBuddy re-certification for `preview.2` is pending formal key rotation. The previous immutable
   `preview.1` candidate passed SDK initial/resume/cancel and CLI JSONL with the vendor key excluded from SDK/CLI
   process environments.
@@ -46,6 +49,15 @@ common-package artifact.
 5. Confirm SDK/CLI import only public packages and do not receive a CodeBuddy key in Daemon/external mode.
 6. For the controlled production check, inject a current key only into the Runtime and use the `internal` route.
 7. Stop the Runtime and confirm the descriptor and child processes are gone.
+
+## Protected Windows CodeBuddy gate
+
+Repository administrators configure the `internal-preview-codebuddy` GitHub Environment with required reviewers and
+an Environment Secret named `CODEBUDDY_API_KEY`. Do not configure this as a repository-wide secret. After a normal
+CI run succeeds for the candidate commit, manually dispatch `Windows CodeBuddy Certification` on that exact ref and
+enter the successful CI run ID. The workflow downloads the already-built `yanbot-harness-win32-x64` artifact,
+requires a clean manifest for the same commit, and exposes the Key only to the packaged CodeBuddy test step. Ordinary
+push and pull-request workflows cannot invoke this gate or read its Secret.
 
 ## Known limits and rollback
 
