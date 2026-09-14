@@ -71,7 +71,7 @@ jobs:
         with:
           name: yanbot-harness-common
           path: release-work/common
-      - run: node scripts/build-runtime-bundle.mjs release-work/runtime
+      - run: pnpm build:runtime-bundle -- release-work/runtime
       - run: node scripts/assemble-release.mjs release-work/common release-work/runtime
       - run: pnpm release:check
       - run: pnpm release:test
