@@ -69,7 +69,7 @@ for (const archive of (await filesIn(path.join(releaseRoot, 'packages'))).filter
   }
   if (JSON.stringify(packageJson).includes('workspace:'))
     violations.push(`${path.basename(archive)}: workspace protocol`);
-  const entries = (await executeFile('tar', ['-tzf', archive])).stdout.trim().split('\n');
+  const entries = (await executeFile('tar', ['-tzf', archive])).stdout.trim().split(/\r?\n/u);
   for (const entry of entries) {
     if (!/^package\/(?:dist\/[^/]+\.(?:js|d\.ts)|README\.md|LICENSE|package\.json)$/u.test(entry)) {
       violations.push(`${path.basename(archive)}: unexpected entry ${entry}`);
