@@ -1,5 +1,9 @@
 # Windows SDK/CLI 内测交付设计
 
+2026-09-15 范围说明：本文件记录当前 Preview 的独立 ZIP/显式 launcher/强制树终止设计。
+后续 `@yanbot-harness/local`、Runtime npm 平台包、正常关闭 IPC 和父死亡回收以
+[`unified-local-distribution`](../unified-local-distribution/design.md) 已确认方案为准；不回写为当前已实现。
+
 ## 总体方案
 
 保持 SDK、CLI、Runtime 的现有职责边界，新增一条 Windows 原生构建和验证路径：

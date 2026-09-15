@@ -1,5 +1,8 @@
 # macOS/Windows 双平台内测发布设计
 
+适用版本：`0.1.0-preview.2`。后续统一安装、平台 npm 包和 resolver 的已确认方案见
+[`unified-local-distribution`](../unified-local-distribution/design.md)；本 Spec 的 tgz + portable archive 拓扑继续用于当前交付，不能据未来方案重写已冻结候选包。
+
 ## 发布拓扑
 
 ```text

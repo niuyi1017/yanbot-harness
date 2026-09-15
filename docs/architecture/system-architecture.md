@@ -1,12 +1,34 @@
 # Yanbot Harness 总体运行架构
 
-本文是 Yanbot Harness 关于 Runtime 部署、Adapter 装载、进程边界、协议和凭据流向的架构基准。总体 Spec、
+本文是 Yanbot Harness 关于安装分发、Runtime 部署、Adapter 装载、进程边界、协议和凭据流向的架构基准。总体 Spec、
 双 Runtime Spec、CLI Harness Adapter Spec、README 和交付兼容矩阵必须与本文保持一致；各子 Spec 只细化实现，
 不得重新定义这些边界。
 
 ![Yanbot Harness 双 Runtime 与双厂商接入架构](./assets/yanbot-harness-runtime-adapter-architecture.png)
 
 可编辑矢量版本：[yanbot-harness-runtime-adapter-architecture.svg](./assets/yanbot-harness-runtime-adapter-architecture.svg)。
+
+## 0. 安装入口与运行边界
+
+**以下安装拓扑为后续 Preview 的推荐草案，已确认，尚未实现。** `0.1.0-preview.2` 仍交付公共 tgz 和独立
+Runtime archive，managed 启动仍需显式路径或环境变量。安装图不改变当前兼容声明。
+
+| 用户场景                         | 推荐安装入口                                  | 安装后的运行方式                                                               |
+| -------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------ |
+| 普通本地 Node 集成               | `@yanbot-harness/local`                       | facade 复用 SDK，自动定位已安装平台 payload，SDK 拉起独立 Local Runtime 子进程 |
+| Remote / 显式 Daemon 客户端      | `@yanbot-harness/sdk`                         | 轻量公共客户端，无 Runtime 生产/optional 依赖；连接显式目标                    |
+| 独立 Daemon、Electron 与高级部署 | `@yanbot-harness/runtime` 或 portable archive | 独立安装/宿主携带 Runtime，显式连接或托管，宿主承担生命周期                    |
+
+local 依赖同版 sdk 和 runtime meta；meta 通过精确版本 optionalDependencies 引入 `runtime-<os>-<cpu>`。
+平台包以 `os/cpu` 选择目标，携带完整 Runtime payload。第一次显式启动时本机校验/展开至用户缓存，随后
+通过 HTTP/SSE 调用独立进程。安装、import 和 Remote 连接不启动 Runtime，启动过程不联网下载。
+
+“一次安装”是消费者入口的简化，SDK、Runtime、Adapter 仍是不同模块；meta/resolver 是宿主内的少量安装管理代码，
+不是新的服务进程。SDK 本身保持轻量，自动发现由 local 的 resolver 装配完成；跨平台包缺失必须可诊断。
+初始目标为 Mac arm64、Windows x64，Linux x64 glibc 保留 Reference 回归；Intel Mac/Windows arm64 不自动获得认证。
+
+完整方案及已确认取舍见 [`unified-local-distribution`](../specs/unified-local-distribution/design.md)。Electron
+保留独立资源路径，但普通 Node 的 `process.execPath` 启动方式不能直接作为 Electron 认证证据。
 
 ## 1. 两个相互独立的选择维度
 
@@ -25,7 +47,7 @@
 | Local   | SDK Adapter 在 Local Runtime 进程内调用厂商 SDK | Sidecar Wrapper 在本机托管厂商 CLI           |
 | Remote  | SDK Adapter 在 Worker/沙箱内调用厂商 SDK        | Sidecar Wrapper 在 Worker/沙箱内托管厂商 CLI |
 
-四种组合共享 `@yanbot-harness/sdk`、平台 CLI、Session、Run、Event、Interaction、错误分类和 capability 语义。
+四种组合共享 `@yanbot-harness/sdk` 实现（本地可经 `@yanbot-harness/local` 安装入口）、平台 CLI、Session、Run、Event、Interaction、错误分类和 capability 语义。
 上层业务不能根据厂商名或 Runtime 位置分叉核心调用。
 
 ## 2. 进程与非进程边界
@@ -86,6 +108,11 @@ Vendor Wrapper 的 stdout 只允许输出 Harness Sidecar JSONL；厂商 CLI 的
 Local CodeBuddy Key 可由测试方修改受保护 Key 文件，只有 Runtime 在启动时读取。Remote 的长期厂商凭据留在服务端，
 Worker/Sandbox 只获得本次 Run 必需的短期或按次注入凭据。任何厂商 Key 都不是平台 SDK 的参数。
 
+上表是推荐的凭据流向；现有 managed API 的 `environment` 可由宿主显式传入，且默认继承宿主环境。
+若宿主已持有 inline Key，则不能声称 SDK 进程从未持有它。新 local 默认传受控环境和凭据文件引用；SDK 的
+旧高级环境参数保持兼容。Registry 安装 token 与以上运行凭据也必须分离，不注入 Runtime。统一安装不能对
+本机所有者隐藏静态密钥。
+
 ## 5. 数据与工作区边界
 
 - Local Runtime 使用本机路径 Workspace Grant、本地 Session 元数据和 JSONL 事件日志。
@@ -127,6 +154,7 @@ Local Runtime 不能通过修改监听地址直接充当 Remote Runtime；Remote
 
 - 已实现：Local Runtime + CodeBuddy SDK Adapter，以及 Reference Adapter 驱动的 SDK/CLI 路径。
 - 已设计未实现：Remote Runtime 控制平面、Worker、远端工作区和双模式认证。
+- 已确认、未实现：本地统一安装入口、Runtime meta/platform npm 包、自动 resolver、签名展开和新 managed 父进程崩溃回收；当前仅支持给定已安装路径的 managed 启停。
 - 已有Schema未实现运行时：Sidecar JSON-RPC/JSONL 协议。
 - 未认证：任何真实 CLI 厂商 Adapter；开始前必须针对选定CLI精确版本做能力探针。
 - Windows Local 仍按交付兼容矩阵记录真实机器认证状态。
@@ -139,6 +167,7 @@ Local Runtime 不能通过修改监听地址直接充当 Remote Runtime；Remote
 - [`roadmap`](../specs/harness-platform-foundation/roadmap.md) 是阶段顺序、当前状态和下一开发门禁的唯一进度总纲；
   本文不承担进度声明。
 - [`harness-platform-foundation`](../specs/harness-platform-foundation/design.md) 负责平台完整模块与阶段规划。
+- [`unified-local-distribution`](../specs/unified-local-distribution/design.md) 负责统一安装、轻量 SDK、平台 payload、发现和交付演进。
 - [`dual-runtime-compatibility`](../specs/dual-runtime-compatibility/design.md) 负责 Local/Remote 协议迁移和实现任务。
 - [`cli-harness-adapter`](../specs/cli-harness-adapter/design.md) 负责 Sidecar、Wrapper 和厂商 CLI 进程细节。
 - [`adapter-protocol`](./adapter-protocol.md) 负责可执行 Adapter 协议约束。

@@ -1,5 +1,9 @@
 # @yanbot-harness/cli
 
+Distribution boundary: this Preview CLI stays SDK-only and uses the existing explicit Runtime/descriptor/managed-path
+options. The proposed `@yanbot-harness/local` SDK entry does not make this CLI auto-install or auto-discover a Runtime.
+Future default local startup and Daemon management commands require their own acceptance gate.
+
 Node.js 22 command-line client for a Yanbot Harness Runtime.
 
 ```bash

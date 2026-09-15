@@ -1,5 +1,8 @@
 # Managed Local Runtime 需求
 
+维护说明（2026-09-15）：本 Spec 的显式路径 managed 原语已进入 Preview；统一安装与平台包的后续推荐以
+[`unified-local-distribution`](../unified-local-distribution/requirements.md) 为准，方案已确认，未实现。`preview.2` 不改变包结构。
+
 ## 1. 背景与目标
 
 `0.1.0-preview.1` 已经交付可移植 Local Runtime、TypeScript SDK 和 CLI，并完成脱离仓库的 Reference/CodeBuddy 验证。但普通消费者仍需手工解压 Runtime、启动进程、设置 descriptor 路径并在结束时清理进程。
@@ -30,7 +33,7 @@ Managed 为普通 SDK 嵌入和 CI 的首选；Daemon 用于 CLI、IDE、Electro
 - 显式 `executablePath` 优先级最高。
 - 在平台 Runtime 包完成前，可使用 `YANBOT_HARNESS_RUNTIME_PATH` 指向已安装 Runtime。
 - 未找到 Runtime 时必须给出稳定、可操作的 SDK 错误，不允许在普通 SDK 方法中静默下载并执行二进制。
-- 后续平台包必须在安装时完成版本固定，不得在首次 Run 时从浮动 latest URL 下载。
+- 后续由独立 local 入口组合轻量 SDK 和 runtime meta/platform 包，安装时固定版本，首次显式启动只进行本机校验/展开。SDK 不添加 Runtime optional 依赖。
 
 ### 3.3 CLI 体验
 
@@ -51,7 +54,7 @@ Managed 为普通 SDK 嵌入和 CI 的首选；Daemon 用于 CLI、IDE、Electro
 - Runtime 平台制品必须记录 SDK/Runtime/protocol 兼容范围。
 - 安装与更新必须验证 SHA-256 与签名/来源证明；校验值与制品不能仅依赖同一个可覆盖的非受信渠道。
 - 安装、升级和回滚采用临时目录 + 原子 rename，不就地覆盖正在运行的 Runtime。
-- `darwin-arm64` 与 `linux-x64` 为首批正式目标；Windows 和 Intel Mac 必须在完成打包、权限和真实 Adapter 验证后才能宣称支持。
+- 统一安装后续首轮必验 `darwin-arm64` 与 `win32-x64`，`linux-x64` glibc 保留 Reference 回归；Intel Mac 另行认证。当前 Windows 候选与真实 Adapter 状态以交付矩阵为准。
 
 ## 4. 非目标
 

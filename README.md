@@ -18,6 +18,25 @@ usage with natural process cleanup. Tool/permission/question scenarios remain un
 is disabled because the vendor discovery API leaves a CLI subprocess alive. Local Web, Electron, Admin, and cloud
 execution are not scaffolded yet.
 
+## Installation direction (proposed; not in preview.2)
+
+The next Local installation experience is specified in the
+[unified local distribution proposal](docs/specs/unified-local-distribution/design.md), approved but not implemented:
+
+| Consumer                                      | Proposed entry                                | Boundary                                                                                                  |
+| --------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Ordinary local Node.js application            | `@yanbot-harness/local`                       | Re-exports the SDK and supplies installed-platform Runtime discovery; SDK starts a separate child process |
+| Remote-only or explicit Daemon client         | `@yanbot-harness/sdk`                         | Remains lightweight; no Runtime, platform payload, or vendor production dependency                        |
+| Independently managed Runtime / advanced host | `@yanbot-harness/runtime` or portable archive | Standalone installation and explicit lifecycle; Electron requires separate host certification             |
+
+The proposed Runtime platform packages contain the complete payload. An explicit managed start verifies and expands
+installed bytes locally; it does not download executables. Node remains a prerequisite. macOS arm64 and Windows x64
+are mandatory initial targets; Linux x64 glibc retains Reference regression coverage.
+
+These new packages and automatic discovery are **not implemented or published**. `0.1.0-preview.2` continues to use
+SDK/CLI tarballs plus a separately unpacked Runtime and an explicit managed executable path. See the
+[future delivery outline](docs/delivery/unified-local-installation.md) and [implementation tasks](docs/specs/unified-local-distribution/tasks.md).
+
 ## Requirements
 
 - Node.js >=22.22.0 <23 (CI uses 22.22.0)
@@ -132,6 +151,8 @@ Reference Adapter tests still pass, while real CodeBuddy model calls remain unav
   wrappers are specified but not implemented.
 - `packages/testing`: deterministic clocks/IDs and the black-box Local Runtime test client.
 - `packages/sdk`: stable TypeScript client for the public HTTP/SSE protocol and protected daemon discovery.
+- Proposed `packages/local` / `packages/runtime`: local SDK facade and Runtime distribution resolver respectively;
+  not yet implemented. They do not merge the SDK and Runtime process or expose vendor APIs to clients.
 - `apps/local-runtime`: loopback-only HTTP/SSE service, local state, authentication, workspace grants, and run
   supervision.
 - `apps/cli`: terminal client built exclusively on `packages/sdk`.

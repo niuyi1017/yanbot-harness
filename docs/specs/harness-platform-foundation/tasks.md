@@ -8,6 +8,7 @@
   工具/权限/问题场景及 Windows 10/11 真实 CodeBuddy 仍未认证，不得扩大声明。
 - 2026-09-15 已将双 Runtime、SDK/CLI 两类厂商 Adapter、进程/协议和凭据边界统一到
   `docs/architecture/system-architecture.md`；该图表达目标架构，当前支持状态仍以交付兼容矩阵为准。
+- 统一本地安装方案已形成已确认方案 `unified-local-distribution`；M3D/P1D 实现尚未开始，`preview.2` 分发拓扑不变。
 
 ## 使用方式
 
@@ -27,6 +28,7 @@ M0 仓库、Adapter SPI与SDK探针
      ├─ M1B CLI Harness Sidecar Host（可并行）
      ├─ M2 Local Runtime
      │   ├─ M3 自有SDK与CLI
+     │   │   └─ M3D 统一本地安装与平台Runtime包（已确认）
      │   └─ M4 本地Web
      │       └─ M5 云端账号与控制平面
      │           ├─ M6 Electron
@@ -40,23 +42,24 @@ M0 仓库、Adapter SPI与SDK探针
 
 ## 需求追踪矩阵
 
-| 需求                     | 主要设计/实施里程碑 |
-| ------------------------ | ------------------- |
-| R1 CLI基础执行           | M2、M3              |
-| R2 自有TypeScript SDK    | M1、M3              |
-| R2A Harness Adapter机制  | M0、M1              |
-| R2A CLI 型 Harness 接入  | M1、M1B             |
-| R3 本地Web工作台         | M2、M4              |
-| R4 Electron客户端        | M4、M6              |
-| R5 Local Runtime         | M1、M2              |
-| R6 云端执行              | M5、M10A、M10B      |
-| R6 双 Runtime 协议兼容   | M3、M5、M10A、M10B  |
-| R7 账号、组织与权限      | M5、M7              |
-| R8 模型、额度与用量      | M5、M7、M10B        |
-| R9 MCP、Skill与Agent管理 | M2、M4、M8          |
-| R10 市场与版本管理       | M8                  |
-| R11 客户端版本发布       | M6、M8              |
-| R12 可观测性与审计       | M2、M5、M7、M10B    |
+| 需求                      | 主要设计/实施里程碑 |
+| ------------------------- | ------------------- |
+| R1 CLI基础执行            | M2、M3              |
+| R2 自有TypeScript SDK     | M1、M3              |
+| R2B 统一本地安装/轻量远端 | M3D、M6、M8         |
+| R2A Harness Adapter机制   | M0、M1              |
+| R2A CLI 型 Harness 接入   | M1、M1B             |
+| R3 本地Web工作台          | M2、M4              |
+| R4 Electron客户端         | M4、M6              |
+| R5 Local Runtime          | M1、M2              |
+| R6 云端执行               | M5、M10A、M10B      |
+| R6 双 Runtime 协议兼容    | M3、M5、M10A、M10B  |
+| R7 账号、组织与权限       | M5、M7              |
+| R8 模型、额度与用量       | M5、M7、M10B        |
+| R9 MCP、Skill与Agent管理  | M2、M4、M8          |
+| R10 市场与版本管理        | M8                  |
+| R11 客户端版本发布        | M6、M8              |
+| R12 可观测性与审计        | M2、M5、M7、M10B    |
 
 ## M0. 仓库初始化、Adapter SPI与CodeBuddy能力探针
 
@@ -214,6 +217,22 @@ M0 仓库、Adapter SPI与SDK探针
 - CLI交互模式和无头JSONL模式通过端到端测试。
 - 凭据不会出现在命令输出、错误堆栈或调试日志。
 - 打包产物可在干净Node 22环境安装运行。
+
+## M3D. 统一本地安装与平台 Runtime 分发
+
+**状态**：已确认方案，未开始实现；详细任务见 [`unified-local-distribution/tasks.md`](../unified-local-distribution/tasks.md)。
+
+**目标**：普通本地用户一个 local 包入口；Remote 用户保持轻量 SDK；内部 SDK/Runtime 仍独立。
+
+**前置依赖**：M3；隔离 P0 `preview.2` 基线；用户确认子 Spec。无需等待 Remote 服务实现。
+
+**主要文件**：`packages/local`、`packages/runtime`、SDK managed 原语、Runtime 控制/权限模块、release scripts、平台包模板、CI 与 delivery 文档。
+
+**工作内容**：按 T1 探针 → 锁定 payload/平台包 → resolver/facade → 双平台生命周期 → 签名/Registry → 离线 kit/回滚 → 联合认证推进。保留原 SDK/CLI 显式路径和 Daemon 连接语义，不修改 `preview.2` 制品。
+
+**验收方式**：Mac/Windows 单包安装后无路径启动 Reference、空缓存阻网安装、ignore-scripts、SDK-only 无 Runtime 依赖、父死亡/整树回收、签名错误拒绝、V1/V2 回滚；真实 CodeBuddy 另行实机认证。
+
+共享 Daemon 命令、OS 凭据 Provider、自动升级和 Electron 认证依各自后续任务交付，不计入本阶段已完成范围。
 
 ## M4. 本地Web工作台
 

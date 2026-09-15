@@ -72,6 +72,18 @@
 CLI 型 Harness 的进程托管、协议翻译、跨平台与交付要求见
 [`cli-harness-adapter`](../cli-harness-adapter/requirements.md)。
 
+### R2B. 本地统一安装与轻量远端安装
+
+- 普通本地 Node 用户只选择一个统一入口包，SDK 自动定位随包依赖安装的 Runtime 并托管独立子进程。
+- SDK 与 Runtime 保持独立模块/进程；统一包只是 SDK 的安装与生命周期装配层。
+- Remote-only 用户可单独安装轻量 `@yanbot-harness/sdk`，其生产和 optional 依赖均不引入 Runtime/厂商 SDK。
+- 共享 Daemon、Electron 与高级部署支持独立 Runtime 安装/portable archive 与显式路径；Electron 单独认证。
+- Mac/Windows 均需完成平台筛选、脚本禁用安装、离线依赖闭包、权限、进程清理、签名和升级回滚验收。
+- `preview.2` 包结构保持现状；新增包命名、payload、自动解析等为后续 Preview 已确认设计，不写成已交付。
+
+推荐 `@yanbot-harness/local` + `@yanbot-harness/runtime` + 平台包，详见
+[`unified-local-distribution`](../unified-local-distribution/requirements.md)。
+
 ### R3. 本地 Web 工作台
 
 - 用户可在浏览器中选择工作区、创建会话、发送任务、查看流式响应和工具执行状态。
@@ -140,6 +152,9 @@ CLI 型 Harness 的进程托管、协议翻译、跨平台与交付要求见
 
 ### R11. 客户端版本发布
 
+- 本地统一包、轻量 SDK、Runtime meta/platform 包精确锁版，线上和离线复用相同不可变 tgz；启动时不联网下载。
+- Runtime 分发与 Electron 安装器分阶段交付；目录/状态回滚兼容和真实平台证据必须写入兼容矩阵。
+
 - 管理员可维护 CLI、SDK、Electron、Runtime 的版本、渠道、更新说明和下载地址。
 - Preview 与 Production 构建、配置和发布产物严格区分。
 - 发布前自动检查安装包中不存在 `.env`、平台密钥、数据库凭据、源码映射和禁止依赖。
@@ -186,6 +201,7 @@ CLI 型 Harness 的进程托管、协议翻译、跨平台与交付要求见
 
 - 首期至少支持团队当前主要交付平台和开发平台；具体矩阵在客户端基线任务中固化。
 - 路径、Shell、进程拉起和安装包验证必须覆盖 Windows 与 macOS 差异。
+- 统一安装首轮以 Mac arm64、Windows x64 为必验目标，保留 Linux x64 glibc Reference 回归；Intel Mac、Windows arm64 等新增目标必须单独认证，不能只凭 `os/cpu` 声明支持。
 
 ## 6. 范围分期
 

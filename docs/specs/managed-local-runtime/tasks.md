@@ -1,5 +1,8 @@
 # Managed Local Runtime 任务
 
+2026-09-15 同步：任务 1–3 为已有显式路径 Preview 原语；任务 4 的统一安装细化到
+[`unified-local-distribution/tasks.md`](../unified-local-distribution/tasks.md)（已确认，未实现）。任务 5–8 保留高级 Runtime Manager 的后续范围。
+
 ## 1. SDK-owned Runtime 核心原语
 
 - 状态：完成。
@@ -28,10 +31,12 @@
 
 ## 4. Runtime 平台包与解析器
 
+- 状态：未实现；以新分发 Spec T0–T7 为实施清单。
+
 - 文件：新增 Runtime meta/platform package 目录；修改 `pnpm-workspace.yaml`、`scripts/build-runtime-bundle.mjs`、`build-release.mjs`、`check-release-artifacts.mjs`、SDK/CLI package manifests。
 - 前置：任务 1；已确认私有 Registry 和 package naming。
-- 内容：产出并解析平台 Runtime 包，在安装期锁定版本，保留显式 executable override 和 slim/external 模式。
-- 验收：macOS arm64 与 Linux x64 均能从私有 Registry/offline pack 安装后零额外下载启动；错误平台返回稳定不支持错误。
+- 内容：local facade 组合 SDK 与 runtime meta/platform；SDK 保持轻量，默认 resolver 本机校验/展开，保留显式 executable override。
+- 验收：Mac arm64 与 Windows x64 私有 Registry/空缓存离线安装后无路径启动；Linux x64 glibc Reference 回归；错误平台/optional 缺失稳定报错。
 
 ## 5. 显式安装、更新和回滚
 
@@ -56,8 +61,7 @@
 
 ## 8. 跨平台发布与正式门禁
 
-- 状态：部分完成。已配置 `ubuntu-24.04` x64 与 `macos-15` arm64 的无凭据 release build/check/clean-room
-  Reference matrix；签名、provenance、Windows、Intel Mac 与受控 CodeBuddy gate 尚未完成。
+- 状态：部分完成。当前已有 `ubuntu-24.04` x64、`macos-15` arm64、`windows-2022` x64 Reference matrix 和受保护 Windows CodeBuddy workflow；Windows 10/11 真实验收仍待完成。正式签名/provenance、Intel Mac 和新统一安装认证未完成，证据以交付矩阵为准。
 - 文件：GitHub Actions workflow、release 脚本、compatibility/handoff/capability 文档。
 - 前置：任务 3–7；发布凭据、license 和签名身份就绪。
 - 内容：CI matrix 构建、聚合、签名、生成 provenance，在各目标运行 clean-room Reference，并在受控环境完成 CodeBuddy 验证。

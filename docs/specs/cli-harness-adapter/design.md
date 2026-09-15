@@ -126,6 +126,11 @@ Sidecar断链和Worker lease丢失都走同一清理路径。PID必须与启动�
 
 ## 8. 安装与交付
 
+安装入口与 Runtime 平台 payload 遵循已确认的
+[`unified-local-distribution`](../unified-local-distribution/design.md)。local 单包安装不意味着自动分发所有厂商 CLI；
+首轮仍为现有 SDK 型 CodeBuddy/Reference。新 Wrapper/CLI 的许可、版本和平台证据分别验收，只有批准后的资产才可进入
+Runtime payload 或独立受信包，缺少 CLI 时不得由 SDK/普通启动静默联网下载。
+
 Wrapper与厂商CLI是两个制品：
 
 - Wrapper由我们构建、签名并随Runtime/Adapter包交付。

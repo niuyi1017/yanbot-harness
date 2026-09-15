@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="725" viewBox="0 0 1800 1450">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="885" viewBox="0 0 1800 1770" role="img" aria-labelledby="diagram-title diagram-description">
+  <title id="diagram-title">Yanbot Harness 目标安装与双 Runtime、双厂商架构</title>
+  <desc id="diagram-description">统一 local 安装入口复用轻量 SDK 和 Runtime 平台包，SDK 启动独立 Runtime。Remote 用户只安装 SDK。新增安装能力、Remote 与 CLI Sidecar 为规划，当前 preview.2 仍为显式路径 Local 交付。</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10Z" fill="#475569"/>
@@ -26,9 +28,37 @@
     </style>
   </defs>
 
-  <rect width="1800" height="1450" fill="#f8fafc"/>
+  <rect width="1800" height="1770" fill="#f8fafc"/>
   <text x="900" y="54" text-anchor="middle" class="title">Yanbot Harness 双 Runtime × 双厂商接入架构</text>
-  <text x="900" y="89" text-anchor="middle" class="subtitle">进程、协议、凭据和数据边界示意</text>
+  <text x="900" y="89" text-anchor="middle" class="subtitle">目标架构：安装、进程、协议与凭据边界；新增能力不代表当前已交付</text>
+
+  <rect x="55" y="112" width="1690" height="282" rx="22" fill="#f0fdfa" stroke="#0d9488" stroke-width="2.5" stroke-dasharray="10 7"/>
+  <text x="900" y="147" text-anchor="middle" class="section">安装分发层［后续 Preview 推荐方案，已确认 / 未实现］</text>
+
+  <rect x="80" y="166" width="520" height="177" rx="15" fill="#ffffff" stroke="#99f6e4" stroke-width="2"/>
+  <text x="340" y="198" text-anchor="middle" class="node-title">普通本地用户：一个入口</text>
+  <text x="340" y="230" text-anchor="middle" class="label">@yanbot-harness/local@V</text>
+  <text x="340" y="260" text-anchor="middle" class="node-text">依赖同版 sdk + runtime meta</text>
+  <text x="340" y="289" text-anchor="middle" class="node-text">自动定位已装 payload → SDK spawn 独立进程</text>
+  <text x="340" y="321" text-anchor="middle" class="tiny">local 复用同一 SDK；安装与 import 不启动进程</text>
+
+  <rect x="640" y="166" width="520" height="177" rx="15" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
+  <text x="900" y="198" text-anchor="middle" class="node-title">Remote / 显式连接：轻量 SDK</text>
+  <text x="900" y="230" text-anchor="middle" class="label">@yanbot-harness/sdk@V</text>
+  <text x="900" y="260" text-anchor="middle" class="node-text">无 Runtime 生产 / optional 依赖</text>
+  <text x="900" y="289" text-anchor="middle" class="node-text">Remote 不触发本地发现、展开或启动</text>
+  <text x="900" y="321" text-anchor="middle" class="tiny">仍可显式连接 Daemon；Remote 服务另行实现</text>
+
+  <rect x="1200" y="166" width="520" height="177" rx="15" fill="#ffffff" stroke="#c4b5fd" stroke-width="2"/>
+  <text x="1460" y="198" text-anchor="middle" class="node-title">Runtime：可独立安装与部署</text>
+  <text x="1460" y="230" text-anchor="middle" class="label">@yanbot-harness/runtime@V［meta］</text>
+  <text x="1460" y="260" text-anchor="middle" class="node-text">os/cpu → runtime-&lt;os&gt;-&lt;cpu&gt;@V</text>
+  <text x="1460" y="289" text-anchor="middle" class="node-text">完整 payload；首次本机校验 / 展开；无下载</text>
+  <text x="1460" y="321" text-anchor="middle" class="tiny">Daemon / portable / Electron 高级宿主另行认证</text>
+
+  <text x="900" y="375" text-anchor="middle" class="node-text">当前 preview.2：SDK/CLI tgz + 独立 Runtime archive + 显式路径；Node 需预装；Windows 实机认证仍待完成</text>
+
+  <g transform="translate(0 320)">
 
   <g transform="translate(592 1395)">
     <rect x="0" y="0" width="145" height="34" rx="9" class="process"/>
@@ -43,7 +73,7 @@
 
   <rect x="420" y="120" width="960" height="82" rx="18" class="process"/>
   <text x="900" y="153" text-anchor="middle" class="node-title">产品进程：业务系统 / 我们的 CLI / Web / Electron</text>
-  <text x="900" y="181" text-anchor="middle" class="node-text">只调用 @yanbot-harness/sdk，不直接调用厂商 SDK 或厂商 CLI</text>
+  <text x="900" y="181" text-anchor="middle" class="node-text">复用公共 SDK / 协议；本地 Node 可经 local 入口；Web 使用受控桥接</text>
 
   <path d="M900 202 L900 228" class="arrow"/>
   <rect x="520" y="228" width="760" height="70" rx="16" class="spec"/>
@@ -51,7 +81,8 @@
   <text x="900" y="282" text-anchor="middle" class="node-text">HTTP/HTTPS + SSE：Session / Run / Event / Interaction</text>
 
   <text x="900" y="340" text-anchor="middle" class="section">① 选择 Runtime 在哪里运行</text>
-  <path d="M900 298 L900 355 L450 355 L450 386" class="arrow"/>
+  <path d="M900 298 L900 309" stroke="#475569" stroke-width="3" fill="none"/>
+  <path d="M900 351 L900 355 L450 355 L450 386" class="arrow"/>
   <path d="M900 355 L1350 355 L1350 386" class="arrow"/>
 
   <rect x="55" y="386" width="790" height="360" rx="24" fill="#ecfdf5" stroke="#34d399" stroke-width="3"/>
@@ -115,10 +146,11 @@
   <text x="900" y="822" text-anchor="middle" class="node-title">Harness Contracts + Adapter API［规范 + 公共代码接口］</text>
   <text x="900" y="851" text-anchor="middle" class="node-text">Local Runtime和Remote Worker都遵守；不是单独运行的进程</text>
   <path d="M450 746 L450 765 L730 765 L730 790" class="arrow"/>
-  <path d="M1350 746 L1350 765 L1070 765 L1070 790" class="arrow"/>
+  <path d="M1325 672 L1305 672 L1305 776 L1070 776 L1070 790" class="arrow"/>
 
   <text x="900" y="920" text-anchor="middle" class="section">② 选择厂商通过 SDK 还是 CLI 接入</text>
-  <path d="M900 870 L900 935 L445 935 L445 965" class="arrow"/>
+  <path d="M900 870 L900 889" stroke="#475569" stroke-width="3" fill="none"/>
+  <path d="M900 930 L900 935 L445 935 L445 965" class="arrow"/>
   <path d="M900 935 L1355 935 L1355 965" class="arrow"/>
 
   <rect x="70" y="965" width="750" height="320" rx="24" class="sdk-path"/>
@@ -137,7 +169,7 @@
 
   <rect x="175" y="1160" width="540" height="76" rx="15" class="credential"/>
   <text x="445" y="1190" text-anchor="middle" class="key-text">CodeBuddy Key只注入这一侧的Runtime/Adapter</text>
-  <text x="445" y="1217" text-anchor="middle" class="tiny">产品SDK、产品CLI、Web、Electron都不读取厂商Key</text>
+  <text x="445" y="1217" text-anchor="middle" class="tiny">推荐 Runtime 读 Key 文件；显式环境传 Key 时宿主已持有它</text>
 
   <rect x="980" y="965" width="750" height="320" rx="24" class="cli-path"/>
   <text x="1355" y="1005" text-anchor="middle" class="node-title">CLI 厂商模式：需要 Wrapper</text>
@@ -162,7 +194,7 @@
   <text x="1355" y="1171" text-anchor="middle" class="label">Sidecar Protocol［规范］</text>
   <text x="1355" y="1193" text-anchor="middle" class="tiny">JSON-RPC 2.0 + JSONL</text>
   <path d="M1450 1080 L1485 1080" class="arrow"/>
-  <text x="1468" y="1058" text-anchor="middle" class="tiny">argv/pipes</text>
+  <text x="1590" y="1160" text-anchor="middle" class="tiny">argv / 独立 pipes</text>
 
   <rect x="1090" y="1225" width="530" height="40" rx="14" fill="#ffedd5"/>
   <text x="1355" y="1252" text-anchor="middle" class="key-text">Wrapper只用于CLI模式；每个厂商有自己的翻译实现</text>
@@ -170,4 +202,5 @@
   <rect x="270" y="1320" width="1260" height="55" rx="18" fill="#e2e8f0"/>
   <text x="900" y="1345" text-anchor="middle" class="node-title">最终四种组合共用同一套上层调用</text>
   <text x="900" y="1367" text-anchor="middle" class="tiny">Local+SDK ｜ Local+CLI ｜ Remote+SDK ｜ Remote+CLI</text>
+  </g>
 </svg>

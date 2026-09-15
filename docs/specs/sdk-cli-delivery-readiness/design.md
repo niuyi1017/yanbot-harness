@@ -1,5 +1,9 @@
 # SDK/CLI Delivery Readiness Design
 
+Historical Local Preview scope: this document describes the SDK/CLI plus independent portable Runtime delivery.
+The later unified local install proposal is tracked in [`unified-local-distribution`](../unified-local-distribution/design.md)
+and remains approved but unimplemented; it does not change `preview.2` artifacts or certification.
+
 ## 1. Design goals
 
 本设计把现有 M3 开发产物推进为可交付的 Local Preview，不改变 Harness 的核心边界：SDK/CLI 始终调用 Harness Runtime，只有 Runtime 装配 Adapter 并持有厂商凭据。

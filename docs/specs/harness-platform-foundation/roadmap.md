@@ -31,6 +31,7 @@
 | Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线           | 与 Remote 和 CLI Sidecar 的完整认证                 |
 | CLI Sidecar           | `[~]`    | JSON-RPC/JSONL Schema 与架构设计                          | Client、Supervisor、CLI Host、真实厂商 Adapter      |
 | Remote Runtime        | `[ ]`    | 需求、设计和任务拆分                                      | Control Plane、Worker、Sandbox、远端工作区和认证    |
+| 本地统一安装          | `[ ]`    | 已确认的 local/sdk/runtime/platform 分发草案              | 平台 npm 包、resolver、离线闭包、签名、新生命周期   |
 | 产品界面与运营        | `[ ]`    | 总体设计                                                  | Local Web、Electron、Admin、市场与版本管理          |
 
 当前可以对外准确声明的是：**Local Preview 已形成候选交付；Remote Runtime 和真实 CLI 型厂商尚未交付。**
@@ -43,11 +44,15 @@
 4. **两组维度保持正交**：Local/Remote 是部署形态，SDK/CLI 是厂商接入形态，客户端不感知厂商差异。
 5. **完成必须有证据**：代码合并、Schema 存在或架构图完成都不能单独标记为交付完成。
 6. **安全边界不降级**：厂商 Key 不进入产品 SDK、平台 CLI、普通事件、日志或队列正文。
+   推荐由 Runtime 读取凭据文件；若宿主通过 `environment` 显式传入 Key，不能声称宿主内存不持有它。
+7. **安装边界与执行边界分离**：普通本地用户统一入口，Remote-only 继续轻量 SDK；Runtime 保留独立模块、进程和分发。
 
 ## 4. 关键路径与并行工作流
 
 ```text
 P0 冻结 Local Preview 0.1.0-preview.2
+  ├─ P1D 统一本地安装（先确认方案与打包探针；后续 Preview）
+  │    └─ Mac/Windows 平台包 + resolver + 生命周期 + 离线/签名/回滚
   └─ P1 Runtime 中立协议与双目标 SDK/CLI
        ├─ P2 CLI Sidecar 基础设施
        │    └─ P3 首个真实 CLI 厂商 Adapter
@@ -61,6 +66,9 @@ P3 + P5
 ```
 
 P0 的 Windows 实机验收可以等待外部同事执行，但不应长期阻塞 P1。开始 P1 前应固定 P0 的提交、产物摘要和兼容声明，后续开发进入下一条 Preview 开发线；确切版本号在冻结门禁时决定，不提前虚构。
+
+P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后先做探针并与 P1 按依赖推进；无需等待 Remote 实现。
+两者修改 SDK managed/target 时必须共用一个生命周期与所有权 contract，避免分别实现自动启动。P7 Electron 的本地分发接入依赖 P1D 的相应门禁。
 
 ## 5. 阶段规划
 
@@ -111,6 +119,29 @@ P0 的 Windows 实机验收可以等待外部同事执行，但不应长期阻�
 模型切换提醒：**开始实现前切换到 `gpt-6-astra + high`**。该阶段涉及公共协议、兼容迁移和跨包长链路改动。
 
 详细清单：[`dual-runtime-compatibility/tasks.md`](../dual-runtime-compatibility/tasks.md) Phase 1-3。
+
+### P1D `[ ]` 统一本地安装与 Runtime 平台包
+
+**状态**：方案已获用户确认，未开始实现。新增名称、payload 形态与顺序为推荐，不是已发布能力。
+
+**目标**：本地只安装 `@yanbot-harness/local` 即可无路径 managed 启动；Remote-only 只安装轻量 SDK；Runtime 继续独立模块/进程并支持独立分发。
+
+主要任务：
+
+- T0：确认 Spec、包名和首轮平台矩阵，隔离 P0 版本线，登记 Registry/许可/签名外部条件。
+- T1：先验证 npm/pnpm 平台筛选、离线空缓存、pack 内容与 frozen payload 依赖闭包。
+- T2/T3：平台 payload、runtime meta、可取消校验/展开和 local facade；SDK 保持无 Runtime 依赖。
+- T4：新增 managed IPC、整树回收、父进程死亡、Windows ACL 和持久状态保护。
+- T5/T6：受信签名、私有 Registry、离线 kit、版本并存与手动升级回滚。
+- T7：Mac/Windows 新安装路径认证、Linux Reference 回归和文档切换。
+
+完成门禁：Mac arm64、Windows x64 的安装/离线/生命周期/回滚矩阵通过；轻量 SDK 无 payload；当前支持与真实 CodeBuddy 证据分开。共享 Daemon 命令、Electron 产品实现和自动更新另行交付。
+
+前置依赖：固定 P0 源提交/产物/能力声明，确认 `unified-local-distribution`；无需等待 P4/P5。与 P1 共享 target/managed handle 契约。
+
+模型建议：`gpt-6-astra + high`。常规说明整理可用 `gpt-5.6-sol + high`；平台生命周期/发布信任变化时先复核设计。
+
+详细清单：[`unified-local-distribution/tasks.md`](../unified-local-distribution/tasks.md)。
 
 ### P2 `[ ]` CLI Sidecar 基础设施
 
@@ -220,7 +251,7 @@ P0 的 Windows 实机验收可以等待外部同事执行，但不应长期阻�
 可并行启动点：
 
 - P1 完成后：Local Web、Local/Remote 连接选择、Adapter/模型选择。
-- Local Web 稳定后：Electron 外壳、Runtime 生命周期、安装与升级。
+- Local Web 稳定后，且 P1D 相关分发门禁通过：Electron 外壳、专用宿主生命周期、安装与升级。
 - P4 完成后：Admin 用户/组织、Run、额度、用量和审计。
 - P2/P3 版本模型稳定后：Adapter 市场、签名、安装、升级和回滚。
 - P6 完成后：统一兼容声明、签名发布、正式版本冻结。
@@ -235,6 +266,7 @@ P0 的 Windows 实机验收可以等待外部同事执行，但不应长期阻�
 | ------------------------- | ----- | --------------------------------------------------- | ------------------------------------------------ |
 | P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞 | 固定候选提交和摘要；并行等待 Windows 验收        |
 | P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移 |
+| P1D 统一本地安装          | `[ ]` | 已确认方案与文档，尚未实现                          | 确认包职责后先做 T1 平台/离线打包探针            |
 | P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                         | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI  |
 | P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                  | 先做能力与许可证探针，不直接写 Wrapper           |
 | P4 Remote Reference       | `[ ]` | 只有设计                                            | 建立 cloud-server 子 Spec 和 Reference 闭环      |
@@ -245,7 +277,7 @@ P0 的 Windows 实机验收可以等待外部同事执行，但不应长期阻�
 ## 7. 最近两个执行节点
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
-2. **进入 P1**：切换到 `gpt-6-astra + high`，从中立 contracts、Runtime Profile、`/v1/*` 兼容路由和部署无关 Conformance 开始。
+2. **确认并启动后续 Preview 工作流**：先评审 P1D 统一安装 Spec，按 T1 探针验证关键分发机制；P1 中立协议按已有子 Spec 推进，共同冻结 managed target/handle 契约。建议 `gpt-6-astra + high`。
 
 P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之间并行推进；Local Web 也可在协议稳定后单独立项。
 
@@ -266,5 +298,6 @@ P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之�
 - 统一系统架构：[`system-architecture.md`](../../architecture/system-architecture.md)
 - 双 Runtime 专项：[`dual-runtime-compatibility`](../dual-runtime-compatibility/tasks.md)
 - CLI 厂商接入专项：[`cli-harness-adapter`](../cli-harness-adapter/tasks.md)
+- 统一本地分发专项：[`unified-local-distribution`](../unified-local-distribution/tasks.md)
 - 双平台 Preview 发布：[`dual-platform-preview-release`](../dual-platform-preview-release/tasks.md)
 - 当前交付兼容矩阵：[`compatibility.md`](../../delivery/compatibility.md)

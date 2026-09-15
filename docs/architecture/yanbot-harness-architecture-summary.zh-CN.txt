@@ -1,5 +1,15 @@
 Yanbot Harness 整体架构设计简要说明
 
+版本说明（2026-09-15）：下文的 Remote、CLI Sidecar 和统一安装描述包含目标规划，具体交付状态以兼容矩阵为准。
+
+0. 对外统一安装，内部保持独立
+
+后续 Preview 推荐让普通本地 Node 用户只安装 @yanbot-harness/local，内部复用轻量 SDK，并依赖 Runtime meta 和当前平台包。调用 managed 启动时自动定位、在本机校验/展开随包安装的 Runtime，再由 SDK 拉起独立子进程。
+
+只连接远端的用户仍可安装轻量 @yanbot-harness/sdk；共享 Daemon、Electron 和高级部署可独立安装 @yanbot-harness/runtime 或使用 portable archive。安装与 import 不自动启动 Runtime；首次显式启动不联网下载。
+
+新增包名、平台 payload、自动发现、签名展开与新生命周期均是已确认方案，尚未实现。preview.2 仍使用公共 tgz、独立 Runtime 压缩包和显式路径。Mac/Windows 是统一安装首轮必验平台，Node 仍需预装；Electron 另行认证。
+
 1. 上层只有一套调用方式
 
 用户或者业务系统通过我们的 SDK 或平台 CLI 发起任务。无论后面使用本地 Runtime、远端 Runtime，还是不同 AI 厂商，上层调用方式尽量保持一致。
@@ -48,6 +58,8 @@ CodeBuddy Key 或其他厂商凭据：用于真正调用 AI 厂商。
 
 厂商 Key 不能进入我们的 SDK 参数、平台 CLI 命令、事件流、普通日志或者任务队列正文。
 
+推荐由 Runtime 读取受保护 Key 文件。若宿主主动把 Key 放入 environment，宿主已经持有它，不能声称统一安装会向机器所有者隐藏 Key。Registry 安装 token 也不能传入 Runtime。
+
 10. 最终要兼容四种组合
 
 Local Runtime + SDK 型厂商
@@ -65,6 +77,10 @@ Remote Runtime + CLI 型厂商
 
 Remote Runtime、云端 Worker/Sandbox、CLI Sidecar 的完整运行实现、真实 CLI 厂商 Adapter，以及 Windows 真实 CodeBuddy 实机认证还没有完成。
 
+统一本地安装入口、Runtime meta/platform npm 包和自动 resolver 也未实现；详细草案见 docs/specs/unified-local-distribution/。
+
 13. 后续开发顺序
 
 先冻结当前 Local Preview，然后统一 Local/Remote 公共协议；接着可以并行开发 CLI Sidecar 和 Remote Runtime；最后做四种组合的跨平台认证，再进入 Local Web、Electron、Admin 和正式发布能力。
+
+隔离当前 Preview 基线后，可先确认统一安装 Spec 并做打包/离线探针，分发工作流 P1D 不必等待 Remote 实现；与协议工作流 P1 共用 managed 生命周期契约。详细阶段与当前状态以 docs/specs/harness-platform-foundation/roadmap.md 为准。

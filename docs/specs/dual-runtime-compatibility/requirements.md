@@ -13,6 +13,7 @@ Local Preview：公开 DTO 使用 `LocalSession`、`LocalRun`，HTTP 路由为 `
 ## 2. 目标
 
 - 一个 `@yanbot-harness/sdk` 和一套 CLI 命令连接两种 Runtime。
+- 本地可通过 `@yanbot-harness/local` 统一安装入口复用同一 SDK；Remote-only SDK 不依赖 Runtime。安装分发见已确认的 [`unified-local-distribution`](../unified-local-distribution/requirements.md)。
 - Session、Run、Event、Interaction、取消、恢复、幂等和错误分类在两种模式下语义一致。
 - 部署差异通过连接配置、认证提供器、工作区来源和 capability 协商表达，不渗透到上层业务流程。
 - Local 保持 loopback 与本机凭据边界；Remote 具备 HTTPS、身份与租户隔离、队列、沙箱和持久化能力。

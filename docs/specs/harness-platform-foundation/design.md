@@ -29,7 +29,7 @@
 ### 2.1 双 Runtime 兼容基线
 
 上图中的 `local mode` 与 `cloud mode` 是同一产品的两种 Runtime 部署形态，不是两个独立客户端产品。
-CLI、Local Web、Electron 和集成方代码都只依赖 `@yanbot-harness/sdk`；连接目标由配置选择，核心的
+CLI、Local Web、Electron 和集成方代码复用 `@yanbot-harness/sdk` 的公共调用语义；本地 Node 集成可经统一入口装配它。连接目标由配置选择，核心的
 Session、Run、Event、Interaction、取消、恢复和错误语义保持一致。
 
 两种形态允许存在实现差异：Local 使用 loopback token、本机路径 Workspace Grant 和本地状态目录；Remote
@@ -37,9 +37,24 @@ Session、Run、Event、Interaction、取消、恢复和错误语义保持一致
 Runtime 的协议版本与 capability，再决定可用的工作区输入和扩展能力，不允许把 Local Runtime 直接监听公网来代替
 Remote Runtime，也不允许连接失败后静默切换运行位置。
 
+浏览器工作台通过受控 bridge/HTTP 客户端消费公共协议；当前包含 Node 进程/文件 API 的 SDK 并未认证浏览器直接使用。
+
 当前 `0.1.0-preview.2` 的 `/local/*` 路由和 `Local*` 类型属于已交付的 Local Preview 契约。双形态实现将按
 [`dual-runtime-compatibility`](../dual-runtime-compatibility/design.md) 增加部署形态中立的协议表面，并保留明确的
 兼容迁移层；在远端控制平面、认证、远端工作区和一致性测试完成前，不得宣称 Remote Runtime 已兼容。
+
+### 2.2 安装分发与运行分离（已确认、未实现）
+
+普通本地集成推荐只安装 `@yanbot-harness/local`：它依赖并重导出同版 SDK，再装配 `@yanbot-harness/runtime`
+的 resolver。runtime meta 精确依赖匹配 OS/CPU 的平台包，平台包内含完整 Runtime payload，首次显式启动在
+本机校验/展开，SDK 再 spawn 独立 Node 进程。SDK 与 Runtime 的 HTTP/SSE 和凭据边界不因统一安装改变。
+
+`@yanbot-harness/sdk` 不添加 Runtime optional/peer 依赖，Remote 与显式 Daemon 用户保持轻量；独立 Runtime
+meta/portable archive 支持高级宿主。CLI 本期保持 SDK-only，不隐式改为自动携带 Runtime。新增包不提供浏览器支持。
+
+后续 Preview 采用平台 payload bundling、精确锁版、受信签名、用户缓存和无 postinstall 下载；Mac/Windows 均为
+必要验收项。`preview.2` 继续使用公共 tgz + 独立 archive，显式路径 managed 原语保留。
+本设计的安装基准见 [`unified-local-distribution`](../unified-local-distribution/design.md)，实施对应 roadmap P1D。
 
 ## 3. Monorepo 结构
 
@@ -56,6 +71,8 @@ yanbot-harness/
 ├── packages/
 │   ├── contracts/            # Zod Schema、DTO、SSE事件和错误码
 │   ├── sdk/                  # 面向集成方的稳定 TypeScript SDK
+│   ├── local/                # 规划：本地安装入口，复用SDK并注入Runtime resolver
+│   ├── runtime/              # 规划：meta/resolver/校验/展开/独立启动器；平台payload由release生成
 │   ├── harness-core/         # Run/Session/Interaction/Extension领域逻辑
 │   ├── adapter-api/          # 厂商中立SPI、能力与生命周期接口
 │   ├── adapter-kit/          # Adapter开发工具和Conformance Kit
@@ -83,6 +100,8 @@ yanbot-harness/
 - `apps/*` 不得互相导入源代码。
 - 所有跨进程数据先进入 `packages/contracts`。
 - `packages/sdk` 不暴露 CodeBuddy SDK 原始类型。
+- `packages/sdk` 不依赖 Runtime/平台包；`packages/local` 仅装配 SDK 与 runtime meta，不导入 Runtime/Adapter 执行入口。
+- 平台 npm 包保存 Runtime 生产目录 payload，不将内部 workspace 包变成消费者公共依赖。
 - `packages/harness-core` 不依赖 Express、NestJS、Electron或数据库。
 - `packages/adapter-*` 不包含产品UI、业务数据库和领域持久化。
 - `packages/harness-core` 只依赖 `adapter-api`，不能按厂商名称写条件分支。
@@ -349,6 +368,7 @@ SDK 默认不加载文件系统配置。平台显式计算：
 - 支持交互输出与 `--json`/JSONL 机器输出。
 - 非交互模式必须能显式配置权限策略，禁止隐式使用 `bypassPermissions`。
 - 退出码区分成功、用户取消、策略拒绝、认证失败、上游失败和 Runtime失败。
+- 统一安装首期继续保持 CLI 轻量和 `--managed-runtime PATH`；后续 CLI 默认启动/Daemon 管理另行评审，不改变 `preview.2` 连接优先级。
 
 ### 7.3 Local Web
 
@@ -362,6 +382,7 @@ SDK 默认不加载文件系统配置。平台显式计算：
 - 复用 `packages/workbench-ui`，Electron只增加平台能力桥接。
 - 参考教师端的子进程拉起、`safeStorage`、IPC sender校验和工作区签名。
 - local-runtime 作为独立构建产物打包，保留安装包敏感文件扫描。
+- 可复用 Runtime 平台 payload/显式 resolver，资源置于 ASAR 外；Electron 的 `process.execPath` 不等同普通 Node，需专门认证启动器与生命周期。
 - Preview和Production使用独立配置、应用标识、更新渠道和签名流程。
 
 ## 8. 云端控制平面
@@ -509,6 +530,10 @@ Session持久状态与执行凭据分离：工作区、平台Session映射和经
 - 安装时校验摘要、兼容性和状态；运行时只加载已安装且启用的版本。
 
 ### 12.2 客户端发布
+
+统一 npm 安装与离线套件以 [`unified-local-distribution`](../unified-local-distribution/design.md) 为后续 Preview
+目标。内部包精确锁版、公共 tgz 各渠道 hash 一致；运行中的版本从不可变 digest 缓存执行，升级和回滚由消费者
+部署/锁文件控制，Runtime 不修改 node_modules。状态 Schema 与制品回滚分别验证。
 
 - CLI/SDK走npm或私有Registry。
 - Electron发布到OSS，Admin维护版本和渠道。

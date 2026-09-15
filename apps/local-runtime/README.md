@@ -2,6 +2,11 @@
 
 Portable companion process for the Yanbot Harness SDK and CLI.
 
+This `preview.2` artifact is independently unpacked and launched. A later Preview proposal will also distribute the
+same Runtime implementation through `@yanbot-harness/runtime` and platform payload packages, normally installed by
+`@yanbot-harness/local`. Those packages and automatic discovery are not implemented yet; the Runtime remains a separate
+process in every proposed installation form. Node remains a prerequisite.
+
 ```bash
 ./bin/yanbot-harness-runtime --reference
 ```

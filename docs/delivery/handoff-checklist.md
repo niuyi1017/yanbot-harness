@@ -1,5 +1,9 @@
 # SDK/CLI Local Preview Handoff
 
+This checklist applies to `preview.2` and its explicit Runtime companion. The proposed local facade, Runtime npm
+platform packages, automatic resolver, and new lifecycle guarantees are a later Preview scope, approved but not implemented.
+Keep this handoff independent of `docs/specs/unified-local-distribution/`; do not replace its artifacts or claim those planned features here.
+
 ## Artifact set
 
 The downloadable candidates are generated beside the expanded release directory:

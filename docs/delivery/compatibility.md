@@ -28,6 +28,11 @@ to an approved private npm registry without rebuilding them. Public npm publicat
 
 The SDK and CLI require a compatible Harness Runtime. They do not connect directly to CodeBuddy and do not accept a CodeBuddy credential from an SDK or CLI request.
 
+`preview.2` does not include `@yanbot-harness/local`, a Runtime meta/platform npm package, or automatic installed-package
+discovery. `startManagedRuntime()` requires `executablePath` or `YANBOT_HARNESS_RUNTIME_PATH`. Unified installation,
+signed payload expansion, parent-death cleanup, and offline dependency kits belong to a later Preview proposal, pending
+approval; see the repository's `docs/specs/unified-local-distribution/`. No new installation or platform certification is implied.
+
 ## Certified environments
 
 | Environment                | Status                    | Evidence                                                                                        |
@@ -92,6 +97,11 @@ The CLI command surface is frozen to `run`, `adapters`, `models`, `sessions`, `r
 upstream failure, and `40` Runtime/network/protocol failure. Connection modes are mutually exclusive: explicit
 `--runtime` plus the environment token, explicit `--descriptor`, explicit `--managed-runtime`, or default Daemon
 descriptor discovery.
+
+Managed mode currently inherits `options.environment ?? process.env`. If a host puts a vendor Key in that environment,
+the host already holds it; the file-based Runtime-only credential flow does not prove otherwise. Windows managed close
+currently uses forced owned-process-tree termination. Graceful private control and parent-crash recovery are future
+requirements, not part of this frozen API's certified guarantees.
 
 ## CodeBuddy routing
 

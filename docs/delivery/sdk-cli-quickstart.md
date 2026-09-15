@@ -3,6 +3,10 @@
 This guide uses the `0.1.0-preview.2` offline bundle. Node `>=22.22.0 <23` is required. The SDK and CLI connect to the
 included loopback Runtime; neither client calls CodeBuddy directly.
 
+This is the current explicit-path workflow. The proposed `@yanbot-harness/local` single-entry installation and automatic
+Runtime discovery belong to a later Preview and are not available in these artifacts. Future plans are recorded in the
+repository under `docs/specs/unified-local-distribution/`; use the commands below for `preview.2`.
+
 For a complete Windows 10/11 handoff, including PowerShell installation, SDK integration code, CodeBuddy BYOK,
 acceptance reporting, and cleanup, use
 [`windows-sdk-cli-integration-guide.zh-CN.md`](./windows-sdk-cli-integration-guide.zh-CN.md).

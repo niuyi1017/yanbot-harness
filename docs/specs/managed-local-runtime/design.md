@@ -1,5 +1,8 @@
 # Managed Local Runtime 设计
 
+维护说明（2026-09-15）：显式路径 managed 原语已经实现；后续统一安装以
+[`unified-local-distribution`](../unified-local-distribution/design.md) 的已确认方案为准。这里保留旧 API 与实现演进背景，不把目标功能视为已交付。
+
 ## 1. 设计概览
 
 本设计在现有 Runtime 与 SDK 之间增加生命周期层，不改造 Adapter 执行链：
@@ -105,11 +108,14 @@ first close caller
 ```
 
 - meta package 负责解析当前 platform/arch 的固定版本制品。
-- 平台包包含当前 portable deploy 目录，不将内部 Adapter/Core 包提升为可依赖的公共 API。
-- SDK 可将 meta package 作为 optional dependency，保留只连接外部 Runtime 的 slim 使用方式。
-- CLI 正式包默认携带当前平台 Runtime，为用户提供单次安装体验。
+- 平台包以 payload archive 封装完整 portable 生产目录，不将内部 Adapter/Core 包提升为可依赖的公共 API。
+- SDK 不添加 meta package 的 optional/peer 依赖，保证默认安装仍轻量。
+- 推荐新增 `@yanbot-harness/local`，必需依赖同版 SDK 和 runtime meta，由 facade 注入 resolver。
+- 平台包名单只包含本次实际产出目标；第一轮 Mac arm64/Windows x64 必验，Linux x64 glibc 回归，Intel Mac 另行扩展。
+- 平台包内携带完整 Runtime archive，首次显式启动本机校验并展开到用户 digest 缓存；不在线下载。
+- CLI 当前继续轻量，`--managed-runtime PATH` 兼容；默认携带 Runtime 与共享 Daemon 命令不在统一安装首期实现。
 
-Preview 期间可继续从签名离线 bundle 安装 Runtime，通过 `YANBOT_HARNESS_RUNTIME_PATH` 与同一 managed API 验证，避免在 Registry 决策前锁定不可回退的包名。
+当前 `preview.2` 继续从 checksum 验证的独立 bundle 安装 Runtime，通过 `YANBOT_HARNESS_RUNTIME_PATH` 与同一 managed API 验证；正式签名仍为目标要求。后续包名、离线 kit、Registry 和签名校验详见新分发 Spec。
 
 ## 5. CLI 分层
 
@@ -145,6 +151,7 @@ SDK 启动 Runtime 时需要明确子进程环境。首版可由调用方提供�
 
 - SHA-256 用于损坏检测，签名/来源证明用于发布者身份校验。
 - macOS Runtime 需代码签名和 notarization；Windows 需 Authenticode；Linux 使用已签名 manifest/attestation 与受控 Registry。
+- 上述原生签名要求按实际 app/exe/helper 和分发场景落实；JS/tgz 使用包清单签名/来源证明，不把 checksum 或测试密钥当作正式签名。
 - Runtime Manager 不允许将未验证的 archive 直接解压到活跃版本目录。
 
 ## 7. 关键文件与复用

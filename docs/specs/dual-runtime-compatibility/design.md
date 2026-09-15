@@ -48,6 +48,11 @@ type AccessTokenProvider = () => Promise<{ accessToken: string; expiresAt?: stri
 `startManagedRuntime()` 保留为 Local 便捷入口；现有 `{ origin, accessToken }` 在 Preview 迁移期继续可用，但不作为
 远端长期令牌设计。CLI 使用互斥 target/profile，并把认证令牌放在安全配置或登录缓存中，不提供 `--token`。
 
+安装层依据已确认的 [`unified-local-distribution`](../unified-local-distribution/design.md)：local facade 默认注入已装
+Runtime resolver，SDK 本身保持无 Runtime 依赖。上面的 target 类型为语义草图，`local-managed` 实现必须复用
+`startManagedRuntime` 的 resolver、就绪与关闭所有权，调用方可获取/释放 managed handle，不能只得到无清理入口的
+client。`connect(remote)` 不解析本地平台包，不启动本地进程。统一安装可独立开发，无需等待远端服务。
+
 ## 3. 协议中立化与迁移
 
 当前 Harness Protocol `1.0.0` 的 `/local/*` 与 `Local*` 名称已经进入 Preview 包。直接在同一主版本改变路径和

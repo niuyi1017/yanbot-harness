@@ -21,6 +21,7 @@
 
 - [ ] 在 `packages/sdk` 实现 `RuntimeTarget` 与远端 `AccessTokenProvider`。
 - [ ] 建立 health/profile 握手与明确 transport 选择，不使用 404 猜测协议。
+- [ ] 与 `unified-local-distribution` T3/T4 共用 resolver/managed handle contract；验证 local facade 与轻量 SDK 的依赖边界，Remote 连接零本地启动副作用。
 - [ ] CLI 增加 Local/Remote profile 与登录凭据查找，保持 `run`、`sessions`、`cancel` 等命令一致。
 - [ ] 禁止 token 命令行参数、静默 fallback 和远端本机路径请求。
 - [ ] 更新 SDK 示例、CLI 帮助、安装与迁移文档。

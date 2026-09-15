@@ -54,3 +54,9 @@ and an optional normalized Harness error. The SDK never accepts a CodeBuddy API 
 
 This Local Preview supports Node `>=22.22.0 <23`; browsers are not supported. It requires the separately delivered
 Runtime companion or another protocol-compatible Harness Runtime.
+
+Future distribution proposal (not implemented in `preview.2`): the SDK remains lightweight with no Runtime production
+or optional dependency. A separate `@yanbot-harness/local` entry will re-export this client and supply installed-platform
+Runtime discovery for managed startup. Until that release is certified, keep using the explicit path above. If a vendor
+credential is already present in the host environment, managed inheritance does not hide it from the host; prefer a
+Runtime-read credential file. See the repository's `docs/specs/unified-local-distribution/`.

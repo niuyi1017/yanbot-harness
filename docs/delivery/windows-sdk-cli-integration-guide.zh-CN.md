@@ -2,6 +2,10 @@
 
 本文可直接交给 Windows 测试或接入同事。目标是在不安装源码仓库、不使用 pnpm、也不把 CodeBuddy Key 写入业务代码的前提下，完成 `0.1.0-preview.2` 的制品校验、离线安装、Reference 基线测试、CodeBuddy 真实调用、SDK/CLI 接入和结果回传。
 
+版本边界：后续 Preview 正在规划 `@yanbot-harness/local` 单入口安装与 Runtime 自动发现，尚未实现或发布。
+本手册继续使用 `preview.2` 的公共 tgz、独立 Runtime ZIP 和显式 launcher 路径；新计划见源码仓库
+`docs/specs/unified-local-distribution/`，不能将未来示例用于当前候选包。
+
 ## 1. 支持范围和当前状态
 
 本次 Windows 交付目标是：
