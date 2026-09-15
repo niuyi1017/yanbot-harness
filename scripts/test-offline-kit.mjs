@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { generateKeyPairSync, sign } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -65,6 +67,13 @@ test('offline unknown signer and tampered tgz fail before creating a consumer', 
   await writeFile(path.join(f.root, 'packages/local.tgz'), 'tampered');
   await assert.rejects(f.install(), /digest|changed/u);
   await assert.rejects(stat(f.prefix), { code: 'ENOENT' });
+});
+test('standalone installer executes its CLI guard even through temporary path aliases', async (t) => {
+  const f = await fixture(t);
+  await assert.rejects(
+    promisify(execFile)(process.execPath, [path.join(f.root, 'install-local.mjs'), '--invalid']),
+    (error) => error.stderr.includes('Use node install-local.mjs'),
+  );
 });
 test('offline target mismatch and signed path escape fail before installation', async (t) => {
   const f = await fixture(t);

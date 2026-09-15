@@ -7,7 +7,7 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, open, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
@@ -237,7 +237,14 @@ console.log(JSON.stringify({ status: 'passed', terminal: 'run.completed' }));
   }
 }
 
-if (process.argv[1] && pathToFileURL(await realpath(process.argv[1])).href === import.meta.url) {
+const canonicalPath = async (file) => {
+  const resolved = await realpath(file);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+};
+if (
+  process.argv[1] &&
+  (await canonicalPath(process.argv[1])) === (await canonicalPath(fileURLToPath(import.meta.url)))
+) {
   const args = process.argv.slice(2);
   assert(
     args.length === 4 && args[0] === '--prefix' && args[2] === '--trusted-key-file',
