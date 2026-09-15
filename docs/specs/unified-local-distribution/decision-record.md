@@ -27,6 +27,8 @@
 
 ## 外部发布门禁
 
+故障门禁追加：仅 disposable Linux CI 的独立 mount/network namespace 挂载 1 MiB tmpfs，安装器和 resolver 都在降权后执行；先实际验证 ENOSPC，再验证缓存展开拒绝/部分文件清理/旧缓存可用。命名空间退出自动卸载，不对宿主磁盘造满。Windows 用当前测试进程拥有的 PowerShell FileShare.None 句柄独占 fixture 缓存文件，验证拒绝、释放后恢复与原字节保留；不锁用户文件、不用记录 PID 强杀未知进程。
+
 Windows CI 34967314977：权限归一化首次启动 PowerShell 恰在内部 5 秒上限被终止，后续相同操作/其余 resolver 测试通过。移除这个比总启动期限更短的意外门槛，将单次 helper 硬上限设为 15 秒，同时始终传入同一个 AbortSignal；调用方总 startupTimeoutMs（默认 15 秒）不变，不能重置/延长或重试绕过期限。
 
 Windows 父死亡测试细化：Node 22 所用 libuv 1.51 的父属 Job Object 会在父死亡时强杀非 detached 子进程，故不能要求此时 Runtime 一定完成 descriptor 删除。测试分别验证“父被强杀后子进程消失、持久目录/可能的旧 descriptor 保留”和“父存活但 IPC 断开时正常 close/descriptor 清理”。不改成 detached 来逃避 OS 保护；旧 descriptor 的死 PID 不能作为可连接服务。libuv Job 允许子进程 breakaway，仍不构成全树保证。依据：[libuv Windows process implementation](https://github.com/libuv/libuv/blob/v1.51.0/src/win/process.c#L65-L91)。

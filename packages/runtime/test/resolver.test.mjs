@@ -63,6 +63,36 @@ test('private directory normalization succeeds before any payload is opened', as
   await privateDirectory(f.options.cacheRoot, globalThis.AbortSignal.timeout(10000));
 });
 
+test(
+  'Windows exclusive file sharing blocks cache use without replacement and recovers after release',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const f = await fixture(t);
+    const old = await resolvePlatformDirectory(f.options);
+    const script = `$ErrorActionPreference='Stop'; $h=[System.IO.File]::Open('${old.entryPath.replaceAll("'", "''")}', 'Open', 'Read', 'None'); [Console]::WriteLine('locked'); [Console]::ReadLine() | Out-Null; $h.Dispose()`;
+    const child = spawn(
+      path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
+      ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+      { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true },
+    );
+    const exited = once(child, 'exit');
+    try {
+      await once(child.stdout, 'data', { signal: globalThis.AbortSignal.timeout(15000) });
+      await assert.rejects(resolvePlatformDirectory(f.options), { reason: 'CACHE_UNAVAILABLE' });
+    } finally {
+      child.stdin.end('\n');
+      const timer = globalThis.setTimeout(() => child.kill('SIGKILL'), 5000);
+      try {
+        await exited;
+      } finally {
+        globalThis.clearTimeout(timer);
+      }
+    }
+    assert.deepEqual(await resolvePlatformDirectory(f.options), old);
+    assert.equal(await readFile(old.entryPath, 'utf8'), 'process.exit(0);\n');
+  },
+);
+
 test('signed package resolves in a private relocated cache; concurrent starts reuse verified bytes', async (t) => {
   const f = await fixture(t);
   const [a, b] = await Promise.all([resolvePlatformDirectory(f.options), resolvePlatformDirectory(f.options)]);

@@ -19,6 +19,7 @@ export async function linuxOfflineNetworkGate({ kit, prefix, environment }) {
       '-n',
       '/usr/bin/unshare',
       '--net',
+      '--mount',
       '--',
       process.execPath,
       path.join(import.meta.dirname, 'linux-offline-network-child.mjs'),
