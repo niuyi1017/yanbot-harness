@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { writeFile } from 'node:fs/promises';
+import { setTimeout, clearTimeout } from 'node:timers';
 const [file, authorization] = process.argv.slice(2);
 const timer = setTimeout(() => process.exit(0), 30000);
 const server = createServer((request, response) => {

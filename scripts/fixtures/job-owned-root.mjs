@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { setTimeout, clearTimeout } from 'node:timers';
 const [root, authorization, helper, mode] = process.argv.slice(2);
 const worker = path.join(import.meta.dirname, 'job-owned-worker.mjs');
 const file = path.join(root, 'worker.json');

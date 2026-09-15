@@ -5,6 +5,9 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { setTimeout } from 'node:timers';
+
+const { fetch, AbortSignal } = globalThis;
 
 const helper = path.resolve(process.argv[2] ?? 'native-build/managed-job-host.exe');
 assert.equal(process.platform, 'win32');
