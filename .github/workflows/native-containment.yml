@@ -1,0 +1,37 @@
+name: Native containment
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-job:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.1
+      - name: Enter the installed MSVC x64 environment
+        shell: pwsh
+        run: |
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$installation) { throw 'MSVC toolchain is required.' }
+          $devcmd = Join-Path $installation 'Common7/Tools/VsDevCmd.bat'
+          cmd /d /s /c "`"$devcmd`" -arch=x64 -host_arch=x64 >nul && set" | ForEach-Object {
+            $pair = $_ -split '=', 2
+            if ($pair.Length -eq 2 -and $pair[0] -match '^[A-Za-z_][A-Za-z0-9_]*$') {
+              "$($pair[0])=$($pair[1])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'MSVC environment setup failed.' }
+      - run: node scripts/build-native-host.mjs native-build
+      - run: node scripts/test-native-job-host.mjs native-build/managed-job-host.exe
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-job-containment
+          path: native-build/*.json
+          if-no-files-found: warn
