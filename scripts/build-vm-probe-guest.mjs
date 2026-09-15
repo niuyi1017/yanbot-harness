@@ -59,7 +59,13 @@ ${
   runtimeRoot
     ? `/bin/busybox mkdir -p /harness-shares /harness-home /tmp
 /bin/busybox chmod 1777 /tmp
-/bin/busybox modprobe vmw_vsock_virtio_transport
+kernel_version=$(/bin/busybox uname -r)
+for module in vsock vmw_vsock_virtio_transport_common vmw_vsock_virtio_transport; do
+  /bin/busybox insmod "/lib/modules/$kernel_version/kernel/net/vmw_vsock/$module.ko" || {
+    echo HARNESS_RUNTIME_EXIT
+    /bin/busybox poweroff -f
+  }
+done
 /bin/busybox modprobe virtiofs
 /bin/busybox mount -t virtiofs harness-shares /harness-shares
 /bin/busybox ip link set lo up
