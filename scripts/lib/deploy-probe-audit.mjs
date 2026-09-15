@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile, readdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
-export async function auditDeployedPackages(directory) {
+export async function auditDeployedPackages(directory, options = {}) {
   const root = await realpath(directory);
   const nodes = new Map();
   async function discover(current) {
@@ -13,7 +13,7 @@ export async function auditDeployedPackages(directory) {
       try {
         const manifest = JSON.parse(await readFile(path.join(current, 'package.json'), 'utf8'));
         if (manifest.name && manifest.version) {
-          const assets = await assetDigest(current);
+          const assets = await assetDigest(current, root, options);
           nodes.set(await realpath(current), { manifest, assets });
         }
       } catch (error) {
@@ -117,13 +117,15 @@ async function locate(location, name, root) {
   }
 }
 
-async function assetDigest(directory) {
+async function assetDigest(directory, root, options) {
   const entries = [];
   let bytes = 0;
   async function walk(current) {
     for (const entry of await readdir(current, { withFileTypes: true })) {
       if (entry.name === 'node_modules' || (current === directory && entry.name === 'pnpm-lock.yaml')) continue;
       const file = path.join(current, entry.name);
+      if ((options.ignoredFiles ?? []).includes(path.relative(root, file).split(path.sep).join('/'))) continue;
+      if (options.omitPackageManifestBytes && current === directory && entry.name === 'package.json') continue;
       if (entry.isDirectory()) await walk(file);
       else {
         assert(entry.isFile(), `Non-file package asset: ${entry.name}`);
@@ -135,6 +137,16 @@ async function assetDigest(directory) {
   }
   await walk(directory);
   return { files: entries.length, bytes, sha256: hash(entries.sort().join('\n')) };
+}
+
+export async function resolveDeployedDependency(root, directory, name) {
+  assert.match(name, /^(?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+$/iu);
+  const canonicalRoot = await realpath(root);
+  const canonicalDirectory = await realpath(directory);
+  const relative = path.relative(canonicalRoot, canonicalDirectory);
+  assert(relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+  const location = await locate(canonicalDirectory, name, canonicalRoot);
+  return location ? JSON.parse(await readFile(path.join(location, 'package.json'), 'utf8')) : undefined;
 }
 
 function hash(value) {

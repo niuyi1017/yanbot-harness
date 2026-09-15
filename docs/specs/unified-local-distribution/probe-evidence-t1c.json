@@ -1,0 +1,166 @@
+{
+  "recordedAt": "2026-09-15",
+  "baseCommit": "f6bd9ad",
+  "probeReportId": "harness-runtime-deploy-probe-HINYG6",
+  "repositoryChecks": {
+    "status": "passed",
+    "command": "pnpm check",
+    "probeTests": 17,
+    "productCodeChanged": false,
+    "oldPreviewArchiveSha256": "109ae675089927f7244ce4a0754b5604414e937cd213e48e0f857e5cc4e8c1b0"
+  },
+  "status": "passed",
+  "target": "darwin-arm64",
+  "node": "v22.23.1",
+  "pnpm": "11.10.0",
+  "scriptSha256": "4e7a0bb3e8666f4a51ae709f79e439961058285d475c57e35132e0abcfa05319",
+  "auditScriptSha256": "60085e0b806a531e09e0d0c9789e8080362a2e7f084c8df1cc13dae6d41b21cb",
+  "normalizationScriptSha256": "92980da1532350fe3a3e2fa242df3d742a370f1ef2dbc8e056ecbcd402b4a2a2",
+  "lockSha256": "a0cf0e7297ebcb41b50f5a706fda783bac4badf7c7c875fffab86e21469a6cf7",
+  "normalization": {
+    "before": {
+      "files": 6283,
+      "bytes": 170901232,
+      "sha256": "d098512c5dd24fb700e172957b4ac953341b07f64c80ec1f37856c69e1bf2c31"
+    },
+    "after": {
+      "files": 6277,
+      "bytes": 170732190,
+      "sha256": "b8a1bd1f9c52f898ec8da299fdd4719a82404fc08e2ba86db1a97a0f38f73f10",
+      "fileListBytes": 1304886,
+      "entryCount": 7021,
+      "maxFileBytes": 12098611,
+      "maxPathBytes": 138
+    },
+    "omitted": [
+      "node_modules/.modules.yaml",
+      "node_modules/.package-map.json",
+      "node_modules/.pnpm-workspace-state-v1.json",
+      "node_modules/.pnpm/lock.yaml",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml"
+    ],
+    "manifests": [
+      {
+        "path": "node_modules/@yanbot-harness/adapter-api/package.json",
+        "beforeSha256": "3aee96aaa3cc6e33aac86f5e70021c746293a0ea9f4355a79428d895403f45b4",
+        "afterSha256": "eecc4b66f3fbbcbe7f9792f285312e8ddba3eb7c9f37159c7a56a0abbf330025"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/adapter-codebuddy/package.json",
+        "beforeSha256": "1bbc929d6b5a66c4e54c57915ed1ec4057bf6f48a353c807ba8f99075b0f40a9",
+        "afterSha256": "908b9f292b31ae5849cbb0f60a3096632e56d1620e7edcf90ca29dccd68a622b"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/adapter-kit/package.json",
+        "beforeSha256": "2bac6b59ebbe59474ae4a7c8211458c4980d8e982e2f55a5ffd24c49cf15e9e8",
+        "afterSha256": "75e97ed3e7e9015fefcd41cee8e184163ebede65924d4300e7d6743d3ce2db02"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/adapter-reference/package.json",
+        "beforeSha256": "f759b66ea003f78c7dcf892260164484c236ed5a4452029248bb5d469c37cdb6",
+        "afterSha256": "389750c48329ced91ab5ccd5585ba54988cb460ec5abee769d20bf9d56bb4993"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/config-loader/package.json",
+        "beforeSha256": "1a623faf4d77eb38c692b32739e34ead02dcf6b055bf5c621204bcb2b26e04e3",
+        "afterSha256": "be372afe4f93958f8ab1940ab009e6a8ecd8e027907d801d7d92c5097f862a16"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/contracts/package.json",
+        "beforeSha256": "ed1e2a340b3a28f871255245f2daea2bc6c117fb2fc1675e95ab70c0d7acd6e4",
+        "afterSha256": "b3ec55461317ca2d3936bd9bc8c33df486fb705e7e5e803a2f0493339954bbff"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/core/package.json",
+        "beforeSha256": "5d2eb24882bc95c44ab98eda8eda6e8ac759affc24ee28f2d186d092c7dcbf0d",
+        "afterSha256": "9eb12ac8fd34df2ae9546e6ff7b0d5cfd92ae1166d145c78d556f7890ad6f28e"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/extension-kit/package.json",
+        "beforeSha256": "8b98a5375c730b10c6c84e67afcb6afb64e47ec55341979d3148af5be52c52ee",
+        "afterSha256": "61876a4eb3e7349ded9c8d413375f47875da84fc5ecf390cc8961a1655ed7a5e"
+      },
+      {
+        "path": "node_modules/@yanbot-harness/permission-engine/package.json",
+        "beforeSha256": "58f1e6f1e431ef7afd4f3799cf1214583bfc4ef33e400afffe86d3f1033342bc",
+        "afterSha256": "8a91e1df0f66920189dfe05779eb3144ad6bd2eaf97415df5c0c925f466723a0"
+      },
+      {
+        "path": "package.json",
+        "beforeSha256": "d80646891e85837ebb76ffd0f7150ad01e04bc9bebfec2712ae078fc365f9c70",
+        "afterSha256": "17c591c00b3186e1ac9b2581ef8dd8613025b05e4625df7cf36873d1706a4f7b"
+      }
+    ],
+    "unchangedFiles": 6267
+  },
+  "normalized": {
+    "files": 6277,
+    "bytes": 170732190,
+    "links": 0,
+    "localReferenceManifests": [],
+    "fileTreeSha256": "c301c086e10cf3478b47eaa46d6105f8569e9857a94eba7a9e3cddde79e8d310"
+  },
+  "graphComparison": {
+    "before": {
+      "packageCount": 110,
+      "distinctPackageCount": 109,
+      "graphSha256": "fce4065402ea34983e99ccd43b861982962276d88b48119eba440eedec3ec593",
+      "layoutSha256": "f3f74c59f6dc26c22bf5f02b432de79babf67e585c94a7777f990663f701138c"
+    },
+    "after": {
+      "packageCount": 110,
+      "distinctPackageCount": 109,
+      "graphSha256": "fce4065402ea34983e99ccd43b861982962276d88b48119eba440eedec3ec593",
+      "layoutSha256": "f3f74c59f6dc26c22bf5f02b432de79babf67e585c94a7777f990663f701138c"
+    }
+  },
+  "relocated": {
+    "files": 6277,
+    "bytes": 170732190,
+    "fileTreeSha256": "c301c086e10cf3478b47eaa46d6105f8569e9857a94eba7a9e3cddde79e8d310"
+  },
+  "reference": {
+    "health": {
+      "service": "yanbot-harness-local-runtime",
+      "protocolVersion": "1.0.0",
+      "status": "ok",
+      "startedAt": "2026-09-15T09:35:10.104Z"
+    },
+    "terminal": "run.completed",
+    "version": "0.1.0-preview.2",
+    "cleanedDescriptor": true
+  },
+  "binShims": [
+    {
+      "path": "node_modules/.bin/uuidv7",
+      "target": "../uuidv7/cli.js"
+    },
+    {
+      "path": "node_modules/.bin/which",
+      "target": "../which/bin/which"
+    }
+  ],
+  "limitations": [
+    "Offline deployment uses the existing frozen-lock pnpm store; this is not an empty-cache install.",
+    "Raw deploy includes local file references and package-manager metadata; it is not a distributable payload.",
+    "Reference startup/run/close only; vendor executable availability is an inventory, not permission or real-vendor certification.",
+    "Normalized staging is an unsigned local candidate, not a platform archive; bounded extraction and production trust remain required.",
+    "Known path and credential-pattern scanning is a fail-closed hygiene check, not an exhaustive secret detector.",
+    "Graph equality deduplicates identical package/asset/edge records; physical duplication is reported and module singleton identity is not certified."
+  ],
+  "priorFailures": [
+    {
+      "probeId": "ETw4Nj",
+      "status": "failed",
+      "error": "Credential-like content: node_modules/@tencent-ai/agent-sdk/cli/dist/web-ui/assets/ts.worker-59MjiAqk.js",
+      "normalizationScriptSha256": "c605c37b159ab31617b4532572004d11dbdf5ae9053c5ef6530128ceb38551b2"
+    },
+    {
+      "probeId": "IuWHWx",
+      "status": "failed",
+      "error": "Credential-like content: node_modules/jose/dist/webapi/key/import.js",
+      "normalizationScriptSha256": "d4cc1c42c0852cebfd4476292ca307f9f9f90b295e26038d846269da2ff7ad33"
+    }
+  ]
+}

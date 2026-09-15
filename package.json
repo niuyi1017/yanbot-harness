@@ -13,7 +13,7 @@
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
     "probe:distribution": "node scripts/test-distribution-packaging.mjs",
     "probe:runtime-deploy": "pnpm build && node scripts/probe-runtime-deploy.mjs",
-    "test:probes": "node --test scripts/test-deploy-probe-audit.mjs",
+    "test:probes": "node --test scripts/test-deploy-probe-audit.mjs scripts/test-normalize-runtime-staging.mjs",
     "build:client-packages": "node scripts/build-client-packages.mjs",
     "build:runtime-bundle": "node scripts/build-runtime-bundle.mjs",
     "release:assemble": "node scripts/assemble-release.mjs",

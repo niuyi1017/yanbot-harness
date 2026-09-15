@@ -59,6 +59,7 @@ Runtime meta 不依赖 SDK/厂商 SDK；与 SDK 交换结构化 launch descripto
 package.json                 # name/version/os/cpu，Linux 增加 libc
 runtime-manifest.json        # 可公开解析的 export，零 JS 执行
 runtime-manifest.sig         # 对 manifest 原始字节的发布签名
+files.json                   # archive 内全部文件/目录的清单，由 manifest 绑定摘要
 payload/runtime.tar.gz       # dist + 完整生产 node_modules + 运行资产/启动入口
 LICENSE / THIRD_PARTY_NOTICES / sbom.json
 ```
@@ -76,6 +77,8 @@ T1 后续探针优先验证包管理器的 hoisted deploy 能否从同一 frozen
 若 hoisted 只剩 Node CLI 的 `.bin` 符号链接，探针用相对路径 POSIX exec shim 保留原文件的运行目录语义，而不是把 CLI 内容复制到 `.bin` 后破坏相对 import。非 `.bin` 链接、非 Node shebang 和越界目标直接拒绝；Windows 已有普通 cmd/shim 文件原样保留、仍须实测。装配前后逐包比较资源摘要与 dependencies/optional/peer 的实际解析图，避免“Reference 能运行”掩盖厂商资产丢失。此候选目录依旧保留 raw deploy 元数据，不冒充可发布制品。
 
 本机 hoisted 探针发现 `content-type@1.0.5` 从一个物理副本变成两个，资源与解析边一致。比较时区分物理副本清单与按 name/version/资源/解析边去重的语义清单，两者均留摘要和数量；允许完全相同的重复副本，不忽略任何版本、资源或解析边变化。这不证明 Node 模块缓存/单例身份等价，厂商/业务回归仍是门禁。
+
+T1c 在新目录中归一化候选制品，不原地修改 deploy：仅剔除准确列明的根 pnpm 元数据；仅对工作区已登记的自有 package.json 删除开发/发布工具字段，并将自有生产依赖改为实际安装的精确版本。第三方 manifest/代码/许可证保持原字节，未列明的文件不得顺手删除。清理前后的非授权变更、符号链接、本机路径或疑似凭据均使探针失败，不通过替换内容“修复”扫描。逐文件差异允许集与忽略 package.json 字节的依赖图分别验证，避免 manifest 归一化掩盖其他资源变化。固定制品字段与候选限值见 [artifact-contract](artifact-contract.md)；解包器选型、实机和生产签名仍需独立证据。
 
 Runtime npm 包不携带 Node；普通 Node 宿主使用受支持的 Node 22。平台并非纯 JS 就可以通用：厂商辅助程序、原生模块、文件权限及生命周期都需要目标环境构建和验收。
 

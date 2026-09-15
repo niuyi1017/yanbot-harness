@@ -24,8 +24,10 @@
 - 本机证据：npm/pnpm 安装机制 16/16 通过；frozen-lock 离线 deploy、搬迁后 Reference Run/close 通过。尚不能勾选完整跨平台验收项，详见 [probe-results](probe-results.md)。
 - [x] T1b 本机验证同一 kit/tgz/原始 lock 的 export→import（18/18），并连接 Mac producer→三平台 consumer CI；本机只算 Mac→Mac，跨系统结果未取得。
 - [x] T1b 验证 hoisted deploy 与仅 `.bin` Node 链接的相对 exec shim，得到零链接候选目录；比对逐包资源/实际依赖上下文、搬迁后 Reference 与 CLI shim。新增审计单测覆盖资源/版本/peer 错接、重复副本和越界链接。
-- 待续：执行 Mac→Windows/Linux CI 与实机门禁；发布元数据归一化、厂商许可；manifest/解包/control 具体契约。候选目录仍含本机 metadata，不是正式 payload。
-- 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`scripts/lib/deploy-probe-audit.mjs`、`scripts/test-deploy-probe-audit.mjs`、`.github/workflows/distribution-probes.yml`、本目录探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
+- [x] T1c 本机发布 metadata 归一化：只移除六项 pnpm metadata，归一化十份自有 manifest，其余 6,267 文件保持原字节；零本地依赖引用/链接，资源与解析图对比、搬迁后的 Reference Run/close 通过。独立探针单测累计 17 项。
+- [x] T1c 明确 [artifact-contract](artifact-contract.md) 的 manifest/files/signature/resolver/IPC 字段与候选大小限值；仅为实施契约，不算生产签名/解包/生命周期已实现。
+- 待续：精确解包库与攻击样例，Mac→Windows/Linux CI 与实机门禁，厂商许可和正式签名。目录已归一化但仍不是已签名平台 archive；T1 总项继续保持未完成。
+- 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`scripts/lib/{deploy-probe-audit,normalize-runtime-staging}.mjs` 及对应单测、`.github/workflows/distribution-probes.yml`、本目录契约/探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
 - 前置：T0 的产品方案确认；真实 Registry 缺失可使用本地测试 Registry，签名使用标明的测试密钥。
 - 验收：Mac/Windows 空目录探针输出安装依赖图、实际下载包和 hash；明确不支持的组合；不可把本机一种布局通过当作跨平台通过。
 

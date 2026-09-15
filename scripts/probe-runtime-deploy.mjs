@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { startManagedRuntime } from '../packages/sdk/dist/index.js';
 import { auditDeployedPackages } from './lib/deploy-probe-audit.mjs';
+import { NORMALIZATION_METADATA, normalizeRuntimeStaging } from './lib/normalize-runtime-staging.mjs';
 
 const executeFile = promisify(execFile);
 const repository = path.resolve(import.meta.dirname, '..');
@@ -22,6 +23,7 @@ const root = await mkdtemp(path.join(outputParent, 'harness-runtime-deploy-probe
 const deployed = path.join(root, 'deploy');
 const hoisted = path.join(root, 'hoisted');
 const linkFree = path.join(root, 'link-free');
+const normalized = path.join(root, 'normalized');
 const relocated = path.join(root, 'relocated 中文 space &');
 const lockBefore = await readFile(path.join(repository, 'pnpm-lock.yaml'));
 const runtimePackage = JSON.parse(await readFile(path.join(repository, 'apps/local-runtime/package.json'), 'utf8'));
@@ -30,6 +32,7 @@ const report = {
   kind: 'runtime-deploy-mechanism-probe',
   scriptSha256: hash(await readFile(import.meta.filename)),
   auditScriptSha256: hash(await readFile(path.join(import.meta.dirname, 'lib/deploy-probe-audit.mjs'))),
+  normalizationScriptSha256: hash(await readFile(path.join(import.meta.dirname, 'lib/normalize-runtime-staging.mjs'))),
   target: `${process.platform}-${process.arch}`,
   node: process.version,
   lockSha256: hash(lockBefore),
@@ -37,7 +40,8 @@ const report = {
     'Offline deployment uses the existing frozen-lock pnpm store; this is not an empty-cache install.',
     'Raw deploy includes local file references and package-manager metadata; it is not a distributable payload.',
     'Reference startup/run/close only; vendor executable availability is an inventory, not permission or real-vendor certification.',
-    'Link-free candidate retains raw deploy metadata; sanitization, signatures and extraction limits remain required.',
+    'Normalized staging is an unsigned local candidate, not a platform archive; bounded extraction and production trust remain required.',
+    'Known path and credential-pattern scanning is a fail-closed hygiene check, not an exhaustive secret detector.',
     'Graph equality deduplicates identical package/asset/edge records; physical duplication is reported and module singleton identity is not certified.',
   ],
 };
@@ -110,11 +114,46 @@ try {
   report.binShims = await materializeBinLinks(hoisted, linkFree);
   report.linkFree = await inventory(linkFree);
   assert.equal(report.linkFree.links, 0, 'Candidate still contains links.');
-  await cp(linkFree, relocated, { recursive: true, verbatimSymlinks: true });
+  const ownedPackages = [runtimePackage];
+  for (const entry of await readdir(path.join(repository, 'packages'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    ownedPackages.push(
+      JSON.parse(await readFile(path.join(repository, 'packages', entry.name, 'package.json'), 'utf8')),
+    );
+  }
+  assert(ownedPackages.every((item) => item.name.startsWith('@yanbot-harness/')));
+  report.normalization = await normalizeRuntimeStaging({
+    source: linkFree,
+    destination: normalized,
+    ownedPackages: ownedPackages.map(({ name, version }) => ({ name, version })),
+    forbiddenRoots: [repository, await realpath(repository), root, await realpath(root), homedir()],
+  });
+  const normalizedGraphOptions = { omitPackageManifestBytes: true, ignoredFiles: NORMALIZATION_METADATA };
+  report.normalizedGraphComparison = {
+    before: await auditDeployedPackages(linkFree, normalizedGraphOptions),
+    after: await auditDeployedPackages(normalized, normalizedGraphOptions),
+  };
+  assert.equal(
+    report.normalizedGraphComparison.before.graphSha256,
+    report.normalizedGraphComparison.after.graphSha256,
+    'Normalization changed resolved graph or non-manifest assets.',
+  );
+  assert.equal(
+    report.normalizedGraphComparison.before.layoutSha256,
+    report.normalizedGraphComparison.after.layoutSha256,
+    'Normalization changed package multiplicity.',
+  );
+  report.normalized = await inventory(normalized);
+  assert.equal(report.normalized.links, 0);
+  assert.equal(report.normalized.localReferenceManifests.length, 0);
+  await cp(normalized, relocated, { recursive: true, verbatimSymlinks: true });
   report.relocated = await inventory(relocated);
   assert.equal(report.relocated.externalLinks.length, 0, 'Relocation still points into original staging.');
-  assert.equal(report.relocated.fileTreeSha256, report.linkFree.fileTreeSha256);
-  assert.equal((await auditDeployedPackages(relocated)).graphSha256, originalGraph.graphSha256);
+  assert.equal(report.relocated.fileTreeSha256, report.normalized.fileTreeSha256);
+  assert.equal(
+    (await auditDeployedPackages(relocated, normalizedGraphOptions)).graphSha256,
+    report.normalizedGraphComparison.after.graphSha256,
+  );
   if (process.platform !== 'win32') {
     for (const shim of report.binShims) {
       const arguments_ = path.basename(shim.path) === 'which' ? ['node'] : ['--help'];
