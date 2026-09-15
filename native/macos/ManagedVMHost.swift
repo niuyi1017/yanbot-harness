@@ -10,8 +10,10 @@ func emit(_ value: [String: Any]) {
     guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]), data.count < 4096 else { exit(1) }
     FileHandle.standardOutput.write(data + Data([10]))
 }
-func fail(_ stage: String) -> Never {
-    emit(["protocolVersion": 1, "type": "error", "stage": stage])
+func fail(_ stage: String, _ error: Error? = nil) -> Never {
+    var value: [String: Any] = ["protocolVersion": 1, "type": "error", "stage": stage]
+    if let error = error as NSError? { value["code"] = error.code; value["domain"] = error.domain }
+    emit(value) // No descriptions, userInfo, paths, guest console or credentials.
     exit(1)
 }
 
@@ -98,7 +100,7 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
         }
         vm.start { result in
             switch result {
-            case .failure: fail("vm-start")
+            case .failure(let error): fail("vm-start", error)
             case .success:
                 emit(["protocolVersion": 1, "type": "started", "hostPid": getpid(), "boundary": "virtual-machine"])
                 if self.stopRequested { self.stop() }

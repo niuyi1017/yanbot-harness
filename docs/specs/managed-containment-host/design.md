@@ -28,6 +28,8 @@ SDK 仍返回同一 ManagedRuntimeHandle。resolver 增量返回经过签名缓�
 
 VM 启动/停止与 host/guest 崩溃需真实启动资源验证；只有编译和 isSupported=true 不能证明 containment。平台模式是否默认启用以完整认证结果决定，未认证强模式 fail closed。
 
+机制 fixture 的 kernel 输入还需规范为 VZLinuxBootLoader 使用的 ARM64 Image。若上游提供 Linux EFI zboot/gzip，只在显式构建步骤按 [Linux zboot header](https://github.com/torvalds/linux/blob/v6.12/drivers/firmware/efi/libstub/zboot-header.S) 校验 offset/size/压缩类型并有界解压；记录变换前后摘要，运行时不猜测格式或下载补全。
+
 ## 复用与拒绝方案
 
 - 复用 `packages/sdk/src/managed-runtime.ts` 的统一 deadline/handle、`apps/local-runtime/src/managed-control.ts` 的业务关闭、runtime cache/signature codec 与 `scripts/probe-managed-containment.mjs` 的自有认证 fixture 清理。
