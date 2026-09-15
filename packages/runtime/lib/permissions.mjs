@@ -84,7 +84,7 @@ if($rules.Count -ne 1 -or $rules[0].IdentityReference.Value -ne $sid.Value -or $
         '-EncodedCommand',
         Buffer.from(script, 'utf16le').toString('base64'),
       ],
-      { timeout: 5000, signal, windowsHide: true, maxBuffer: 8192 },
+      { timeout: 15000, signal, windowsHide: true, maxBuffer: 8192 },
     );
   }
   return realpath(absolute);

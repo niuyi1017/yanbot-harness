@@ -39,7 +39,7 @@ foreach($rule in $rules){if($rule.IdentityReference.Value -ne $sid.Value -or $ru
         '-EncodedCommand',
         Buffer.from(script, 'utf16le').toString('base64'),
       ],
-      { signal, timeout: 5000, windowsHide: true, maxBuffer: 8192 },
+      { signal, timeout: 15000, windowsHide: true, maxBuffer: 8192 },
     );
   } catch {
     if (signal.aborted) throw signal.reason;
@@ -112,7 +112,7 @@ if(!$actual.AreAccessRulesProtected -or $rules.Count -ne 1 -or $rules[0].Identit
         '-EncodedCommand',
         Buffer.from(script, 'utf16le').toString('base64'),
       ],
-      { timeout: 5000, signal, windowsHide: true, maxBuffer: 8192 },
+      { timeout: 15000, signal, windowsHide: true, maxBuffer: 8192 },
     );
   } catch {
     if (signal.aborted) throw signal.reason;
