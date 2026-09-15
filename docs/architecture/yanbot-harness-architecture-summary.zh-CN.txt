@@ -1,0 +1,70 @@
+Yanbot Harness 整体架构设计简要说明
+
+1. 上层只有一套调用方式
+
+用户或者业务系统通过我们的 SDK 或平台 CLI 发起任务。无论后面使用本地 Runtime、远端 Runtime，还是不同 AI 厂商，上层调用方式尽量保持一致。
+
+2. Runtime 有本地和远端两种运行方式
+
+Local Runtime（本地运行时）：直接运行在用户的 Mac 或 Windows 电脑上。
+Remote Runtime（远端运行时）：运行在我们的服务器上，由云端 Worker（任务执行进程）实际处理任务。
+
+3. Local 和 Remote 不是两套产品
+
+它们共用同一套 Harness Client Protocol（客户端调用规范）、Session（会话）、Run（任务执行）、Event（事件流）和错误格式。区别主要是任务在哪里执行、工作区怎么提供、凭据怎么管理。
+
+4. AI 厂商支持两种接入模式
+
+SDK 型厂商：例如当前 CodeBuddy/WorkBuddy，通过 SDK Adapter（SDK 适配器）在 Runtime 内直接调用厂商 SDK。
+CLI 型厂商：例如某些主要通过命令行工作的厂商，通过 Sidecar（独立辅助进程）和 Wrapper（厂商命令翻译层）调用厂商 CLI。
+
+5. SDK 型厂商通常不需要 Wrapper
+
+CodeBuddy SDK Adapter 直接把厂商 SDK 返回的消息转换成我们统一的 Event。以后更换 SDK 型厂商，只需要增加对应 Adapter，不需要修改上层 SDK、CLI 和业务代码。
+
+6. CLI 型厂商必须增加进程隔离层
+
+流程：
+Runtime → Sidecar Supervisor（辅助进程管理器）→ Vendor Wrapper（厂商翻译层）→ 厂商 CLI
+
+Wrapper 负责翻译命令、解析 JSON/JSONL 输出、管理 Session ID、处理取消、退出码、权限和日志脱敏。平台 CLI 不能直接调用厂商 CLI。
+
+7. 本地运行的完整流程
+
+业务代码/用户 → 我们的 SDK 或 CLI → Local Runtime → Adapter → CodeBuddy SDK 或厂商 CLI → AI 厂商
+
+任务在用户电脑上执行，本地文件通过 Workspace Grant（工作区授权）提供给 Runtime，厂商 Key 也只由本地 Runtime 读取。
+
+8. 远端运行的完整流程
+
+业务代码/用户 → SDK 或 CLI → Remote API → Queue（任务队列）→ Worker → Sandbox（隔离执行环境）→ Adapter → AI 厂商
+
+本地路径不能直接传给服务器，需要使用 Git 引用或者上传工作区快照。每个任务在隔离环境中运行，完成后清理。
+
+9. 平台 Token 和厂商 Key 是两回事
+
+Platform Access Token（平台访问令牌）：证明用户有权调用我们的 Remote Runtime。
+CodeBuddy Key 或其他厂商凭据：用于真正调用 AI 厂商。
+
+厂商 Key 不能进入我们的 SDK 参数、平台 CLI 命令、事件流、普通日志或者任务队列正文。
+
+10. 最终要兼容四种组合
+
+Local Runtime + SDK 型厂商
+Local Runtime + CLI 型厂商
+Remote Runtime + SDK 型厂商
+Remote Runtime + CLI 型厂商
+
+上层 SDK 和平台 CLI 不需要因为这四种组合而改变业务调用逻辑。
+
+11. 当前已经完成的部分
+
+目前已经完成 Local Runtime、TypeScript SDK、平台 CLI、Reference Adapter 和 CodeBuddy SDK Adapter，Mac 上已经做过真实 CodeBuddy 核心测试，也形成了 Mac/Windows 内测候选包。
+
+12. 目前还没有完成的部分
+
+Remote Runtime、云端 Worker/Sandbox、CLI Sidecar 的完整运行实现、真实 CLI 厂商 Adapter，以及 Windows 真实 CodeBuddy 实机认证还没有完成。
+
+13. 后续开发顺序
+
+先冻结当前 Local Preview，然后统一 Local/Remote 公共协议；接着可以并行开发 CLI Sidecar 和 Remote Runtime；最后做四种组合的跨平台认证，再进入 Local Web、Electron、Admin 和正式发布能力。
