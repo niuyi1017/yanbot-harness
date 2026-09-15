@@ -1,0 +1,234 @@
+{
+  "recordedAt": "2026-09-15",
+  "specBaseline": "1fd2e44",
+  "existingMacPreview2Sha256": "109ae675089927f7244ce4a0754b5604414e937cd213e48e0f857e5cc4e8c1b0",
+  "install": {
+    "schemaVersion": 1,
+    "kind": "distribution-mechanism-probe",
+    "scriptSha256": "3dcd94d35b680c6ace3e1e3cadd673534ea4dfabc80c2e6f1ff85b04a0476bc6",
+    "target": "darwin-arm64",
+    "node": "v22.23.1",
+    "probeVersion": "0.0.0-probe.1",
+    "cases": [
+      {
+        "name": "npm-pack-preserves-opaque-payload-with-no-loose-dependency-tree",
+        "status": "passed"
+      },
+      {
+        "name": "npm-pack-root-node_modules-excluded-but-nested-directory-retained",
+        "status": "passed",
+        "details": {
+          "entries": ["package.json", "payload/node_modules/nested-marker/index.js"]
+        }
+      },
+      {
+        "name": "npm-registry-platform-selection-and-export-resolution",
+        "status": "passed",
+        "details": {
+          "downloaded": [
+            "tarballs/harness-install-probe-contracts-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-runtime-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-runtime-darwin-arm64-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-local-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-sdk-0.0.0-probe.1.tgz"
+          ],
+          "resolvedTarget": "darwin-arm64"
+        }
+      },
+      {
+        "name": "npm-sdk-only-no-runtime-dependency-or-fetch",
+        "status": "passed"
+      },
+      {
+        "name": "npm-omit-optional-gives-actionable-missing-package",
+        "status": "passed"
+      },
+      {
+        "name": "npm-denied-platform-package-is-not-a-successful-local-install",
+        "status": "passed",
+        "details": {
+          "installExitCode": 0,
+          "resolverRequiredAfterInstall": true
+        }
+      },
+      {
+        "name": "npm-clean-reinstall-from-lockfile",
+        "status": "passed",
+        "details": {
+          "scope": "same host, fresh node_modules and package-manager cache/store"
+        }
+      },
+      {
+        "name": "pnpm-registry-platform-selection-and-export-resolution",
+        "status": "passed",
+        "details": {
+          "downloaded": [
+            "tarballs/harness-install-probe-local-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-runtime-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-sdk-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-contracts-0.0.0-probe.1.tgz",
+            "tarballs/harness-install-probe-runtime-darwin-arm64-0.0.0-probe.1.tgz"
+          ],
+          "resolvedTarget": "darwin-arm64"
+        }
+      },
+      {
+        "name": "pnpm-sdk-only-no-runtime-dependency-or-fetch",
+        "status": "passed"
+      },
+      {
+        "name": "pnpm-omit-optional-gives-actionable-missing-package",
+        "status": "passed"
+      },
+      {
+        "name": "pnpm-denied-platform-package-is-not-a-successful-local-install",
+        "status": "passed",
+        "details": {
+          "installExitCode": 0,
+          "resolverRequiredAfterInstall": true
+        }
+      },
+      {
+        "name": "pnpm-clean-reinstall-from-lockfile",
+        "status": "passed",
+        "details": {
+          "scope": "same host, fresh node_modules and package-manager cache/store"
+        }
+      },
+      {
+        "name": "npm-empty-cache-offline-explicit-tarball-closure",
+        "status": "passed",
+        "details": {
+          "registryRequests": 0,
+          "explicitLocalTarballs": 5,
+          "cacheInitiallyEmpty": true
+        }
+      },
+      {
+        "name": "npm-offline-missing-required-transitive-tarball-fails",
+        "status": "passed"
+      },
+      {
+        "name": "npm-runtime-independent-install-and-relocation",
+        "status": "passed"
+      },
+      {
+        "name": "lifecycle-hooks-remain-disabled",
+        "status": "passed"
+      }
+    ],
+    "limitations": [
+      "Synthetic packages only; no production Runtime, signature, lifecycle, or vendor certification.",
+      "Only the actual host is exercised; other platform packages contain metadata fixtures.",
+      "Offline network evidence covers package-manager offline mode and a deny-all loopback registry, not OS firewall enforcement.",
+      "Cross-host lockfile transfer and real Registry authentication require separate acceptance."
+    ],
+    "npm": "10.9.8",
+    "pnpm": "11.10.0",
+    "artifacts": [
+      {
+        "name": "@harness-install-probe/pack-layout",
+        "version": "0.0.0-probe.1",
+        "sha256": "ea00ddda40bf1ae975d128213599e3336438b46c7d4dab1b2d4c7756f67c2022",
+        "entries": ["package.json", "payload/node_modules/nested-marker/index.js"]
+      },
+      {
+        "name": "@harness-install-probe/contracts",
+        "version": "0.0.0-probe.1",
+        "sha256": "111681b9f658358f1dd29679a70aca5883bbfbf17f81ed41f49ee1bcbb3de2f6",
+        "entries": ["index.js", "package.json"]
+      },
+      {
+        "name": "@harness-install-probe/sdk",
+        "version": "0.0.0-probe.1",
+        "sha256": "9602235b7f3f15e5ce859ac25f3f48eb114ce66ee45bd93e8d8603f019bfb18f",
+        "entries": ["index.js", "package.json"]
+      },
+      {
+        "name": "@harness-install-probe/runtime-darwin-arm64",
+        "version": "0.0.0-probe.1",
+        "sha256": "85fde26b4a5ccfe862be42b8916ee17329cf81f5e181ac51ab89500be97a08b7",
+        "entries": ["package.json", "payload/runtime.tar.gz", "runtime-manifest.json"]
+      },
+      {
+        "name": "@harness-install-probe/runtime-win32-x64",
+        "version": "0.0.0-probe.1",
+        "sha256": "0dce06ccbaf50fda8e17caf97585e6e2dbde6655d978af6d5bc9848d8e096fef",
+        "entries": ["package.json", "payload/runtime.tar.gz", "runtime-manifest.json"]
+      },
+      {
+        "name": "@harness-install-probe/runtime-linux-x64",
+        "version": "0.0.0-probe.1",
+        "sha256": "bf3eafefe2d4af84d2be86bc7584ac786d682c80e2ff408e2f7aca95b807e58c",
+        "entries": ["package.json", "payload/runtime.tar.gz", "runtime-manifest.json"]
+      },
+      {
+        "name": "@harness-install-probe/runtime",
+        "version": "0.0.0-probe.1",
+        "sha256": "b2ef89287422681087fc05b9ab5ee5e0a1d175239d4bb9f8115bb154d62059ee",
+        "entries": ["index.js", "package.json"]
+      },
+      {
+        "name": "@harness-install-probe/local",
+        "version": "0.0.0-probe.1",
+        "sha256": "747274424421d505f162246d7dcb0867dbae3be0fb8c15ef503e14876a24ec45",
+        "entries": ["index.js", "package.json"]
+      }
+    ],
+    "status": "passed"
+  },
+  "deploy": {
+    "schemaVersion": 1,
+    "kind": "runtime-deploy-mechanism-probe",
+    "scriptSha256": "93699a0c21d54822bd9abbdf04794a2cc430f7aac210996ec1391c1b0b0d7111",
+    "status": "passed",
+    "target": "darwin-arm64",
+    "node": "v22.23.1",
+    "pnpm": "11.10.0",
+    "lockSha256": "a0cf0e7297ebcb41b50f5a706fda783bac4badf7c7c875fffab86e21469a6cf7",
+    "original": {
+      "files": 6280,
+      "bytes": 170904475,
+      "links": 296,
+      "externalLinks": [],
+      "packageManifestCount": 109,
+      "localReferenceManifestCount": 9,
+      "fileTreeSha256": "152e759d3bbadc699201ac827d1df269c818d5ddd91102e571fdbfd05eb9380c"
+    },
+    "relocated": {
+      "files": 6280,
+      "bytes": 170904475,
+      "links": 296,
+      "externalLinks": [],
+      "packageManifestCount": 109,
+      "localReferenceManifestCount": 9,
+      "fileTreeSha256": "152e759d3bbadc699201ac827d1df269c818d5ddd91102e571fdbfd05eb9380c"
+    },
+    "vendorInventory": [
+      {
+        "name": "@tencent-ai/agent-sdk",
+        "version": "0.3.254",
+        "license": "MIT",
+        "licenseFiles": [],
+        "binaries": []
+      }
+    ],
+    "reference": {
+      "health": {
+        "service": "yanbot-harness-local-runtime",
+        "protocolVersion": "1.0.0",
+        "status": "ok",
+        "startedAt": "2026-09-15T08:15:28.624Z"
+      },
+      "terminal": "run.completed",
+      "version": "0.1.0-preview.2",
+      "cleanedDescriptor": true
+    },
+    "limitations": [
+      "Offline deployment uses the existing frozen-lock pnpm store; this is not an empty-cache install.",
+      "Raw deploy includes local file references and package-manager metadata; it is not a distributable payload.",
+      "Reference startup/run/close only; vendor executable availability is an inventory, not permission or real-vendor certification.",
+      "Relocation retains internal symlinks; link-free payload assembly and extraction limits remain T1/T2 work."
+    ]
+  }
+}

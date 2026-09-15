@@ -1,17 +1,18 @@
 # 统一本地分发开发步骤
 
-状态：**方案已确认，全部实现任务未开始**。2026-09-15。
+状态：**方案已确认，T1 本机探针进行中；T2–T7 未开始**。2026-09-15。
 本文件是 P1D 分发工作流的实施清单；整体进度以 [roadmap](../harness-platform-foundation/roadmap.md) 为准。
 `preview.2` 的已有实现/证据不是下列新任务的完成证据。
 
 ## T0. 方案确认与发布约束冻结
 
 - [x] 用户确认 local/sdk/runtime 包职责、payload 形态、最低平台矩阵、离线 kit 与分阶段范围。
-- [ ] 固定 P0 源提交/制品摘要；选择后续 Preview 版本线，独立提交本 Spec 基线后开始编码。
+- [x] 记录现有 Mac P0 制品源提交/摘要，独立提交已确认 Spec 基线 `1fd2e44` 后开始编码；Windows 冻结仍待实机证据。
+- [ ] T2 产品打包前选择后续 Preview 版本线；T1 使用独立 scope 与 probe 版本。
 - [ ] README 等文档变化也会改变 tgz 字节：P0 重建只从其冻结 ref 执行，本规划后的新制品须先切换新版本，不能以 `preview.2` 身份覆盖既有包。
 - [ ] 核实新增包名/scope 权限、Registry/镜像、再分发许可、Node 与包管理器精确版本、签名信任根和实机资源；缺失项登记为发布门禁。
 - 文件：本目录三份 Spec、foundation roadmap、后续 delivery 说明。
-- 前置：无；当前仅已完成审计与草案文档。
+- 前置：无；方案确认记录见 [decision-record](decision-record.md)。
 - 验收：评审记录列明接受/调整决定，未虚构发布域名或证书；版本与 `preview.2` 隔离可证明。
 
 ## T1. 平台打包与包管理器可行性探针
@@ -20,7 +21,9 @@
 - [ ] 确定 frozen-lock Runtime 生产依赖装配方式，检查厂商辅助程序/资源、peer/optional 闭包、解引用和许可证。
 - [ ] 用最小测试包验证同一公共 tgz 跨平台安装、Mac 产生的 lockfile 在 Windows 重装、空缓存离线 kit、平台缺包/Registry 拒绝诊断。
 - [ ] 冻结 manifest、resolver 类型、解包库精确版本、大小限值、缓存权限与生命周期 control protocol；不可行之处先修 Spec。
-- 文件：新增 `scripts/test-distribution-packaging.mjs`、测试 fixtures（隔离产物不提交）、本目录设计探针记录；精确文件名为目标。
+- 本机证据：npm/pnpm 安装机制 16/16 通过；frozen-lock 离线 deploy、搬迁后 Reference Run/close 通过。尚不能勾选完整跨平台验收项，详见 [probe-results](probe-results.md)。
+- 待续：共享 tgz 与 Mac→Windows lockfile 转移；link-free payload 装配/资源与许可核查；manifest/解包/control 具体契约。三平台 CI 入口已编写，未触发远端执行。
+- 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`.github/workflows/distribution-probes.yml`、本目录探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
 - 前置：T0 的产品方案确认；真实 Registry 缺失可使用本地测试 Registry，签名使用标明的测试密钥。
 - 验收：Mac/Windows 空目录探针输出安装依赖图、实际下载包和 hash；明确不支持的组合；不可把本机一种布局通过当作跨平台通过。
 

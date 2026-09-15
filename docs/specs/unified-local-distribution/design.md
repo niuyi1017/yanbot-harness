@@ -65,9 +65,11 @@ LICENSE / THIRD_PARTY_NOTICES / sbom.json
 
 所有 npm 平台包内部统一 tar.gz，使用经审查、精确锁定的 Node 解包库，无安装脚本、无系统 tar/PowerShell 依赖。已有独立 portable 交付继续使用 Mac/Linux tar.gz、Windows ZIP；Windows 的 `.cmd` 人工入口保留。
 
-采用内嵌 archive 的原因是 npm pack 对 `node_modules` 有特殊排除行为，不能假设在 `files` 中加入 `payload/` 就会携带其嵌套依赖。archive 明确保留厂商 SDK 的辅助 CLI、动态资源和目录结构，并使包管理器无法在消费者安装时重解析内部依赖。平台包安装后，resolver 在第一次显式启动时本机展开，**不进行网络请求**。
+采用内嵌 archive 是为了固定完整目录、摘要与受限展开边界，而不是声称 npm 总会排除嵌套 `node_modules`。T1 在 npm 10.9.8 的实际探针发现：`files: ['payload']` 会保留该 fixture 的 `payload/node_modules`；根级 `node_modules` 与嵌套目录必须分别验证，不能泛化。archive 明确保留厂商 SDK 的辅助 CLI、动态资源和目录结构，并使包管理器无法在消费者安装时重解析内部依赖。平台包安装后，resolver 在第一次显式启动时本机展开，**不进行网络请求**。
 
 内部依赖来自确定的锁定集合，构建结果检查 peer/optional 依赖和运行资源齐全。具体实现先验证以 frozen workspace lock 生成 deploy staging 的可行性；若需继续使用隔离 npm install，则从锁定集合生成独立构建 lock 并 `npm ci`，禁止沿用当前无 lock 的传递范围解析。只在一次 release 构建固定 payload，后续各渠道复制相同字节。
+
+T1 本机已验证 pnpm 11.10.0 的 `deploy --prod --offline --frozen-lockfile --ignore-scripts`，搬迁后 Reference 可运行，根 lock 未变化。但 raw deploy 仍包含内部链接、`file:` 本机构建路径以及 pnpm 元数据；**仅作装配输入，禁止直接签名发布**。正式构建需完成链接解引用、发布元数据归一化和路径/资产/许可证扫描，之后再确定展开限值。完整发现见 [probe-results](probe-results.md)。
 
 Runtime npm 包不携带 Node；普通 Node 宿主使用受支持的 Node 22。平台并非纯 JS 就可以通用：厂商辅助程序、原生模块、文件权限及生命周期都需要目标环境构建和验收。
 

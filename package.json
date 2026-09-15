@@ -11,6 +11,8 @@
     "build": "pnpm -r --if-present build",
     "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm build && pnpm typecheck && pnpm test:unit",
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
+    "probe:distribution": "node scripts/test-distribution-packaging.mjs",
+    "probe:runtime-deploy": "pnpm build && node scripts/probe-runtime-deploy.mjs",
     "build:client-packages": "node scripts/build-client-packages.mjs",
     "build:runtime-bundle": "node scripts/build-runtime-bundle.mjs",
     "release:assemble": "node scripts/assemble-release.mjs",

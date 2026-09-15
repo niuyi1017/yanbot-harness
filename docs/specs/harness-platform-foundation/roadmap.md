@@ -120,9 +120,9 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 详细清单：[`dual-runtime-compatibility/tasks.md`](../dual-runtime-compatibility/tasks.md) Phase 1-3。
 
-### P1D `[ ]` 统一本地安装与 Runtime 平台包
+### P1D `[~]` 统一本地安装与 Runtime 平台包
 
-**状态**：方案已获用户确认，未开始实现。新增名称、payload 形态与顺序为推荐，不是已发布能力。
+**状态**：方案已获用户确认，T1 本机安装/deploy 探针已落地，跨平台与 payload 契约仍待收口；T2–T7 未开始。新增包仍不是已发布能力。
 
 **目标**：本地只安装 `@yanbot-harness/local` 即可无路径 managed 启动；Remote-only 只安装轻量 SDK；Runtime 继续独立模块/进程并支持独立分发。
 
@@ -262,22 +262,22 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ## 6. 当前进度汇总
 
-| 阶段                      | 状态  | 当前结论                                            | 下一动作                                         |
-| ------------------------- | ----- | --------------------------------------------------- | ------------------------------------------------ |
-| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞 | 固定候选提交和摘要；并行等待 Windows 验收        |
-| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移 |
-| P1D 统一本地安装          | `[ ]` | 已确认方案与文档，尚未实现                          | 确认包职责后先做 T1 平台/离线打包探针            |
-| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                         | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI  |
-| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                  | 先做能力与许可证探针，不直接写 Wrapper           |
-| P4 Remote Reference       | `[ ]` | 只有设计                                            | 建立 cloud-server 子 Spec 和 Reference 闭环      |
-| P5 Remote CodeBuddy       | `[ ]` | 未实现                                              | P4 通过后建设 Worker/Sandbox                     |
-| P6 四象限认证             | `[ ]` | 未开始                                              | 等待 P3、P5 和 Windows 实机条件                  |
-| P7 产品/运营              | `[ ]` | 未脚手架化                                          | Local Web 可在 P1 后并行，其余按依赖进入         |
+| 阶段                      | 状态  | 当前结论                                            | 下一动作                                           |
+| ------------------------- | ----- | --------------------------------------------------- | -------------------------------------------------- |
+| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞 | 固定候选提交和摘要；并行等待 Windows 验收          |
+| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移   |
+| P1D 统一本地安装          | `[~]` | T1 Mac 安装/deploy 探针通过，未完成跨平台门禁       | 共享 tgz/跨系统 lock、link-free payload 与契约冻结 |
+| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                         | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI    |
+| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                  | 先做能力与许可证探针，不直接写 Wrapper             |
+| P4 Remote Reference       | `[ ]` | 只有设计                                            | 建立 cloud-server 子 Spec 和 Reference 闭环        |
+| P5 Remote CodeBuddy       | `[ ]` | 未实现                                              | P4 通过后建设 Worker/Sandbox                       |
+| P6 四象限认证             | `[ ]` | 未开始                                              | 等待 P3、P5 和 Windows 实机条件                    |
+| P7 产品/运营              | `[ ]` | 未脚手架化                                          | Local Web 可在 P1 后并行，其余按依赖进入           |
 
 ## 7. 最近两个执行节点
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
-2. **确认并启动后续 Preview 工作流**：先评审 P1D 统一安装 Spec，按 T1 探针验证关键分发机制；P1 中立协议按已有子 Spec 推进，共同冻结 managed target/handle 契约。建议 `gpt-6-astra + high`。
+2. **推进后续 Preview 工作流**：P1D Spec 已确认并启动 T1，继续补齐跨平台、link-free payload 与安全契约探针；P1 中立协议按已有子 Spec 推进，共同冻结 managed target/handle 契约。建议 `gpt-6-astra + high`。
 
 P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之间并行推进；Local Web 也可在协议稳定后单独立项。
 

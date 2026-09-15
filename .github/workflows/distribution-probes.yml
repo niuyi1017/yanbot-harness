@@ -1,0 +1,45 @@
+name: Distribution mechanism probes
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packaging:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: windows-2022
+            target: win32-x64
+          - runner: ubuntu-24.04
+            target: linux-x64
+    name: Package mechanisms (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.1
+      - run: npm install --global npm@10.9.8 --ignore-scripts --no-audit --no-fund
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm probe:distribution --output-dir "${{ runner.temp }}/distribution-probes"
+      - run: pnpm probe:runtime-deploy --output-dir "${{ runner.temp }}/distribution-probes"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: distribution-probe-${{ matrix.target }}
+          path: ${{ runner.temp }}/distribution-probes/*/report.json
+          if-no-files-found: warn
+          retention-days: 14

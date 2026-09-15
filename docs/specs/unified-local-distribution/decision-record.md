@@ -19,3 +19,11 @@
 - Windows 10/11、其他目标平台与真实厂商认证证据。
 
 T1 发现影响方案的机制差异时，先更新 Spec 和本记录，再进入正式实现。
+
+## 2026-09-15：T1 本机机制结果
+
+- npm/pnpm 安装机制探针 16/16 通过；pnpm frozen-lock 离线 deploy 与搬迁后的 Reference Run/close 通过。
+- 修正 npm pack 排除规则的泛化，维持 archive 的完整目录与校验边界设计。
+- raw pnpm deploy 仍含内部链接和本机路径，确定仅作为候选装配输入，不能直接发布；具体 link-free 装配与资源核查尚未完成。
+- 新增三平台 CI 入口但未远端执行；共享 tgz/跨系统 lockfile、最终解包/control 契约继续作为 T1 未完成项。
+- 证据与复跑方式见 [probe-results](probe-results.md)。现有 preview.2 制品保持不变，不新增真实 Registry/签名承诺。
