@@ -22,7 +22,7 @@ jobs:
           $devcmd = Join-Path $installation 'Common7/Tools/VsDevCmd.bat'
           cmd /d /s /c "`"$devcmd`" -arch=x64 -host_arch=x64 >nul && set" | ForEach-Object {
             $pair = $_ -split '=', 2
-            if ($pair.Length -eq 2 -and $pair[0] -match '^[A-Za-z_][A-Za-z0-9_]*$') {
+            if ($pair.Length -eq 2 -and $pair[0] -match '^(PATH|INCLUDE|LIB|LIBPATH)$') {
               "$($pair[0])=$($pair[1])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             }
           }

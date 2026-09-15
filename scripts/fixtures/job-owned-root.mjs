@@ -15,7 +15,12 @@ const child =
 child.unref();
 let breakaway;
 if (mode === 'breakaway') {
-  const result = await promisify(execFile)(path.join(path.dirname(helper), 'breakaway-probe.exe'), [process.execPath]);
+  const result = await promisify(execFile)(path.join(path.dirname(helper), 'breakaway-probe.exe'), [
+    process.execPath,
+    worker,
+    path.join(root, 'breakaway.json'),
+    authorization,
+  ]);
   breakaway = JSON.parse(result.stdout);
 }
 const timer = setTimeout(() => process.exit(0), 30000);

@@ -66,7 +66,7 @@ async function start(t, mode = 'detached') {
   t.after(async () => {
     child.stdin.destroy();
     if (child.exitCode === null && child.signalCode === null) child.kill();
-    for (const name of ['worker', 'root']) {
+    for (const name of ['worker', 'breakaway', 'root']) {
       try {
         await alive(JSON.parse(await readFile(path.join(root, name + '.json'), 'utf8')), authorization, 'POST');
       } catch {
@@ -76,12 +76,15 @@ async function start(t, mode = 'detached') {
   });
   const current = await endpoint(root, 'root');
   const worker = await endpoint(root, 'worker');
+  const breakaway = current.breakaway?.created ? await endpoint(root, 'breakaway') : undefined;
+  if (breakaway) assert(await alive(breakaway, authorization));
   assert(await alive(current, authorization));
   assert(await alive(worker, authorization));
-  return { child, exited, current, worker, authorization, root, output: () => output, error: () => error };
+  return { child, exited, current, worker, breakaway, authorization, root, output: () => output, error: () => error };
 }
 async function gone(f) {
   await until(async () => !(await alive(f.worker, f.authorization)), 7000);
+  if (f.breakaway) await until(async () => !(await alive(f.breakaway, f.authorization)), 7000);
 }
 for (const scenario of [
   'stop',
@@ -95,7 +98,9 @@ for (const scenario of [
 ]) {
   await test('Job host owns descendants: ' + scenario, { timeout: 20000 }, async (t) => {
     const f = await start(t, scenario);
-    if (scenario === 'breakaway') assert.deepEqual(f.current.breakaway, { created: false, error: 5 });
+    // Breaking out of Node/libuv's inner Job can succeed while retaining our outer Job.
+    // Observe a live breakaway child before closing, then require it to disappear too.
+    if (scenario === 'breakaway' && !f.current.breakaway.created) assert.equal(f.current.breakaway.error, 5);
     if (scenario === 'host-kill') f.child.kill('SIGKILL');
     else if (scenario === 'root-exit' || scenario === 'root-crash')
       await alive(f.current, f.authorization, 'POST', scenario === 'root-crash' ? '/crash' : '');
