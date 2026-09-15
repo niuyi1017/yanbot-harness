@@ -252,6 +252,58 @@ try {
     assert(!requests.slice(index).some((name) => /runtime|adapter|core/u.test(name)));
     cases.push({ name: manager + '-sdk-only-no-runtime-download', status: 'passed' });
   }
+  const independent = await consumer('npm-runtime-only');
+  const independentStart = requests.length;
+  await install('npm', independent, '@yanbot-harness/runtime');
+  await run(
+    independent,
+    `
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { mkdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { resolveInstalledRuntime } from '@yanbot-harness/runtime';
+const resolved=await resolveInstalledRuntime({trustedKeys:${JSON.stringify(trustedKeys)},cacheRoot:path.join(import.meta.dirname,'cache'),signal:AbortSignal.timeout(120000)});
+const state=path.join(import.meta.dirname,'state');await mkdir(state,{mode:0o700});
+const child=spawn(process.execPath,[resolved.entryPath,'--reference'],{env:{...process.env,YANBOT_HARNESS_STATE_DIR:state},stdio:'ignore'});
+const exited=once(child,'exit');
+try {
+  let descriptor;
+  const deadline=Date.now()+15000;
+  while(!descriptor && Date.now()<deadline){try{descriptor=JSON.parse(await readFile(path.join(state,'runtime.json'),'utf8'));}catch{await new Promise(r=>setTimeout(r,50));}}
+  assert(descriptor);assert.equal(descriptor.pid,child.pid);
+  const response=await fetch(descriptor.origin+'/local/health',{headers:{authorization:'Bearer '+descriptor.accessToken},signal:AbortSignal.timeout(5000)});
+  assert(response.ok);assert.equal((await response.json()).status,'ok');
+} finally {
+  child.kill('SIGTERM');
+  const timer=setTimeout(()=>child.kill('SIGKILL'),3000);
+  try{await exited;}finally{clearTimeout(timer);}
+}
+console.log(JSON.stringify({status:'passed',independentDaemon:true}));
+`,
+  );
+  assert(
+    !requests.slice(independentStart).some((name) => /yanbot-harness(?:%2f|\/|-)(?:sdk|local|cli)(?:-|$)/iu.test(name)),
+  );
+  cases.push({ name: 'runtime-only-independent-reference-daemon', status: 'passed' });
+  const cli = await consumer('npm-cli-only');
+  const cliStart = requests.length;
+  await install('npm', cli, '@yanbot-harness/cli');
+  await run(
+    cli,
+    `
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+const main=fileURLToPath(new URL('./main.js',import.meta.resolve('@yanbot-harness/cli')));
+const result=await promisify(execFile)(process.execPath,[main,'--help']);
+assert(result.stdout.length>0);
+`,
+  );
+  assert(!requests.slice(cliStart).some((name) => /runtime|adapter|core/u.test(name)));
+  cases.push({ name: 'cli-only-no-runtime-download', status: 'passed' });
   const missing = await consumer('npm-no-optional');
   await install('npm', missing, '@yanbot-harness/local', ['--omit=optional']);
   await run(

@@ -12,6 +12,7 @@
     "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm build && pnpm typecheck && pnpm test:unit && pnpm test:probes",
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
     "probe:distribution": "node scripts/test-distribution-packaging.mjs",
+    "probe:managed-containment": "node scripts/probe-managed-containment.mjs",
     "probe:runtime-deploy": "pnpm build && node scripts/probe-runtime-deploy.mjs",
     "probe:runtime-archive": "pnpm build && node scripts/probe-runtime-deploy.mjs --archive",
     "test:probes": "node --test scripts/test-deploy-probe-audit.mjs scripts/test-normalize-runtime-staging.mjs scripts/test-runtime-archive-probe.mjs scripts/test-offline-kit.mjs",
