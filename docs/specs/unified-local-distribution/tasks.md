@@ -54,7 +54,8 @@
 - [x] SDK 可选 resolver/Node 注入与统一 deadline；保留旧路径/env/options/handle，错误分类增量兼容。
 - [x] `packages/local` 重导出 SDK、装配 resolver/最小环境，无 import 时启动副作用。
 - [x] 严格 pnpm 布局、缓存空格/中文/特殊字符路径、错误 manifest、缓存损坏和目录逃逸用例通过；POSIX 只读平台内容不写安装目录单测通过。
-- [ ] 整套真实安装矩阵现统一使用中文/空格/`&`/`#` 根路径，等待本次 CI；Rosetta 实机拒绝及 Windows 只读安装目录 ACL 场景尚未认证。
+- [x] 整套真实安装矩阵使用中文/空格/`&`/`#` 根路径，本机及三平台 CI `34969665142` 通过。
+- [ ] Rosetta 实机拒绝及 Windows 只读安装目录 ACL 场景尚未认证。
 - 文件：`packages/{local,runtime}/src` 与 test/manifests、`packages/sdk/src/{managed-runtime,index,transport}.ts`、SDK tests、`pnpm-workspace.yaml`、根 lockfile、boundary checker、示例。
 - 前置：T1、T2 的 artifact contract；生产签名身份尚缺时只做测试签名，不开放默认未签包。
 - 验收：`pnpm --filter @yanbot-harness/sdk test:unit`、新 local/runtime 单测、`pnpm check`；新 facade Reference 可启动；SDK-only 依赖图无任何 Runtime；显式路径优先且失败无 fallback。

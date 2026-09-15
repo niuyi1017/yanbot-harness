@@ -2,11 +2,14 @@
   "schemaVersion": 1,
   "releaseStatus": "development-candidate-not-production",
   "latestImplementationRegression": {
-    "sourceCommit": "859a8d023d88419945868da8e56c7251cc2bcba6",
-    "installationRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34968682828",
+    "sourceCommit": "5c2c1132d088abdba40777fb991ce19f08d7d12b",
+    "installationRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34969665142",
     "installationConclusion": "success on all three CI targets",
-    "mechanismsRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34968682984",
+    "mechanismsRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34969665115",
     "mechanismsConclusion": "success on all three CI targets",
+    "portableRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34969665112",
+    "portableConclusion": "success; full check, three Reference targets and identical common-package hashes",
+    "installationPaths": "All consumers use a root containing Chinese characters, spaces, ampersand and hash.",
     "note": "Independent probe still blocks strong containment; test-signed candidates are not a frozen production release."
   },
   "installationRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34967314959",
