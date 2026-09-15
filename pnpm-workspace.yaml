@@ -5,5 +5,12 @@ packages:
 
 injectWorkspacePackages: true
 
+# Platform payloads are generated release artifacts, not development workspace dependencies.
+# Published runtime/package.json keeps the exact optional platform mapping.
+overrides:
+  '@yanbot-harness/runtime>@yanbot-harness/runtime-darwin-arm64': '-'
+  '@yanbot-harness/runtime>@yanbot-harness/runtime-win32-x64': '-'
+  '@yanbot-harness/runtime>@yanbot-harness/runtime-linux-x64': '-'
+
 allowBuilds:
   esbuild: true

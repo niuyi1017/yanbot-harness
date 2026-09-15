@@ -11,6 +11,9 @@
 - Windows 新缓存根显式建立仅当前用户继承 ACL 并复读校验；该实现需 Windows CI 通过后才能计作证据。普通运行临时目录的 ACL 与进程树 containment 在 T4 独立收口，不能因缓存 ACL 成功一并勾选。
 - SDK 首版先验证自定义 Node 的版本及与宿主相同的 OS/CPU，跨架构 Node 明确拒绝，不将它错误交给按宿主选包的默认 resolver；后续如支持异架构需要扩展 context。新 IPC 与旧显式路径分支隔离。POSIX 独立组和 Windows taskkill 只是基础回收，脱组后代、Runtime 强杀后 Windows 后代及父宿主强杀的完整 containment 保持发布阻断，不能宣称已保证。
 - 第二次 CI 34959311734：三平台原样 tgz/跨系统 lock 安装均通过，Mac/Linux archive 通过；Windows hoisted 的六个普通 pnpm CLI shim 含装配绝对路径。归一化前仅对已登记 uuidv7/which 的 shell/cmd/ps1 shim 按实际 package.bin 生成相对启动器，校验目标 Node shebang，未知 bin 条目拒绝；第三方包资源仍不变。该变更先加入契约，再重跑 Windows，不删除命中资源。
+- T6 common 构建独立于旧 preview.2 builder：公共包只 pack 一次，第三方 consumer 闭包从实际锁定安装图遍历并显式装入 kit，平台 payload 不重新解析内部依赖。每个平台 kit 引用同一 common 字节；离线签名清单绑定全部 tgz 和安装器摘要。新消费者目录必须不存在，失败保留诊断、不覆盖已有工程。npm 精确 10.9.8、独立空配置/cache、offline/ignore-scripts；零 Registry 请求不冒充 OS 防火墙证明。
+- 离线 bootstrap 必须先从可信渠道取得/核验安装器及外部信任根，不能依赖 kit 自带公钥自证；默认不附生产公钥。开发测试向安装器显式传入单独生成的测试信任文件，正式流程仍缺发布身份。
+- 干净 CI 揭示未发布 optional 平台包未进入锁文件，而本机已有 node_modules 的快速路径掩盖了 frozen-lock 漂移。开发工作区通过三个明确的 pnpm overrides 移除平台包的开发安装边；对外 runtime manifest 保持三个精确 optionalDependencies，pack 后必须验证未被改写。不会关闭 frozen-lock 或发布空壳平台包来绕过此问题；增加干净工作区安装验证。
 - CI 外部结果与本地证据分别记录。T1 已验证的契约足以推进独立 T2/T3 工作，未通过的平台门禁继续保持未完成。
 
 ## 2026-09-15：方案确认，授权启动 T1

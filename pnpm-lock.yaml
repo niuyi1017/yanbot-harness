@@ -5,6 +5,11 @@ settings:
   excludeLinksFromLockfile: false
   injectWorkspacePackages: true
 
+overrides:
+  '@yanbot-harness/runtime>@yanbot-harness/runtime-darwin-arm64': '-'
+  '@yanbot-harness/runtime>@yanbot-harness/runtime-win32-x64': '-'
+  '@yanbot-harness/runtime>@yanbot-harness/runtime-linux-x64': '-'
+
 importers:
 
   .:
