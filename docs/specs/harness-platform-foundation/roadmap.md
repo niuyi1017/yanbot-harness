@@ -277,7 +277,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 ## 7. 最近两个执行节点
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
-2. **推进后续 Preview 工作流**：P1D preview.3 三平台实际新包安装与离线候选通过，完整 containment 的隔离宿主范围需确认，其余业务回滚与发布门禁保持未完成；P1 中立协议仍按已有子 Spec 推进，共用 managed target/handle 契约。建议 `gpt-6-astra + high`。
+2. **推进后续 Preview 工作流**：P1D preview.3 三平台实际新包安装与离线候选通过；用户已批准隔离宿主范围，Windows Job 产品链路与 Mac VM 机制通过，Mac guest 产品集成见 [宿主子 Spec](../managed-containment-host/tasks.md)。其余业务回滚与发布门禁保持未完成；P1 中立协议仍按已有子 Spec 推进，共用 managed target/handle 契约。建议 `gpt-6-astra + high`。
 
 P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之间并行推进；Local Web 也可在协议稳定后单独立项。
 

@@ -20,6 +20,17 @@ const args = process.argv.slice(2).filter((arg) => arg !== '--');
 const testSigning = args.includes('--test-signing');
 const skipBuild = args.includes('--skip-build');
 for (const flag of ['--test-signing', '--skip-build']) if (args.includes(flag)) args.splice(args.indexOf(flag), 1);
+let vmGuestConfig;
+if (args.includes('--vm-guest-config')) {
+  const index = args.indexOf('--vm-guest-config');
+  assert(args[index + 1]);
+  vmGuestConfig = path.resolve(args[index + 1]);
+  args.splice(index, 2);
+  assert(
+    testSigning && process.platform === 'darwin' && process.arch === 'arm64',
+    'VM images are development-only until supply-chain approval.',
+  );
+}
 assert(
   args.length === 0 || (args.length === 2 && args[0] === '--output-dir'),
   'Use --output-dir PARENT [--test-signing] [--skip-build].',
@@ -84,6 +95,31 @@ try {
     );
     containment = { kind: 'windows-job-v1', entryPath: 'native/managed-job-host.exe' };
     report.nativeHost = JSON.parse(await readFile(path.join(nativeRoot, 'native-build.json'), 'utf8'));
+  }
+  if (vmGuestConfig) {
+    const nativeRoot = path.join(root, 'native-build');
+    await execute(process.execPath, [path.join(repository, 'scripts/build-macos-vm-host.mjs'), nativeRoot], {
+      timeout: 120000,
+    });
+    const guest = JSON.parse(await readFile(vmGuestConfig, 'utf8'));
+    assert.equal(guest.schemaVersion, 1);
+    assert(
+      guest.runtime && guest.runtime.shares.length === 0 && guest.runtime.network === false,
+      'Build inputs cannot contain host resource mappings.',
+    );
+    await mkdir(path.join(staged.directory, 'native/guest'), { recursive: true });
+    await copyFile(path.join(nativeRoot, 'managed-vm-host'), path.join(staged.directory, 'native/managed-vm-host'));
+    containment = { kind: 'macos-vm-v1', entryPath: 'native/managed-vm-host', guestTarget: 'linux-arm64' };
+    for (const name of ['kernel', 'initrd']) {
+      const artifact = guest[name];
+      assert(path.isAbsolute(artifact.path) && (await stat(artifact.path)).size <= 256 * 1024 * 1024);
+      const bytes = await readFile(artifact.path);
+      assert.equal(sha256(bytes), artifact.sha256, 'Guest build digest mismatch.');
+      await writeFile(path.join(staged.directory, 'native/guest', name), bytes, { flag: 'wx' });
+      containment[name] = { path: 'native/guest/' + name, sha256: artifact.sha256 };
+    }
+    report.nativeHost = JSON.parse(await readFile(path.join(nativeRoot, 'macos-vm-build.json'), 'utf8'));
+    report.guestDevelopmentOnly = true;
   }
   const platform = path.join(root, 'platform');
   const manifest = await buildPlatformPackage({

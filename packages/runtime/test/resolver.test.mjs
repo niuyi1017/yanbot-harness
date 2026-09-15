@@ -103,6 +103,41 @@ test('signed package resolves in a private relocated cache; concurrent starts re
   assert.deepEqual(c, a);
 });
 
+test('VM resolver binds each guest artifact to the signed file inventory before returning paths', async (t) => {
+  const f = await fixture(t);
+  await mkdir(path.join(f.source, 'native/guest'), { recursive: true });
+  await writeFile(path.join(f.source, 'native/managed-vm-host'), 'inert host fixture');
+  const containment = { kind: 'macos-vm-v1', entryPath: 'native/managed-vm-host', guestTarget: 'linux-arm64' };
+  for (const name of ['kernel', 'initrd']) {
+    const bytes = Buffer.from('inert ' + name);
+    await writeFile(path.join(f.source, 'native/guest', name), bytes);
+    containment[name] = { path: 'native/guest/' + name, sha256: createHash('sha256').update(bytes).digest('hex') };
+  }
+  const directory = path.join(f.root, 'vm-platform');
+  const target = { os: 'darwin', cpu: 'arm64', libc: null };
+  const manifest = await buildPlatformPackage({
+    source: f.source,
+    destination: directory,
+    release: { version: VERSION, sourceCommit: 'a'.repeat(40), sourceLockSha256: 'b'.repeat(64) },
+    target,
+    privateKey: f.privateKey,
+    keyId: f.manifest.keyId,
+    containment,
+  });
+  const options = { ...f.options, directory, target };
+  const resolved = await resolvePlatformDirectory(options);
+  assert.equal(resolved.containment.kind, 'macos-vm-v1');
+  assert.equal(await readFile(resolved.containment.kernel.path, 'utf8'), 'inert kernel');
+  assert.equal(resolved.containment.initrd.sha256, containment.initrd.sha256);
+  const invalid = { ...manifest, containment: { ...containment, guestTarget: 'darwin-arm64' } };
+  assert.throws(() => validateManifest(manifestBytes(invalid)));
+  manifest.containment.kernel.sha256 = 'c'.repeat(64);
+  const changed = manifestBytes(manifest);
+  await writeFile(path.join(directory, 'runtime-manifest.json'), changed);
+  await writeFile(path.join(directory, 'runtime-manifest.sig'), sign(null, changed, f.privateKey));
+  await assert.rejects(resolvePlatformDirectory(options), { reason: 'INTEGRITY_FAILED' });
+});
+
 test('default trust rejects ephemeral keys, unknown keys and bad signature', async (t) => {
   const f = await fixture(t);
   await assert.rejects(resolvePlatformDirectory({ ...f.options, trustedKeys: {} }), { reason: 'INTEGRITY_FAILED' });

@@ -28,7 +28,7 @@
 
 ## 尚未完成的工程认证
 
-- 任意脱组后代、Runtime 自身被强杀后整树回收的强 containment。当前 IPC、watchdog、POSIX 组与 Windows taskkill 不能替代 Windows Job Object 或同等经认证的宿主隔离边界。
+- 用户已批准原生/VM 宿主范围。Windows 原子 Job host + 签名平台包/SDK 集成已在 Server 2022 通过，含 detached、嵌套 Job、Runtime/宿主/SDK 强杀。Mac 原生 VM 的真实 stop/EOF/宿主与父强杀/内核 panic 已通过；guest Runtime/SDK/签名包集成候选仍需完整产品报告。详见 [隔离宿主任务](../specs/managed-containment-host/tasks.md)。原 POSIX 组/taskkill 兼容路径不因此升级为强保证。
 - `pnpm probe:managed-containment` 为独立否定门禁：2026-09-15 macOS arm64 实测 detached 孙进程在 managed close 成功后仍存活，命令 exit 1/status blocked。探针通过随机认证的仅本机控制端点回收自己的 fixture，不通过旧 PID 猜测杀进程；默认 30 秒自退出兜底。这是已证实的缺口，不是“还没测试”。
 - Windows OS 级阻外网（Mac sandbox、Linux network namespace 已通过）。
 - 两个真实冻结版本的完整消费者/业务状态升级回滚。小型版本缓存 fixture、未知 schema、Linux 实际 ENOSPC 与 Windows FileShare.None 占用/恢复已通过，但不等于正式业务迁移认证。

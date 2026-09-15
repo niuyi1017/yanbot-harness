@@ -4,7 +4,7 @@ import { mkdir, readFile, stat } from 'node:fs/promises';
 import { createServer, request } from 'node:http';
 import { Buffer } from 'node:buffer';
 import { URL } from 'node:url';
-import { setTimeout, clearTimeout } from 'node:timers';
+import { setTimeout, clearTimeout, setInterval } from 'node:timers';
 
 // Runs only in the private VM. Bootstrap is reachable through the owner's private vsock transport only.
 let initialized = false;
@@ -111,3 +111,4 @@ server.maxConnections = 64;
 server.headersTimeout = 10000;
 server.requestTimeout = 30000;
 server.listen(3100, '127.0.0.1', () => process.stdout.write('HARNESS_GUEST_READY\n'));
+setInterval(() => process.stdout.write('HARNESS_GUEST_TICK\n'), 1000).unref();

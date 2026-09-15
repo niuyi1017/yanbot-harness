@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import test from 'node:test';
 
 assert.equal(process.platform, 'darwin');
-const [binaryArg, configArg] = process.argv.slice(2);
+const [binaryArg, configArg, panicConfigArg] = process.argv.slice(2);
 assert(binaryArg && configArg);
 const binary = path.resolve(binaryArg);
 const config = path.resolve(configArg);
@@ -114,6 +114,33 @@ for (const scenario of ['host-sigkill', 'parent-sigkill']) {
     });
   });
 }
+if (panicConfigArg)
+  await test('Actual guest kernel panic loses heartbeat and stops the VM', { timeout: 20000 }, async (t) => {
+    const child = spawn(binary, ['--probe-run', path.resolve(panicConfigArg)], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let output = '';
+    child.stdout.on('data', (chunk) => {
+      output += chunk;
+      assert(output.length < 16384);
+    });
+    child.stderr.resume();
+    const closed = new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', resolve);
+    });
+    t.after(() => {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    });
+    assert.equal(await closed, 0);
+    assert(output.includes('"kind":"kernel-panic"'));
+    assert(output.includes('"type":"guest-descendant-ready"'));
+    assert(output.includes('"state":"stopped"'));
+    results.push({
+      scenario: 'guest-kernel-panic',
+      status: 'passed',
+      actualKernelPanicObserved: true,
+      heartbeatStoppedVM: true,
+    });
+  });
 await test('Modified guest bytes and unknown configuration fields are rejected before boot', async () => {
   const original = JSON.parse(await readFile(config, 'utf8'));
   for (const data of [
@@ -134,7 +161,7 @@ const report = {
   target: 'darwin-arm64',
   guestTarget: 'linux-arm64',
   kind: 'real-vm-mechanism-not-sdk-certification',
-  status: results.length === 7 ? 'passed' : 'failed',
+  status: results.length === (panicConfigArg ? 8 : 7) ? 'passed' : 'failed',
   results,
   pending: ['Runtime guest and SDK/SSE integration', 'signed guest image supply chain'],
 };

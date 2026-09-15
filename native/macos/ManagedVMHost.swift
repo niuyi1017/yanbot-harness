@@ -3,7 +3,7 @@ import Virtualization
 import CryptoKit
 import Darwin
 
-// Mechanism host only. Guest-agent/SSE/workspace integration is a separate certification gate.
+// Explicit development VM host. Production guest/signing/vendor certification remains a separate gate.
 enum HostFailure: Error { case configuration, artifact, unsupported }
 
 func emit(_ value: [String: Any]) {
@@ -18,7 +18,11 @@ func fail(_ stage: String, _ error: Error? = nil) -> Never {
 }
 
 struct Artifact: Decodable { let path: String; let sha256: String }
-struct Configuration: Decodable { let schemaVersion: Int; let kernel: Artifact; let initrd: Artifact }
+struct Share: Decodable { let name: String; let path: String; let readOnly: Bool }
+struct RuntimeConfiguration: Decodable { let shares: [Share]; let network: Bool }
+struct Configuration: Decodable {
+    let schemaVersion: Int; let kernel: Artifact; let initrd: Artifact; let runtime: RuntimeConfiguration?
+}
 
 func boundedFile(_ name: String, maximum: Int) throws -> Data {
     guard name.hasPrefix("/") else { throw HostFailure.artifact }
@@ -62,23 +66,66 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
     var consoleBytes = 0
     var guestReady = false
     var descendantReady = false
+    var transport: VMTransport?
+    let runtimeMode: Bool
+    var heartbeat = ProcessInfo.processInfo.systemUptime
+    var kernelPanic = false
+    var stateLease: Int32 = -1
 
     init(configuration: Configuration, root: URL) throws {
         self.root = root
+        runtimeMode = configuration.runtime != nil
         let kernel = root.appendingPathComponent("kernel")
         let initrd = root.appendingPathComponent("initrd")
         try snapshot(configuration.kernel, to: kernel)
         try snapshot(configuration.initrd, to: initrd)
         let boot = VZLinuxBootLoader(kernelURL: kernel)
         boot.initialRamdiskURL = initrd
-        boot.commandLine = "console=hvc0 rdinit=/harness-init panic=-1"
+        boot.commandLine = "console=hvc0 rdinit=/harness-init panic=0"
         let config = VZVirtualMachineConfiguration()
         config.cpuCount = 2
-        config.memorySize = 512 * 1024 * 1024
+        config.memorySize = (runtimeMode ? 2048 : 512) * 1024 * 1024
         config.bootLoader = boot
         config.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
         config.socketDevices = [VZVirtioSocketDeviceConfiguration()]
-        // No network, host directories, disks, credentials or devices are exposed by this probe host.
+        if let runtime = configuration.runtime {
+            guard runtime.shares.count <= 32 else { throw HostFailure.configuration }
+            var directories: [String: VZSharedDirectory] = [:]
+            for share in runtime.shares {
+                guard share.name.range(of: "^(state|workspace-[0-9]{1,2})$", options: .regularExpression) != nil,
+                      directories[share.name] == nil, share.path.hasPrefix("/"),
+                      share.path != "/", share.path != NSHomeDirectory() else { throw HostFailure.configuration }
+                let url = URL(fileURLWithPath: share.path)
+                let canonical = url.resolvingSymlinksInPath().standardizedFileURL
+                guard canonical.path == url.standardizedFileURL.path,
+                      try canonical.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
+                    throw HostFailure.configuration
+                }
+                if share.name == "state" {
+                    let parent = canonical.deletingLastPathComponent()
+                    var info = stat()
+                    guard canonical.lastPathComponent == "guest-state", !share.readOnly,
+                          lstat(parent.path, &info) == 0, info.st_uid == getuid(),
+                          (info.st_mode & S_IFMT) == S_IFDIR, (info.st_mode & 0o077) == 0 else {
+                        throw HostFailure.configuration
+                    }
+                    let lockPath = parent.appendingPathComponent("vm-lease").path
+                    stateLease = open(lockPath, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
+                    guard stateLease >= 0, fstat(stateLease, &info) == 0, info.st_uid == getuid(),
+                          (info.st_mode & S_IFMT) == S_IFREG, (info.st_mode & 0o077) == 0,
+                          flock(stateLease, LOCK_EX | LOCK_NB) == 0 else { throw HostFailure.configuration }
+                }
+                directories[share.name] = VZSharedDirectory(url: canonical, readOnly: share.readOnly)
+            }
+            let filesystem = VZVirtioFileSystemDeviceConfiguration(tag: "harness-shares")
+            filesystem.share = VZMultipleDirectoryShare(directories: directories)
+            config.directorySharingDevices = [filesystem]
+            if runtime.network {
+                let network = VZVirtioNetworkDeviceConfiguration()
+                network.attachment = VZNATNetworkDeviceAttachment()
+                config.networkDevices = [network]
+            }
+        }
         let port = VZVirtioConsoleDeviceSerialPortConfiguration()
         port.attachment = VZFileHandleSerialPortAttachment(fileHandleForReading: nil, fileHandleForWriting: console.fileHandleForWriting)
         config.serialPorts = [port]
@@ -109,6 +156,16 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) {
             if !self.guestReady { self.invalidLease = true; self.stop() }
         }
+        if runtimeMode { watchHeartbeat() }
+    }
+
+    func watchHeartbeat() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            if self.guestReady && ProcessInfo.processInfo.systemUptime - self.heartbeat > 5 {
+                self.stop(); return
+            }
+            if !self.stopRequested { self.watchHeartbeat() }
+        }
     }
 
     func readConsole(_ data: Data) {
@@ -116,10 +173,29 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
         if consoleBytes > 1024 * 1024 { invalidLease = true; stop(); return }
         consoleBuffer.append(data)
         while let end = consoleBuffer.firstIndex(of: 10) {
+            let lineBytes = consoleBuffer.distance(from: consoleBuffer.startIndex, to: end) + 1
             let line = String(decoding: consoleBuffer[..<end], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
             consoleBuffer.removeSubrange(...end)
+            if runtimeMode && !kernelPanic && line.contains("Kernel panic - not syncing:") {
+                kernelPanic = true
+                emit(["protocolVersion": 1, "type": "guest-fault", "kind": "kernel-panic"])
+            }
+            if line == "HARNESS_RUNTIME_EXIT" && runtimeMode { stop(); return }
+            if line == "HARNESS_GUEST_TICK" && runtimeMode {
+                consoleBytes -= lineBytes
+                heartbeat = ProcessInfo.processInfo.systemUptime; continue
+            }
+            if line == "HARNESS_GUEST_READY" && guestReady { stop(); return }
             if line == "HARNESS_GUEST_READY" && !guestReady {
                 guestReady = true
+                heartbeat = ProcessInfo.processInfo.systemUptime
+                if runtimeMode {
+                    guard let device = vm.socketDevices.first as? VZVirtioSocketDevice else { fail("vsock-device") }
+                    let socket = root.appendingPathComponent("http.sock").path
+                    do { transport = try VMTransport(path: socket, device: device) }
+                    catch { fail("vsock-transport") }
+                    emit(["protocolVersion": 1, "type": "transport-ready", "socketPath": socket])
+                }
                 emit(["protocolVersion": 1, "type": "guest-ready", "guestTarget": "linux-arm64", "certification": "mechanism-only"])
             }
             if line == "HARNESS_DETACHED_READY" && !descendantReady {
@@ -177,13 +253,22 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
         do {
             let bytes = try boundedFile(args[2], maximum: 16384)
             guard let object = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
-                  Set(object.keys) == Set(["schemaVersion", "kernel", "initrd"]) else { throw HostFailure.configuration }
+                  Set(object.keys) == Set(object["runtime"] == nil ? ["schemaVersion", "kernel", "initrd"] :
+                    ["schemaVersion", "kernel", "initrd", "runtime"]) else { throw HostFailure.configuration }
             for key in ["kernel", "initrd"] {
                 guard let item = object[key] as? [String: Any], Set(item.keys) == Set(["path", "sha256"]) else { throw HostFailure.configuration }
             }
+            if let runtime = object["runtime"] {
+                guard let runtime = runtime as? [String: Any], Set(runtime.keys) == Set(["shares", "network"]),
+                      let shares = runtime["shares"] as? [[String: Any]],
+                      shares.allSatisfy({ Set($0.keys) == Set(["name", "path", "readOnly"]) }) else {
+                    throw HostFailure.configuration
+                }
+            }
             let config = try JSONDecoder().decode(Configuration.self, from: bytes)
             guard config.schemaVersion == 1, VZVirtualMachine.isSupported else { throw HostFailure.unsupported }
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("harness-vm-" + UUID().uuidString)
+            // Short private pathname is required by sockaddr_un; never reuse an existing directory.
+            let root = URL(fileURLWithPath: "/private/tmp").appendingPathComponent("hvm-" + UUID().uuidString)
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
             let owned: OwnedVM
             do { owned = try OwnedVM(configuration: config, root: root) }

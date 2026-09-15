@@ -23,6 +23,7 @@ await execute(
     '-framework',
     'Virtualization',
     path.join(source, 'ManagedVMHost.swift'),
+    path.join(source, 'VMTransport.swift'),
     '-o',
     binary,
   ],

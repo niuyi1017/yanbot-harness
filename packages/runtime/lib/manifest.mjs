@@ -55,10 +55,22 @@ export function validateManifest(bytes) {
   assert.equal(m.managedProtocolVersion, 1);
   assert.equal(m.entryPath, 'dist/main.js');
   if (m.containment) {
-    keys(m.containment, 'kind entryPath');
-    assert.equal(m.target.os, 'win32');
-    assert.equal(m.containment.kind, 'windows-job-v1');
-    assert.equal(m.containment.entryPath, 'native/managed-job-host.exe');
+    if (m.containment.kind === 'macos-vm-v1') {
+      keys(m.containment, 'kind entryPath guestTarget kernel initrd');
+      assert.equal(m.target.os, 'darwin');
+      assert.equal(m.containment.entryPath, 'native/managed-vm-host');
+      assert.equal(m.containment.guestTarget, 'linux-arm64');
+      for (const name of ['kernel', 'initrd']) {
+        keys(m.containment[name], 'path sha256');
+        assert.equal(m.containment[name].path, 'native/guest/' + name);
+        assert(digest.test(m.containment[name].sha256));
+      }
+    } else {
+      keys(m.containment, 'kind entryPath');
+      assert.equal(m.target.os, 'win32');
+      assert.equal(m.containment.kind, 'windows-job-v1');
+      assert.equal(m.containment.entryPath, 'native/managed-job-host.exe');
+    }
   } else assert(!Object.hasOwn(m, 'containment'), 'Invalid containment descriptor.');
   material(m.payload, 'payload/runtime.tar.gz', ARCHIVE_LIMITS.compressedBytes);
   assert(m.payload.size >= 18);
@@ -147,6 +159,17 @@ export async function verifyPlatformPackage({
       entries.some((entry) => entry.path === m.containment.entryPath && entry.type === 'file'),
       'Missing containment host.',
     );
+  if (m.containment?.kind === 'macos-vm-v1')
+    for (const name of ['kernel', 'initrd'])
+      assert(
+        entries.some(
+          (entry) =>
+            entry.path === m.containment[name].path &&
+            entry.type === 'file' &&
+            entry.sha256 === m.containment[name].sha256,
+        ),
+        'Missing or unbound guest artifact.',
+      );
   assert(
     entries.some((entry) => entry.path === m.entryPath && entry.type === 'file'),
     'Missing Runtime entry.',

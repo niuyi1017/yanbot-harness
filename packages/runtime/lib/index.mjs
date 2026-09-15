@@ -156,6 +156,17 @@ export async function resolvePlatformDirectory({
             containment: {
               kind: manifest.containment.kind,
               executablePath: path.join(destination, manifest.containment.entryPath),
+              ...(manifest.containment.kind === 'macos-vm-v1'
+                ? Object.fromEntries(
+                    ['kernel', 'initrd'].map((name) => [
+                      name,
+                      {
+                        path: path.join(destination, manifest.containment[name].path),
+                        sha256: manifest.containment[name].sha256,
+                      },
+                    ]),
+                  )
+                : {}),
             },
           }
         : {}),

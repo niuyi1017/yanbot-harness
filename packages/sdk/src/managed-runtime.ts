@@ -18,6 +18,7 @@ import { readRuntimeDescriptor } from './daemon.js';
 import { protectManagedState, verifyManagedDescriptor } from './managed-permissions.js';
 import { HarnessSdkError } from './transport.js';
 import { jobHostControl } from './windows-job-host.js';
+import { startVMRuntime, type VMContainment, type VMOptions } from './macos-vm-host.js';
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5_000;
@@ -31,7 +32,7 @@ export type RuntimeLaunchDescriptor = {
   runtimeVersion: string;
   protocolVersion: string;
   managedProtocolVersion: 1;
-  containment?: { kind: 'windows-job-v1'; executablePath: string };
+  containment?: { kind: 'windows-job-v1'; executablePath: string } | VMContainment;
 };
 export type ManagedRuntimeResolver = (context: { signal: AbortSignal }) => Promise<RuntimeLaunchDescriptor>;
 export type StartManagedRuntimeOptions = {
@@ -45,6 +46,8 @@ export type StartManagedRuntimeOptions = {
   nodeExecutablePath?: string;
   /** Fail before spawn unless a verified containment host is supplied by the resolver. */
   requireContainment?: boolean;
+  /** Explicit VM resource mappings; no host HOME or ambient environment is shared. */
+  vm?: VMOptions;
   fetch?: typeof fetch;
 };
 
@@ -103,6 +106,8 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
       }
     }
     signal.throwIfAborted();
+    if (managed?.containment?.kind === 'macos-vm-v1')
+      return await startVMRuntime(managed.containment, options, signal, shutdownTimeoutMs);
     const executablePath = path.resolve(selectedPath ?? managed!.entryPath);
     if (options.requireContainment && !managed?.containment)
       throw new HarnessSdkError(

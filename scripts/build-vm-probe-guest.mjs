@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { Buffer } from 'node:buffer';
 
 // Explicit development fixture builder. No fetching, no production trust claim, no host-side guest execution.
-const [kernelFile, initrdFile, outputDirectory] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const panicProbe = args.includes('--panic-probe');
+if (panicProbe) args.splice(args.indexOf('--panic-probe'), 1);
+const [kernelFile, initrdFile, outputDirectory, runtimeRoot] = args;
+assert(!panicProbe || !runtimeRoot, 'Kernel panic injection is restricted to the explicit mechanism guest.');
 assert(
   kernelFile && initrdFile && outputDirectory,
   'Provide pre-staged arm64 Linux kernel, initramfs and NEW output directory.',
@@ -41,11 +45,92 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 exec </dev/console >/dev/console 2>&1
 /bin/busybox mount -t proc proc /proc
 /bin/busybox mount -t sysfs sysfs /sys
+${
+  panicProbe
+    ? `/bin/busybox setsid /bin/busybox sh -c 'echo HARNESS_DETACHED_READY; while :; do /bin/busybox sleep 1; done' &
+echo HARNESS_GUEST_READY
+echo HARNESS_GUEST_TICK
+/bin/busybox sleep 1
+echo c >/proc/sysrq-trigger
+`
+    : ''
+}
+${
+  runtimeRoot
+    ? `/bin/busybox mkdir -p /harness-shares /harness-home /tmp
+/bin/busybox chmod 1777 /tmp
+/bin/busybox modprobe vmw_vsock_virtio_transport
+/bin/busybox modprobe virtiofs
+/bin/busybox mount -t virtiofs harness-shares /harness-shares
+/bin/busybox ip link set lo up
+/bin/busybox modprobe virtio_net 2>/dev/null
+if [ -d /sys/class/net/eth0 ]; then
+  /bin/busybox udhcpc -i eth0 -n -q -t 3 -T 2 -s /harness-dhcp >/dev/null 2>&1 || {
+    echo HARNESS_RUNTIME_EXIT
+    /bin/busybox poweroff -f
+  }
+fi
+/harness/bin/vsock-bridge &
+/harness/bin/node /harness/runtime-agent.mjs
+echo HARNESS_RUNTIME_EXIT
+/bin/busybox poweroff -f
+`
+    : ''
+}
 /bin/busybox setsid /bin/busybox sh -c 'echo HARNESS_DETACHED_READY; while :; do /bin/busybox sleep 1; done' &
 echo HARNESS_GUEST_READY
 while :; do /bin/busybox sleep 1; done
 `);
-const extra = Buffer.concat([entry('harness-init', init, 0o100755), entry('TRAILER!!!', Buffer.alloc(0), 0)]);
+const entries = [];
+if (runtimeRoot)
+  entries.push(
+    entry(
+      'harness-dhcp',
+      Buffer.from(`#!/bin/busybox sh
+case "$1" in
+  bound|renew)
+    /bin/busybox ifconfig "$interface" "$ip" netmask "$subnet" up
+    for gateway in $router; do /bin/busybox route add default gw "$gateway" dev "$interface"; break; done
+    : >/etc/resolv.conf
+    for server in $dns; do echo "nameserver $server" >>/etc/resolv.conf; done
+    ;;
+esac
+`),
+      0o100755,
+    ),
+  );
+let rootBytes = 0;
+let fixtureGuestAgentSha256;
+if (runtimeRoot) {
+  async function collect(relative) {
+    const absolute = path.join(runtimeRoot, relative);
+    const info = await lstat(absolute);
+    assert(!info.isSymbolicLink(), 'Development guest root must contain only real files/directories.');
+    assert(!relative.split('/').some((part) => part === '..') && !path.isAbsolute(relative));
+    if (info.isDirectory()) {
+      if (relative) entries.push(entry(relative, Buffer.alloc(0), 0o040755));
+      for (const name of (await readdir(absolute)).sort()) await collect(relative ? relative + '/' + name : name);
+    } else {
+      assert(info.isFile() && info.size <= 160 * 1024 * 1024);
+      rootBytes += info.size;
+      assert(rootBytes <= 512 * 1024 * 1024 && entries.length < 20000);
+      // The wrapper belongs to this image build, not the separately compiled Runtime root artifact.
+      const bytes = await readFile(
+        relative === 'harness/runtime-agent.mjs'
+          ? path.resolve(import.meta.dirname, '../native/guest/runtime-agent.mjs')
+          : absolute,
+      );
+      if (relative === 'harness/runtime-agent.mjs') fixtureGuestAgentSha256 = sha256(bytes);
+      entries.push(entry(relative, bytes, info.mode & 0o111 ? 0o100755 : 0o100644));
+    }
+  }
+  await collect('');
+}
+const extra = Buffer.concat([
+  ...entries,
+  entry('harness-init', init, 0o100755),
+  entry('TRAILER!!!', Buffer.alloc(0), 0),
+]);
 const combined = Buffer.concat([original, gzipSync(extra, { level: 9, mtime: 0 })]);
 await writeFile(path.join(output, 'kernel'), kernel, { flag: 'wx' });
 await writeFile(path.join(output, 'initrd'), combined, { flag: 'wx' });
@@ -53,6 +138,7 @@ const config = {
   schemaVersion: 1,
   kernel: { path: path.join(output, 'kernel'), sha256: sha256(kernel) },
   initrd: { path: path.join(output, 'initrd'), sha256: sha256(combined) },
+  ...(runtimeRoot || panicProbe ? { runtime: { shares: [], network: false } } : {}),
 };
 await writeFile(path.join(output, 'config.json'), JSON.stringify(config, null, 2) + '\n', { flag: 'wx' });
 await writeFile(
@@ -61,7 +147,13 @@ await writeFile(
     {
       schemaVersion: 1,
       guestTarget: 'linux-arm64',
-      kind: 'mechanism-fixture-not-runtime',
+      kind: runtimeRoot
+        ? 'runtime-development-guest'
+        : panicProbe
+          ? 'kernel-panic-mechanism-fixture'
+          : 'mechanism-fixture-not-runtime',
+      runtimeRootBytes: rootBytes,
+      ...(fixtureGuestAgentSha256 ? { fixtureGuestAgentSha256 } : {}),
       productionTrusted: false,
       sourceKernelSha256: sha256(sourceKernel),
       normalizedKernelSha256: sha256(kernel),

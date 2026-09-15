@@ -3,7 +3,14 @@ export type RuntimeLaunchDescriptor = {
   runtimeVersion: string;
   protocolVersion: string;
   managedProtocolVersion: 1;
-  containment?: { kind: 'windows-job-v1'; executablePath: string };
+  containment?:
+    | { kind: 'windows-job-v1'; executablePath: string }
+    | {
+        kind: 'macos-vm-v1';
+        executablePath: string;
+        kernel: { path: string; sha256: string };
+        initrd: { path: string; sha256: string };
+      };
 };
 export type ResolveInstalledRuntimeOptions = {
   cacheRoot?: string;

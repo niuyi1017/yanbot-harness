@@ -1,6 +1,8 @@
 # 统一本地分发开发步骤
 
 状态：**实现候选已交付，计划未全部完成，正式发布阻断**。T1–T3 三平台机制/归档/签名候选、实际 npm/pnpm/离线与 portable 回归通过；T4 基础生命周期/权限、T6 缓存回退/锁恢复/真实 ENOSPC/Windows 独占故障通过；Mac/Linux OS 阻网通过。强 containment 已证实缺口，T5–T7 正式身份/许可/实机、Windows 阻网及两个正式版本业务回滚仍有门禁。证据见 [verification-evidence.json](verification-evidence.json)。2026-09-15。
+
+同日后续：原生/VM 部署边界已获用户批准，不再等待方案选择。Windows 原子 Job host 的 SDK/签名包与强杀探针已通过；Mac 真实 VM 生命周期及内核 panic 回收通过，产品 guest 集成候选实施中。以 [managed-containment-host/tasks.md](../managed-containment-host/tasks.md) 的分层证据推进 T4；旧兼容路径的否定结果仍有效，完整发布门禁不自动取消。
 本文件是 P1D 分发工作流的实施清单；整体进度以 [roadmap](../harness-platform-foundation/roadmap.md) 为准。
 `preview.2` 的已有实现/证据不是下列新任务的完成证据。
 

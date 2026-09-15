@@ -13,7 +13,7 @@ import tar from 'tar-stream';
 
 import { CANDIDATE_LIMITS, inspectCandidate, validateCandidatePath } from './inventory.mjs';
 
-export const ARCHIVE_LIMITS = Object.freeze({ ...CANDIDATE_LIMITS, compressedBytes: 128 * 1024 * 1024 });
+export const ARCHIVE_LIMITS = Object.freeze({ ...CANDIDATE_LIMITS, compressedBytes: 256 * 1024 * 1024 });
 export const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const zero = Buffer.alloc(1024);
 const noOp = () => {};
