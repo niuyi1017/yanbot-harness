@@ -188,7 +188,9 @@ consumer/local wrapper → SDK managed manager
 - POSIX 为新 managed 子树建立独立进程组，正常终止后检查子树；Windows 先 IPC 正常关闭，再基于仍有效的 owned child 使用进程树终止。避免 PID 复用、无关系扫描或误伤其他实例。
 - 父/Runtime 被强杀、厂商脱离进程组等情况需要独立故障门禁。IPC disconnect 只能处理 Runtime 仍能响应的情况；若不足以保证树回收，T4 必须引入平台 containment/watchdog（Windows Job Object 等）的独立设计/许可检查再发版，不能把 parent PID 轮询包装为保证。
 
-### T4 故障验证后的待确认设计边界
+### T4 故障验证后的隔离宿主边界（已批准扩展）
+
+2026-09-15 用户已回复“允许”，批准新增原生/隔离宿主及必要部署前提变化。实施与细化设计转入 [managed-containment-host](../managed-containment-host/design.md)；下列故障事实与正式发布门禁仍成立，不再重复请求同一范围授权。
 
 2026-09-15 实测：`probe:managed-containment` 创建自己拥有、带随机认证退出端点的 detached fixture；Mac 上 managed close 成功后它仍可响应，探针以非零退出并安全回收 fixture。不是待测猜测，也不是可以用宽限期或 PID 轮询修复的保证。
 
