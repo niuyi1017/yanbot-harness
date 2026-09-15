@@ -62,6 +62,7 @@
 
 - [x] 进一步覆盖父死亡 watchdog、真实 IPC 断开、未知 schema 保留、descriptor 有界读取/ACL；Windows 父被强杀与正常 IPC 清理分开测试。
 - [ ] 强 containment 已证实缺口：Mac `pnpm probe:managed-containment` exit 1/status blocked，detached 后代在 close 后存活。探针安全回收自身 fixture，不把其他绿灯当作该保证通过。
+- [x] 故障后的隔离宿主选择、复用点、拒绝的 PID 扫描方案与权限边界已写入 design 的 T4 补充；未擅自安装原生服务/沙箱或缩减原验收承诺。
 
 - [x] IPC hello/ready/shutdown、版本/PID/instanceId、启动/关闭期限、并发隔离、IPC 丢失、组内顽固孙进程、私有状态拒绝通过；SDK 累计 30 项。
 - [x] Windows cache ACL/resolver 单测与真实包 managed startup 已远端通过；state/descriptor 使用固定系统 .NET API，完整 containment 单列阻断。

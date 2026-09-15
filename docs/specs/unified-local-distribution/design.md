@@ -187,6 +187,17 @@ consumer/local wrapper → SDK managed manager
 - Runtime/Adapter 管理厂商 SDK 自建进程；后续 Sidecar Supervisor 管理 Wrapper/CLI。SDK 管理自己创建的 Runtime，不接管其他 Daemon。
 - POSIX 为新 managed 子树建立独立进程组，正常终止后检查子树；Windows 先 IPC 正常关闭，再基于仍有效的 owned child 使用进程树终止。避免 PID 复用、无关系扫描或误伤其他实例。
 - 父/Runtime 被强杀、厂商脱离进程组等情况需要独立故障门禁。IPC disconnect 只能处理 Runtime 仍能响应的情况；若不足以保证树回收，T4 必须引入平台 containment/watchdog（Windows Job Object 等）的独立设计/许可检查再发版，不能把 parent PID 轮询包装为保证。
+
+### T4 故障验证后的待确认设计边界
+
+2026-09-15 实测：`probe:managed-containment` 创建自己拥有、带随机认证退出端点的 detached fixture；Mac 上 managed close 成功后它仍可响应，探针以非零退出并安全回收 fixture。不是待测猜测，也不是可以用宽限期或 PID 轮询修复的保证。
+
+原有主线仍复用 SDK `managed-runtime.ts`、Runtime `managed-control.ts`、同一 launchId/instanceId 与签名平台 payload，不另造业务客户端。若继续承诺任意后代整树回收，需要在下列边界上取得产品确认后补独立宿主 Spec：
+
+1. **维持原强保证（推荐用于正式发布）**：Windows 研究随签名 payload 构建/分发的原生 supervisor，先建不允许 breakaway 的 Job、以 suspended 创建进程后加入 Job 再恢复，并用其拥有的内核句柄回收，避免 OpenProcess(PID) 竞态。它需要管理控制桥接、构建/签名、原生资源许可和故障认证。macOS 需选择能约束全部后代的宿主隔离边界；不能声称简单 native wrapper 或进程组天然具备 Windows Job 的语义。若需要服务、提权、沙箱/虚拟化或改变宿主前提，必须明确获批。
+2. **保留纯 Node 受控内测候选**：只承诺已认证的正常/普通子进程行为，明确禁止把它标为任意后代整树保证；正式发布仍阻断。若把此限制作为最终交付范围，属于缩减原验收要求，须用户明确确认，代理不能自行裁剪。
+
+不采用：扫描全机 PID 后杀进程（存在重用与误伤）、无限延长 timeout、将 ACK 当作整树退出、关闭 Windows 现有 Job 保护来让单测通过，或给 macOS 自动安装需要提权的常驻组件。缺失强隔离设计不阻塞其余签名/离线/缓存/兼容测试，但阻塞该项正式发布声明。
 - 强制终止失败时不先删仍使用中的状态/lease。返回 `CLEANUP_FAILED`，保留安全诊断和后续显式恢复入口。
 - 自动临时 `stateRoot` 可在确认 owned 实例退出后删除；显式 `stateRoot` 仅删除匹配 instanceId 的 descriptor，保存 Session。掉电留下的临时目录由后续显式 doctor/cleanup 按所有权记录处理；不靠 module import 注册全局清扫器。
 
