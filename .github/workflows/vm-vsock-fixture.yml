@@ -1,0 +1,31 @@
+name: VM vsock development modules
+on:
+  push:
+    paths:
+      - .github/workflows/vm-vsock-fixture.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  modules:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare matching development modules
+        shell: bash
+        run: |
+          command -v unsquashfs || (sudo apt-get update && sudo apt-get install -y squashfs-tools)
+          mkdir -p native-build
+          curl --fail --location --max-time 180 --output native-build/modloop-virt https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/aarch64/netboot/modloop-virt
+          unsquashfs -d native-build/extracted native-build/modloop-virt modules/6.12.94-0-virt/kernel/net/vmw_vsock
+          test -f native-build/extracted/modules/6.12.94-0-virt/kernel/net/vmw_vsock/vsock.ko
+          mkdir -p native-build/root/lib/modules/6.12.94-0-virt/kernel/net
+          cp -R native-build/extracted/modules/6.12.94-0-virt/kernel/net/vmw_vsock native-build/root/lib/modules/6.12.94-0-virt/kernel/net/
+          sha256sum native-build/modloop-virt > native-build/root/modloop-source.sha256
+          tar -czf native-build/vsock-modules.tar.gz -C native-build/root .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-arm64-vsock-development-modules
+          path: native-build/vsock-modules.tar.gz
+          retention-days: 3
