@@ -45,6 +45,17 @@ defined in [`docs/specs/dual-runtime-compatibility/`](../specs/dual-runtime-comp
 - Preview package versions follow `0.x` semantics: a minor version may contain a documented breaking change.
 - SSE reconnection is explicit. Consumers keep the last event ID and resubscribe; the SDK does not perform an unlimited hidden retry.
 
+## Adapter delivery status
+
+| Adapter integration form | Status                    | Evidence / boundary                                                 |
+| ------------------------ | ------------------------- | ------------------------------------------------------------------- |
+| CodeBuddy SDK Adapter    | Preview                   | Pinned SDK plus packaged macOS evidence; Windows real gate pending  |
+| Vendor CLI Sidecar       | Required, not implemented | Sidecar schemas exist; process host and real vendor adapter pending |
+
+CLI-only Harness products, such as a vendor coding-agent CLI, will be integrated through a vendor-specific Sidecar Wrapper rather
+than being called by the Yanbot SDK or CLI directly. The plan is defined in
+[`docs/specs/cli-harness-adapter/`](../specs/cli-harness-adapter/requirements.md); no CLI vendor is certified by this release.
+
 ## Frozen Preview API
 
 The public Node.js exports are `HarnessClient`, `RunHandle`, `readRuntimeDescriptor`, `startManagedRuntime`,

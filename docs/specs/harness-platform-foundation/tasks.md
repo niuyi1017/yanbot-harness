@@ -21,6 +21,7 @@
 ```text
 M0 仓库、Adapter SPI与SDK探针
  └─ M1 公共协议、Adapter Kit与首批Adapter
+     ├─ M1B CLI Harness Sidecar Host（可并行）
      ├─ M2 Local Runtime
      │   ├─ M3 自有SDK与CLI
      │   └─ M4 本地Web
@@ -41,6 +42,7 @@ M0 仓库、Adapter SPI与SDK探针
 | R1 CLI基础执行           | M2、M3              |
 | R2 自有TypeScript SDK    | M1、M3              |
 | R2A Harness Adapter机制  | M0、M1              |
+| R2A CLI 型 Harness 接入  | M1、M1B             |
 | R3 本地Web工作台         | M2、M4              |
 | R4 Electron客户端        | M4、M6              |
 | R5 Local Runtime         | M1、M2              |
@@ -119,6 +121,35 @@ M0 仓库、Adapter SPI与SDK探针
 - SDK消息fixture覆盖成功、失败、工具调用、权限、提问、中断和费用统计。
 - Reference和CodeBuddy Adapter通过同一Conformance Kit；Sidecar协议通过序列化和版本协商测试。
 - 核心代码不存在按 `codebuddy`、`deepseek`、`pi` 分支处理运行语义的逻辑。
+
+## M1B. CLI Harness Sidecar Host 与首个 CLI Adapter
+
+**目标**：让只提供CLI或需要进程隔离的第三方Harness通过标准Sidecar接入，不分叉平台SDK、CLI和Runtime协议。
+
+**前置依赖**：M1；开始前评审 `docs/specs/cli-harness-adapter/`，具体厂商实现另建探针子Spec。
+
+**主要文件**：
+
+- `packages/adapter-sidecar`：补齐客户端、进程托管与协议错误处理。
+- `packages/adapter-cli-host`：可复用的厂商CLI子进程生命周期基础设施。
+- `packages/adapter-<vendor>-cli`：厂商专用命令、输出和能力翻译。
+- `packages/testing`：假CLI、故障fixture和Sidecar Conformance。
+
+**工作内容**：
+
+- 实现Sidecar进程启动、握手、JSONL分帧、背压、超时、取消、退出和进程树清理。
+- 保证Sidecar stdout只承载协议，厂商CLI使用独立管道，stderr统一限长与脱敏。
+- 建立厂商专用Wrapper，把机器可读输出、session ID、退出码和权限模式映射为公共事件与错误。
+- 处理POSIX进程组与Windows进程树差异，禁止通过shell字符串拼接命令。
+- 锁定并探测受支持的CLI版本；无稳定机器输出的版本保持实验状态。
+- 在Local Runtime与Remote Worker中复用同一个Adapter，不让CLI厂商差异进入客户端。
+
+**验收方式**：
+
+- 假CLI覆盖正常流、半行JSON、超大行、stderr噪声、无终端事件、崩溃、超时、取消和僵尸进程。
+- 首个真实CLI Adapter通过Adapter Conformance Kit，并在macOS、Windows目标环境记录版本证据。
+- CLI不支持的resume、interaction、models或usage能力明确为`unsupported`/`emulated`，不得伪造`native`。
+- SDK、平台CLI、Local Runtime和Cloud Worker不存在厂商CLI输出解析或厂商名条件分支。
 
 ## M2. Local Runtime与安全边界
 

@@ -63,7 +63,14 @@
 - 每项能力声明为 `native`、`emulated` 或 `unsupported`，并可携带版本、限制和配置Schema。
 - 上层SDK和UI根据能力动态启用功能；不支持的能力必须明确禁用，不得静默降级。
 - Node/TypeScript Harness可使用进程内Adapter；Python、Rust或独立CLI可通过标准sidecar协议接入。
+- 平台必须同时支持“厂商 SDK 型 Adapter”和“厂商 CLI 型 Adapter”。CLI 型 Harness 由厂商专用 Wrapper
+  托管其命令行子进程，再通过标准 Sidecar 协议接入；平台 SDK、平台 CLI 和 Runtime 不得直接解析厂商 CLI 输出。
+- CLI 型 Adapter 必须声明结构化输出、会话恢复、取消、交互、模型发现和用量等能力的真实支持级别；无法稳定解析的
+  人类可读终端文本不得被宣称为生产级协议。
 - 第三方Adapter可使用独立的 `adapter-kit` 开发和运行一致性测试，不需要依赖平台内部实现。
+
+CLI 型 Harness 的进程托管、协议翻译、跨平台与交付要求见
+[`cli-harness-adapter`](../cli-harness-adapter/requirements.md)。
 
 ### R3. 本地 Web 工作台
 

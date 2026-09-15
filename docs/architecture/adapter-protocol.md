@@ -64,3 +64,28 @@ requests. The foundation package defines schemas only and does not spawn or supe
 
 Protocol versions use SemVer. An incompatible major version must be rejected during registration or initialization;
 additive compatible changes may use a minor version.
+
+### CLI-backed sidecars
+
+A vendor CLI is not itself a Harness Sidecar. A vendor-specific wrapper owns the CLI as a child process and exposes
+the Harness Sidecar protocol to the Runtime:
+
+```text
+Runtime / Worker
+  -> JSON-RPC JSONL
+Vendor Sidecar Wrapper
+  -> argv + isolated stdin/stdout/stderr pipes
+Vendor CLI
+```
+
+The wrapper's stdout is reserved for Harness protocol frames. Vendor stdout and stderr must never be forwarded there
+verbatim; the wrapper parses a documented machine-readable vendor format and emits normalized Harness events. Plain
+human terminal text scraping is experimental unless a pinned parser, fixtures, and compatibility gate prove it stable.
+
+The wrapper owns vendor version probing, argument construction, credential allowlisting, session ID mapping, exit-code
+normalization, cancellation escalation, and process-tree cleanup. POSIX process groups and Windows process trees need
+separate tests. Unsupported vendor behavior such as resume, structured interactions, model discovery, or token usage
+must be reported through capabilities rather than emulated silently.
+
+Detailed requirements and implementation phases are in
+[`docs/specs/cli-harness-adapter/`](../specs/cli-harness-adapter/requirements.md).

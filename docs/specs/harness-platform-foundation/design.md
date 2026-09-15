@@ -289,6 +289,11 @@ type CapabilitySupport = {
 
 Sidecar握手返回协议版本、Adapter版本、Harness版本、能力和配置Schema。协议不兼容时启动失败，不做静默猜测。
 
+对于只提供命令行能力的厂商，Runtime不直接拉起或解析厂商CLI，而是启动厂商专用 Sidecar Wrapper；Wrapper 的
+stdout 专供 Harness JSON-RPC/JSONL，厂商CLI使用独立子进程管道。Wrapper负责命令参数、结构化输出、厂商会话ID、
+权限模式、退出码和错误的归一化，并通过 capability 如实声明CLI无法提供的能力。详细设计见
+[`cli-harness-adapter`](../cli-harness-adapter/design.md)。
+
 首期不实现可用于生产的Sidecar进程管理，只冻结消息Schema、握手和生命周期语义，避免影响CodeBuddy本地与云端MVP进度。
 
 ### 5.6 Adapter注册与选择

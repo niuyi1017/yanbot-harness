@@ -108,11 +108,21 @@ SDK/CLI、队列正文、Session Volume 或事件。刷新令牌和设备凭据�
 - 重复投递由 Run attempt/lease 与幂等键收敛；Worker 崩溃后由控制平面决定重试或失败，不能留下永久 `running`。
 - Session 状态与执行凭据分离；Session 写锁阻止两个 Worker 同时修改同一 Adapter 上下文。
 
-## 8. Adapter 与 CodeBuddy
+## 8. Adapter 装载形态与 Runtime 部署形态
 
 Local Runtime 和 Cloud Worker 都只通过 `adapter-api` 调用 CodeBuddy Adapter。Adapter 不负责用户登录、租户、队列、
 上传或 HTTP 路由，也不感知客户端是 Windows 还是 macOS。CodeBuddy Key 的交付方式不同：Local 由测试方在 Runtime
 配置中提供；Remote 由平台服务端保管并按 Run 短期注入。两端不得把 Key 交给 SDK 或 CLI。
+
+“Runtime 在哪里运行”和“厂商能力通过SDK还是CLI接入”是两个独立维度：
+
+|                         | 厂商 SDK 型 Adapter                  | 厂商 CLI 型 Sidecar Adapter          |
+| ----------------------- | ------------------------------------ | ------------------------------------ |
+| Local Runtime           | 当前 CodeBuddy/WorkBuddy 路径        | 本机Sidecar Wrapper托管厂商CLI       |
+| Remote Runtime / Worker | Worker内进程Adapter或隔离容器Adapter | Worker/沙箱内Sidecar托管Linux厂商CLI |
+
+上层始终看到同一 Harness Session/Run/Event 协议。CLI 型接入的详细进程边界见
+[`cli-harness-adapter`](../cli-harness-adapter/design.md)；不能为Claude Code等具体CLI新增一套客户端API。
 
 ## 9. 一致性测试与发布门禁
 
