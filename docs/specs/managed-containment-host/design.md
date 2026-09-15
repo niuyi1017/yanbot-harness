@@ -56,6 +56,10 @@ flock 另写 active/stopped 标记：只有 VZ 已停止才标记 stopped。host
 
 ## 技术依据
 
+### 开发候选业务回滚探针
+
+固定旧 preview.2 ZIP 的已记录 SHA-256，先验证再解压到新建临时目录，并复核 manifest 中每个包摘要；新候选使用 source/lock 相同的 common + VM platform 构建离线 kit。分别安装完整旧 SDK 消费者与新 local 消费者，禁止解析到仓库源码。旧原生 Runtime 使用测试状态根的 `guest-state`，VM 使用该目录的父状态根；仅在上一 owner 已完成 close 后切换。每一阶段核对之前阶段的 Session、Run 终态及完整重放事件，再新增一组业务数据；末尾复核全部状态和原 ZIP 摘要。只共享新建测试工作区，不接触已有用户状态，不伪造活动 descriptor 或清除 active lease。产物标明旧冻结版本与新测试签名候选的身份差异。
+
 - [Microsoft Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)：Job 与后代、KILL_ON_JOB_CLOSE、broker 限制。
 - [Microsoft 原子创建并归 Job](https://devblogs.microsoft.com/oldnewthing/20230209-00/?p=107812)：避免 suspended/assign 崩溃窗口。
 - [UpdateProcThreadAttribute](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute)：JOB_LIST、HANDLE_LIST 与最低系统版本。
