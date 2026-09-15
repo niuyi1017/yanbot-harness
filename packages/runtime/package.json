@@ -1,0 +1,39 @@
+{
+  "name": "@yanbot-harness/runtime",
+  "version": "0.1.0-preview.3",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.22.0 <23"
+  },
+  "files": [
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.mts",
+      "import": "./lib/index.mjs"
+    }
+  },
+  "bin": {
+    "yanbot-harness-installed-runtime": "./lib/launcher.mjs"
+  },
+  "scripts": {
+    "build": "node --check lib/index.mjs",
+    "test:unit": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "tar-stream": "3.2.1"
+  },
+  "optionalDependencies": {
+    "@yanbot-harness/runtime-darwin-arm64": "0.1.0-preview.3",
+    "@yanbot-harness/runtime-win32-x64": "0.1.0-preview.3",
+    "@yanbot-harness/runtime-linux-x64": "0.1.0-preview.3"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.example.invalid"
+  }
+}

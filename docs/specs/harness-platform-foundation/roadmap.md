@@ -20,19 +20,19 @@
 
 ## 2. 当前产品基线
 
-| 能力                  | 当前状态 | 已完成范围                                                | 尚缺内容                                            |
-| --------------------- | -------- | --------------------------------------------------------- | --------------------------------------------------- |
-| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理   | 后续需迁移到中立 `/v1/*` 协议                       |
-| TypeScript SDK        | `[x]`    | Local Daemon/显式端点/Embedded、Session/Run/Event         | Remote Target、远端 Token Provider                  |
-| 平台 CLI              | `[x]`    | 基于公共 SDK 的运行、会话、取消、JSONL 输出               | Local/Remote Profile 和远端登录                     |
-| Reference Adapter     | `[x]`    | 离线黑盒测试与发布验收                                    | Remote Reference Conformance                        |
-| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量              | 工具/权限/提问场景、Windows 实机、Remote Worker     |
-| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档 | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release |
-| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线           | 与 Remote 和 CLI Sidecar 的完整认证                 |
-| CLI Sidecar           | `[~]`    | JSON-RPC/JSONL Schema 与架构设计                          | Client、Supervisor、CLI Host、真实厂商 Adapter      |
-| Remote Runtime        | `[ ]`    | 需求、设计和任务拆分                                      | Control Plane、Worker、Sandbox、远端工作区和认证    |
-| 本地统一安装          | `[ ]`    | 已确认的 local/sdk/runtime/platform 分发草案              | 平台 npm 包、resolver、离线闭包、签名、新生命周期   |
-| 产品界面与运营        | `[ ]`    | 总体设计                                                  | Local Web、Electron、Admin、市场与版本管理          |
+| 能力                  | 当前状态 | 已完成范围                                                               | 尚缺内容                                                   |
+| --------------------- | -------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理                  | 后续需迁移到中立 `/v1/*` 协议                              |
+| TypeScript SDK        | `[x]`    | Local Daemon/显式端点/Embedded、Session/Run/Event                        | Remote Target、远端 Token Provider                         |
+| 平台 CLI              | `[x]`    | 基于公共 SDK 的运行、会话、取消、JSONL 输出                              | Local/Remote Profile 和远端登录                            |
+| Reference Adapter     | `[x]`    | 离线黑盒测试与发布验收                                                   | Remote Reference Conformance                               |
+| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量                             | 工具/权限/提问场景、Windows 实机、Remote Worker            |
+| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档                | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release        |
+| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线                          | 与 Remote 和 CLI Sidecar 的完整认证                        |
+| CLI Sidecar           | `[~]`    | JSON-RPC/JSONL Schema 与架构设计                                         | Client、Supervisor、CLI Host、真实厂商 Adapter             |
+| Remote Runtime        | `[ ]`    | 需求、设计和任务拆分                                                     | Control Plane、Worker、Sandbox、远端工作区和认证           |
+| 本地统一安装          | `[~]`    | preview.3 本机签名平台候选、resolver/local、SDK deadline 与 IPC 初版通过 | 新包跨平台安装、离线闭包、完整 containment、正式签名与认证 |
+| 产品界面与运营        | `[ ]`    | 总体设计                                                                 | Local Web、Electron、Admin、市场与版本管理                 |
 
 当前可以对外准确声明的是：**Local Preview 已形成候选交付；Remote Runtime 和真实 CLI 型厂商尚未交付。**
 

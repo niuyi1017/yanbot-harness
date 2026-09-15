@@ -5,6 +5,47 @@ import process from 'node:process';
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const packagesRoot = path.join(repositoryRoot, 'packages');
 const violations = [];
+const release = JSON.parse(await readFile(path.join(repositoryRoot, 'release-version.json'), 'utf8'));
+for (const relative of [
+  'packages/contracts',
+  'packages/sdk',
+  'packages/local',
+  'packages/runtime',
+  'apps/cli',
+  'apps/local-runtime',
+]) {
+  const manifest = JSON.parse(await readFile(path.join(repositoryRoot, relative, 'package.json'), 'utf8'));
+  if (manifest.version !== release.version) violations.push(relative + ': release version drift');
+  if (relative === 'packages/sdk') {
+    for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+      if (Object.keys(manifest[field] ?? {}).some((name) => name !== '@yanbot-harness/contracts'))
+        violations.push(relative + ': SDK production graph may only enter contracts');
+    }
+  }
+  if (relative === 'packages/runtime') {
+    if (Object.keys(manifest.dependencies ?? {}).some((name) => name !== 'tar-stream'))
+      violations.push(relative + ': runtime meta must not depend on SDK or business implementation');
+    const expected = Object.fromEntries(
+      ['darwin-arm64', 'win32-x64', 'linux-x64'].map((target) => [
+        '@yanbot-harness/runtime-' + target,
+        release.version,
+      ]),
+    );
+    if (JSON.stringify(manifest.optionalDependencies) !== JSON.stringify(expected))
+      violations.push(relative + ': platform mapping/version drift');
+  }
+  if (
+    relative === 'packages/local' &&
+    JSON.stringify(Object.keys(manifest.dependencies).sort()) !==
+      JSON.stringify(['@yanbot-harness/runtime', '@yanbot-harness/sdk'])
+  )
+    violations.push(relative + ': facade dependency drift');
+}
+for (const relative of ['packages/contracts/src/index.ts', 'packages/runtime/lib/manifest.mjs']) {
+  const content = await readFile(path.join(repositoryRoot, relative), 'utf8');
+  if (!content.includes("'" + release.version + "'"))
+    violations.push(relative + ': generated version differs from release descriptor');
+}
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -61,7 +102,7 @@ for (const file of await walk(repositoryRoot)) {
       }
     }
     if (relative.startsWith('packages/sdk/src/')) {
-      if (/@yanbot-harness\/(?:adapter-|core|local-runtime)/u.test(content)) {
+      if (/@yanbot-harness\/(?:adapter-|core|local-runtime|runtime|local['"])/u.test(content)) {
         violations.push(`${relative}: public SDK source may only depend on contracts`);
       }
     }

@@ -1,6 +1,6 @@
 # SDK 与 Local Runtime 统一安装设计
 
-状态：**方案已确认，T1 探针进行中，T2–T7 产品实现未开始**。基线：2026-09-15 / `0247627`。
+状态：**方案已确认，preview.3 连续实施中；本机 T2/T3 候选通过，跨平台与发布门禁仍待收口**。基线：2026-09-15 / `0247627`。实施变更和证据以 decision-record/tasks 为准。
 总体进程和凭据边界遵循 [system architecture](../../architecture/system-architecture.md)；当前交付能力仍以 [compatibility](../../delivery/compatibility.md) 为准。
 
 ## 1. 评审结论与当前证据

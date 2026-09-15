@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "kind": "platform-runtime-build",
+  "target": {
+    "os": "darwin",
+    "cpu": "arm64",
+    "libc": null
+  },
+  "version": "0.1.0-preview.3",
+  "sourceCommit": "794853872ff004f74c2bddfef353e2a211ed2635",
+  "sourceLockSha256": "63670ff4e22a632b3ca1079fc5131d7ff75f43d26b4f30c1b0795cb186e25db8",
+  "gitDirty": true,
+  "testSigning": true,
+  "publishAuthorized": false,
+  "status": "passed",
+  "artifact": {
+    "file": "yanbot-harness-runtime-darwin-arm64-0.1.0-preview.3.tgz",
+    "size": 53715565,
+    "sha256": "003b1e93e243f59b3abdc9e6ec43199f1da840e7d17e3e8a431fcee0d4c0033b"
+  },
+  "manifest": {
+    "schemaVersion": 1,
+    "packageName": "@yanbot-harness/runtime-darwin-arm64",
+    "version": "0.1.0-preview.3",
+    "sourceCommit": "794853872ff004f74c2bddfef353e2a211ed2635",
+    "sourceLockSha256": "63670ff4e22a632b3ca1079fc5131d7ff75f43d26b4f30c1b0795cb186e25db8",
+    "target": {
+      "os": "darwin",
+      "cpu": "arm64",
+      "libc": null
+    },
+    "nodeRange": ">=22.22.0 <23",
+    "protocolVersion": "1.0.0",
+    "managedProtocolVersion": 1,
+    "sdkVersion": "0.1.0-preview.3",
+    "entryPath": "dist/main.js",
+    "payload": {
+      "path": "payload/runtime.tar.gz",
+      "size": 53307131,
+      "sha256": "5376a736befb5dd67f702908c64da61ed145184953d42f54b27e7d3a95252dbc"
+    },
+    "fileList": {
+      "path": "files.json",
+      "size": 1305589,
+      "sha256": "26c9e1a06beb46907b46ba92fbe1c687f284c41a19e177f06df08088aedaeb67",
+      "entryCount": 7025
+    },
+    "materials": [
+      {
+        "path": "LICENSE",
+        "size": 323,
+        "sha256": "198a7b0ad5137db8addc23e457fcbc283455e835e405898e47d5cacc0dd7c77b"
+      },
+      {
+        "path": "THIRD_PARTY_NOTICES",
+        "size": 6896,
+        "sha256": "6c0ca915b5abbd609aecc59b72e55a6964fbde561a860da5394e5160a3505cf9"
+      },
+      {
+        "path": "sbom.json",
+        "size": 109012,
+        "sha256": "b8831a1680de9da01a565480fea7e03c9044d2212da6c8c2ef7980c44d936047"
+      }
+    ],
+    "adapters": [
+      {
+        "adapterId": "cn.yanbot.codebuddy",
+        "packageName": "@yanbot-harness/adapter-codebuddy",
+        "version": "0.1.0"
+      },
+      {
+        "adapterId": "cn.yanbot.reference",
+        "packageName": "@yanbot-harness/adapter-reference",
+        "version": "0.1.0"
+      }
+    ],
+    "keyId": "ephemeral-test-only"
+  },
+  "normalized": {
+    "files": 6281,
+    "bytes": 170738844,
+    "sha256": "26c9e1a06beb46907b46ba92fbe1c687f284c41a19e177f06df08088aedaeb67"
+  },
+  "reference": {
+    "resolver": "verified platform directory",
+    "startup": true,
+    "health": true,
+    "close": true
+  },
+  "limitations": [
+    "No production trust root or Registry approval.",
+    "Reference only; no real-vendor or complete process-tree certification."
+  ]
+}

@@ -50,6 +50,7 @@ export type StartLocalRuntimeOptions = {
 };
 
 export type LocalRuntimeHandle = {
+  instanceId: string;
   origin: string;
   accessToken: string;
   issueBrowserBinding(origin: string, ttlMs?: number): { token: string; origin: string; expiresAt: string };
@@ -128,6 +129,7 @@ export async function startLocalRuntime(options: StartLocalRuntimeOptions): Prom
 
     let closePromise: Promise<void> | undefined;
     return {
+      instanceId: descriptor.instanceId,
       origin,
       accessToken: auth.getAccessToken(),
       issueBrowserBinding: (browserOrigin, ttlMs) => auth.issueBrowserBinding(browserOrigin, ttlMs),

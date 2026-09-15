@@ -60,8 +60,8 @@ export class HarnessClient {
     });
   }
 
-  health(): Promise<RuntimeHealth> {
-    return this.#transport.json('GET', '/local/health', runtimeHealthSchema);
+  health(options: { signal?: AbortSignal } = {}): Promise<RuntimeHealth> {
+    return this.#transport.json('GET', '/local/health', runtimeHealthSchema, options);
   }
 
   grantWorkspace(input: CreateWorkspaceGrantRequest): Promise<WorkspaceGrant> {

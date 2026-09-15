@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -14,6 +14,8 @@ import { auditDeployedPackages } from './lib/deploy-probe-audit.mjs';
 import { NORMALIZATION_METADATA, normalizeRuntimeStaging } from './lib/normalize-runtime-staging.mjs';
 import { extractRuntimeArchive, packRuntimeArchive } from './lib/runtime-archive-probe.mjs';
 import { inspectCandidate } from './lib/normalize-runtime-staging.mjs';
+
+import { materializeBinLinks } from './lib/runtime-staging.mjs';
 
 const executeFile = promisify(execFile);
 const repository = path.resolve(import.meta.dirname, '..');
@@ -54,6 +56,14 @@ const report = {
 if (archiveProbe) {
   report.kind = 'runtime-archive-mechanism-probe';
   report.archiveScriptSha256 = hash(await readFile(path.join(import.meta.dirname, 'lib/runtime-archive-probe.mjs')));
+  report.sharedImplementationSha256 = Object.fromEntries(
+    await Promise.all(
+      ['archive', 'inventory'].map(async (name) => [
+        name,
+        hash(await readFile(path.join(repository, 'packages/runtime/lib', name + '.mjs'))),
+      ]),
+    ),
+  );
   const require = createRequire(import.meta.url);
   const packagePath = require.resolve('tar-stream/package');
   const manifest = JSON.parse(await readFile(packagePath, 'utf8'));
@@ -271,40 +281,6 @@ try {
 } finally {
   await writeFile(path.join(root, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ status: report.status, report: path.join(root, 'report.json') }));
-}
-
-async function materializeBinLinks(source, destination) {
-  const links = [];
-  const canonicalSource = await realpath(source);
-  await cp(source, destination, {
-    recursive: true,
-    filter: async (file) => {
-      if (!(await lstat(file)).isSymbolicLink()) return true;
-      const relative = path.relative(source, file);
-      assert.equal(path.basename(path.dirname(file)), '.bin', 'Only package-manager bin links may become shims.');
-      assert.notEqual(process.platform, 'win32', 'Windows symlink conversion requires its own tested shim.');
-      const resolved = await realpath(file);
-      const within = path.relative(canonicalSource, resolved);
-      assert(
-        within !== '..' && !within.startsWith(`..${path.sep}`) && !path.isAbsolute(within),
-        'External bin target.',
-      );
-      assert.match((await readFile(resolved, 'utf8')).split('\n')[0], /^#!\/usr\/bin\/env node\r?$/u);
-      const target = await readlink(file);
-      assert(!path.isAbsolute(target));
-      assert.match(target, /^[a-zA-Z0-9_./@+-]+$/u);
-      links.push({ path: relative, target });
-      return false;
-    },
-  });
-  for (const link of links) {
-    await writeFile(
-      path.join(destination, link.path),
-      `#!/bin/sh\nset -eu\nexec "\${NODE_BINARY:-node}" "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/${link.target}" "$@"\n`,
-      { mode: 0o755 },
-    );
-  }
-  return links;
 }
 
 async function inventory(directory) {

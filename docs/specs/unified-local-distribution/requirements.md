@@ -1,7 +1,7 @@
 # SDK 与 Local Runtime 统一安装需求
 
-状态：**方案已确认；T1 探针进行中，T2–T7 产品实现未开始**。日期：2026-09-15。
-审计基线：`zb-dev` / `0247627`，当前交付候选为 `0.1.0-preview.2`。本 Spec 进入后续 Preview，确切版本号待发布计划冻结。
+状态：**方案已确认；preview.3 连续实施中，尚未完成全部发布验收**。日期：2026-09-15。
+审计基线：`zb-dev` / `0247627`，原冻结候选为 `0.1.0-preview.2`。本 Spec 开发版本为 `0.1.0-preview.3`，测试签名制品不等于正式发布。
 
 ## 1. 问题与目标
 
@@ -75,7 +75,7 @@
 ## 3. 非目标
 
 - 不修改或重新发布 `preview.2` 的包拓扑、冻结 API、认证结论或现有交付压缩包。
-- 不在本轮实现生产代码；先确认 Spec 与计划。确认后先提交 Spec 基线，再进入实现。
+- 方案确认和 Spec 基线提交已完成；当前按用户连续执行授权实施，不绕过发布验收。
 - 不随 npm 包捆绑 Node，不制作 MSI/EXE/DMG 安装器，不承诺浏览器 SDK。
 - 不实现 Remote Runtime、真实 CLI 厂商 Adapter、Electron UI、系统服务、共享 Daemon 自动升级或 OS Keychain provider。
 - 不将 Runtime 打成单一 JS/SEA 文件，不合并 SDK 和 Runtime 进程，不开放内部 Adapter/Core 为消费者公共 API。

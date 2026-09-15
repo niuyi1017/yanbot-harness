@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const HARNESS_PROTOCOL_VERSION = '1.0.0' as const;
+export const HARNESS_RELEASE_VERSION = '0.1.0-preview.3' as const;
+export { managedControlMessageSchema, type ManagedControlMessage } from './managed-control.js';
 
 export const protocolVersionSchema = z.literal(HARNESS_PROTOCOL_VERSION);
 export const semverSchema = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/);

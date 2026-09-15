@@ -43,10 +43,11 @@ export class HttpTransport {
     method: string,
     pathname: string,
     schema: Schema<T>,
-    options: { body?: unknown; headers?: Record<string, string> } = {},
+    options: { body?: unknown; headers?: Record<string, string>; signal?: AbortSignal } = {},
   ): Promise<T> {
     const response = await this.request(pathname, {
       method,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       ...(options.headers === undefined ? {} : { headers: options.headers }),
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     });

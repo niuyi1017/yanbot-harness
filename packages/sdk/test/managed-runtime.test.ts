@@ -1,4 +1,4 @@
-import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -16,6 +16,106 @@ afterEach(async () => {
 });
 
 describe('SDK-owned managed Runtime', () => {
+  it('starts a version-bound resolver Runtime through private IPC and retains persistent state', async () => {
+    const stateRoot = await fixtureRoot();
+    await writeFile(path.join(stateRoot, 'user-sentinel'), 'keep');
+    const handle = await startManagedRuntime({
+      runtimeResolver: async () => ({
+        entryPath: path.resolve(import.meta.dirname, '../../../apps/local-runtime/dist/main.js'),
+        runtimeVersion: '0.1.0-preview.3',
+        protocolVersion: '1.0.0',
+        managedProtocolVersion: 1,
+      }),
+      environment: minimalEnvironment(),
+      reference: true,
+      stateRoot,
+    });
+    handles.push(handle);
+    await expect(handle.client.health()).resolves.toMatchObject({ status: 'ok' });
+    await Promise.all([handle.close(), handle.close()]);
+    handles.splice(handles.indexOf(handle), 1);
+    expect(await readFile(path.join(stateRoot, 'user-sentinel'), 'utf8')).toBe('keep');
+    await expect(stat(handle.descriptorPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('bounds a resolver that ignores cancellation and never spawns its late result', async () => {
+    let signal: AbortSignal | undefined;
+    let complete!: (value: {
+      entryPath: string;
+      runtimeVersion: string;
+      protocolVersion: string;
+      managedProtocolVersion: 1;
+    }) => void;
+    const promise = startManagedRuntime({
+      startupTimeoutMs: 200,
+      runtimeResolver: (context) => {
+        signal = context.signal;
+        return new Promise((resolve) => {
+          complete = resolve;
+        });
+      },
+    });
+    await expect(promise).rejects.toMatchObject({
+      kind: 'runtime',
+      message: expect.stringContaining('startup timeout'),
+    });
+    expect(signal?.aborted).toBe(true);
+    complete({
+      entryPath: '/must-not-spawn',
+      runtimeVersion: '0.1.0-preview.3',
+      protocolVersion: '1.0.0',
+      managedProtocolVersion: 1,
+    });
+  });
+
+  it('uses the same deadline for stalled health even when a custom fetch ignores abort', async () => {
+    const startedAt = Date.now();
+    await expect(
+      startManagedRuntime({
+        executablePath: path.resolve(import.meta.dirname, '../../../apps/local-runtime/dist/main.js'),
+        environment: minimalEnvironment(),
+        reference: true,
+        startupTimeoutMs: 1500,
+        shutdownTimeoutMs: 500,
+        fetch: (() => new Promise(() => undefined)) as typeof fetch,
+      }),
+    ).rejects.toMatchObject({ kind: 'runtime', message: expect.stringContaining('startup timeout') });
+    expect(Date.now() - startedAt).toBeLessThan(3000);
+  });
+
+  it('rejects resolver version drift without falling back to a path or creating state', async () => {
+    const stateRoot = path.join(await fixtureRoot(), 'uncreated');
+    await expect(
+      startManagedRuntime({
+        stateRoot,
+        runtimeResolver: async () => ({
+          entryPath: '/must-not-spawn',
+          runtimeVersion: '0.1.0-preview.2',
+          protocolVersion: '1.0.0',
+          managedProtocolVersion: 1,
+        }),
+      }),
+    ).rejects.toMatchObject({ kind: 'protocol' });
+    await expect(stat(stateRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('requires new managed readiness instead of silently accepting an old explicit-path Runtime', async () => {
+    const root = await fixtureRoot();
+    const entryPath = path.join(root, 'no-ipc.mjs');
+    await writeFile(entryPath, 'setInterval(() => {}, 1000);');
+    await expect(
+      startManagedRuntime({
+        startupTimeoutMs: 300,
+        shutdownTimeoutMs: 300,
+        runtimeResolver: async () => ({
+          entryPath,
+          runtimeVersion: '0.1.0-preview.3',
+          protocolVersion: '1.0.0',
+          managedProtocolVersion: 1,
+        }),
+      }),
+    ).rejects.toMatchObject({ kind: 'runtime', message: expect.stringContaining('startup timeout') });
+  });
   it('starts, connects to, and idempotently closes a Reference Runtime', async () => {
     const runtimeEntry = path.resolve(import.meta.dirname, '../../../apps/local-runtime/dist/main.js');
     const handle = await startManagedRuntime({

@@ -69,6 +69,19 @@ jobs:
           path: ${{ runner.temp }}/transfer-kit
       - run: pnpm probe:distribution --import-kit "${{ runner.temp }}/transfer-kit" --output-dir "${{ runner.temp }}/distribution-probes"
       - run: pnpm probe:runtime-archive --output-dir "${{ runner.temp }}/distribution-probes"
+      - run: pnpm --filter @yanbot-harness/runtime test:unit
+      - run: pnpm --filter @yanbot-harness/sdk test:unit
+      - run: pnpm build:platform-runtime --test-signing --skip-build --output-dir "${{ runner.temp }}/platform-builds"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: platform-candidate-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/platform-builds/*/build-report.json
+            ${{ runner.temp }}/platform-builds/*/*.tgz
+            ${{ runner.temp }}/platform-builds/*/test-trust.json
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         if: always()
         with:

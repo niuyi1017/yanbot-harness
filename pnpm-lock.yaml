@@ -194,11 +194,26 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/local:
+    dependencies:
+      '@yanbot-harness/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@yanbot-harness/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+
   packages/permission-engine:
     dependencies:
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/runtime:
+    dependencies:
+      tar-stream:
+        specifier: 3.2.1
+        version: 3.2.1
 
   packages/sdk:
     dependencies:

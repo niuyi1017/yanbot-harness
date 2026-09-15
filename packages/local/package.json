@@ -1,0 +1,33 @@
+{
+  "name": "@yanbot-harness/local",
+  "version": "0.1.0-preview.3",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.22.0 <23"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@yanbot-harness/sdk": "workspace:*",
+    "@yanbot-harness/runtime": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.example.invalid"
+  }
+}

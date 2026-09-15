@@ -17,6 +17,7 @@
     "test:probes": "node --test scripts/test-deploy-probe-audit.mjs scripts/test-normalize-runtime-staging.mjs scripts/test-runtime-archive-probe.mjs",
     "build:client-packages": "node scripts/build-client-packages.mjs",
     "build:runtime-bundle": "node scripts/build-runtime-bundle.mjs",
+    "build:platform-runtime": "node scripts/build-platform-runtime.mjs",
     "release:assemble": "node scripts/assemble-release.mjs",
     "release:build": "node scripts/build-release.mjs",
     "release:check": "node scripts/check-release-artifacts.mjs",

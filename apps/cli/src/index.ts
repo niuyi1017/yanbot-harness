@@ -1,5 +1,6 @@
 import {
   HarnessClient,
+  HARNESS_RELEASE_VERSION,
   HarnessSdkError,
   startManagedRuntime,
   type HarnessErrorCode,
@@ -10,7 +11,7 @@ import { CliUsageError, parseArguments, type CliCommand } from './arguments.js';
 import { promptForInteraction } from './interactions.js';
 import { EventRenderer, type CliIo, writeAdapters, writeJson, writeModels, writeRun, writeSessions } from './output.js';
 
-export const CLI_VERSION = '0.1.0-preview.2';
+export const CLI_VERSION = HARNESS_RELEASE_VERSION;
 export const CLI_EXIT = {
   success: 0,
   usage: 2,

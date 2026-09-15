@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { HARNESS_RELEASE_VERSION } from '@yanbot-harness/contracts';
 
 import { CodeBuddyAdapter } from '@yanbot-harness/adapter-codebuddy';
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
 
 import { createEnvironmentContextProvider } from './adapters.js';
+import { createManagedControl } from './managed-control.js';
 import { resolveRuntimeCredential, RuntimeCredentialError } from './runtime-credential.js';
 import { startLocalRuntime } from './server.js';
 
 const credentialEnvironmentKey = 'CODEBUDDY_API_KEY';
-const RUNTIME_VERSION = '0.1.0-preview.2';
+const RUNTIME_VERSION = HARNESS_RELEASE_VERSION;
+let managedControl: ReturnType<typeof createManagedControl>;
 
 async function main(): Promise<void> {
   const arguments_ = process.argv.slice(2);
@@ -24,6 +27,12 @@ async function main(): Promise<void> {
   }
   const unknownArguments = arguments_.filter((argument) => argument !== '--reference');
   if (unknownArguments.length > 0) throw new Error('Unsupported Runtime argument.');
+  managedControl = createManagedControl();
+  await managedControl?.hello;
+  if (managedControl?.stopping) {
+    managedControl.finishBeforeStart();
+    return;
+  }
   const stateRoot = process.env.YANBOT_HARNESS_STATE_DIR ?? path.join(homedir(), '.yanbot-harness');
   const adapterMode = process.argv.includes('--reference')
     ? 'reference'
@@ -73,9 +82,14 @@ async function main(): Promise<void> {
       : {}),
   });
   process.stdout.write(`Yanbot Harness Local Runtime listening at ${runtime.origin}\n`);
+  managedControl?.ready(runtime);
 
   let closing = false;
   const close = () => {
+    if (managedControl) {
+      managedControl.stop();
+      return;
+    }
     if (closing) return;
     closing = true;
     void runtime.close().catch(() => {
@@ -141,6 +155,7 @@ function parseOrigins(value: string | undefined): string[] {
 }
 
 void main().catch((error: unknown) => {
+  managedControl?.failed();
   const message =
     error instanceof RuntimeCredentialError
       ? `Yanbot Harness Local Runtime failed to start: ${error.message}`

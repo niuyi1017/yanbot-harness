@@ -1,9 +1,17 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
+
+import {
+  HARNESS_RELEASE_VERSION,
+  HARNESS_PROTOCOL_VERSION,
+  managedControlMessageSchema,
+  type ManagedControlMessage,
+} from '@yanbot-harness/contracts';
 
 import { HarnessClient } from './client.js';
 import { readRuntimeDescriptor } from './daemon.js';
@@ -16,6 +24,13 @@ const MAX_STARTUP_TIMEOUT_MS = 120_000;
 const MAX_SHUTDOWN_TIMEOUT_MS = 30_000;
 const executeFile = promisify(execFile);
 
+export type RuntimeLaunchDescriptor = {
+  entryPath: string;
+  runtimeVersion: string;
+  protocolVersion: string;
+  managedProtocolVersion: 1;
+};
+export type ManagedRuntimeResolver = (context: { signal: AbortSignal }) => Promise<RuntimeLaunchDescriptor>;
 export type StartManagedRuntimeOptions = {
   executablePath?: string;
   environment?: Readonly<Record<string, string | undefined>>;
@@ -23,6 +38,8 @@ export type StartManagedRuntimeOptions = {
   reference?: boolean;
   startupTimeoutMs?: number;
   shutdownTimeoutMs?: number;
+  runtimeResolver?: ManagedRuntimeResolver;
+  nodeExecutablePath?: string;
   fetch?: typeof fetch;
 };
 
@@ -39,11 +56,6 @@ type ChildOutcome =
   | { kind: 'error'; error: Error };
 
 export async function startManagedRuntime(options: StartManagedRuntimeOptions = {}): Promise<ManagedRuntimeHandle> {
-  const environment = options.environment ?? process.env;
-  const executablePath = path.resolve(
-    options.executablePath ?? environment.YANBOT_HARNESS_RUNTIME_PATH ?? missingRuntimePath(),
-  );
-  await validateExecutable(executablePath);
   const startupTimeoutMs = boundedTimeout(
     options.startupTimeoutMs,
     DEFAULT_STARTUP_TIMEOUT_MS,
@@ -56,40 +68,78 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     MAX_SHUTDOWN_TIMEOUT_MS,
     'shutdownTimeoutMs',
   );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(startTimeout()), startupTimeoutMs);
+  const signal = controller.signal;
+  const environment = options.environment ?? process.env;
+  let child: ChildProcess | undefined;
+  let outcome: Promise<ChildOutcome> | undefined;
+  let stateRoot: string | undefined;
+  let descriptorPath: string | undefined;
+  let instanceId: string | undefined;
+  let managed: RuntimeLaunchDescriptor | undefined;
+  let control: ReturnType<typeof parentControl> | undefined;
   const ownsStateRoot = options.stateRoot === undefined;
-  const stateRoot = ownsStateRoot
-    ? await mkdtemp(path.join(tmpdir(), 'yanbot-harness-managed-'))
-    : path.resolve(options.stateRoot!);
-  await mkdir(stateRoot, { recursive: true, mode: 0o700 });
-  const descriptorPath = path.join(stateRoot, 'runtime.json');
-  await assertDescriptorAbsent(descriptorPath);
-
-  const { command, arguments: executableArguments } = await invocationFor(executablePath);
-  const child = spawn(command, [...executableArguments, ...(options.reference ? ['--reference'] : [])], {
-    env: compactEnvironment({ ...environment, YANBOT_HARNESS_STATE_DIR: stateRoot }),
-    stdio: 'ignore',
-    windowsHide: true,
-  });
-  const outcome = observeChild(child);
-
   try {
-    const descriptor = await waitForDescriptor({
-      child,
-      outcome,
-      descriptorPath,
-      environment,
-      timeoutMs: startupTimeoutMs,
+    const selectedPath = options.executablePath ?? environment.YANBOT_HARNESS_RUNTIME_PATH;
+    const node = options.nodeExecutablePath ?? process.execPath;
+    if (options.nodeExecutablePath || selectedPath === undefined) await checkNode(node, signal);
+    if (selectedPath === undefined) {
+      if (!options.runtimeResolver) missingRuntimePath();
+      managed = await withSignal(options.runtimeResolver({ signal }), signal);
+      if (
+        !path.isAbsolute(managed.entryPath) ||
+        managed.runtimeVersion !== HARNESS_RELEASE_VERSION ||
+        managed.protocolVersion !== HARNESS_PROTOCOL_VERSION ||
+        managed.managedProtocolVersion !== 1
+      ) {
+        throw new HarnessSdkError('protocol', 'The resolved Runtime version or managed protocol is incompatible.');
+      }
+    }
+    signal.throwIfAborted();
+    const executablePath = path.resolve(selectedPath ?? managed!.entryPath);
+    await validateExecutable(executablePath);
+    const invocation = await invocationFor(executablePath, node);
+    signal.throwIfAborted();
+    stateRoot = ownsStateRoot
+      ? await mkdtemp(path.join(tmpdir(), 'yanbot-harness-managed-'))
+      : path.resolve(options.stateRoot!);
+    await mkdir(stateRoot, { recursive: true, mode: 0o700 });
+    descriptorPath = path.join(stateRoot, 'runtime.json');
+    await assertDescriptorAbsent(descriptorPath);
+    signal.throwIfAborted();
+    child = spawn(invocation.command, [...invocation.arguments, ...(options.reference ? ['--reference'] : [])], {
+      env: compactEnvironment({ ...environment, YANBOT_HARNESS_STATE_DIR: stateRoot }),
+      stdio: managed ? ['ignore', 'ignore', 'ignore', 'ipc'] : 'ignore',
+      detached: Boolean(managed && process.platform !== 'win32'),
+      windowsHide: true,
     });
-    if (descriptor.pid !== child.pid) {
+    outcome = observeChild(child);
+    if (managed) control = parentControl(child, outcome, managed);
+    const descriptor = await withSignal(
+      waitForDescriptor({ child, outcome, descriptorPath, environment, signal }),
+      signal,
+    );
+    instanceId = descriptor.instanceId;
+    if (descriptor.pid !== child.pid)
       throw new HarnessSdkError('protocol', 'The managed Runtime descriptor belongs to an unexpected process.');
+    if (control) {
+      const ready = await withSignal(control.ready, signal);
+      if (ready.instanceId !== descriptor.instanceId)
+        throw new HarnessSdkError('protocol', 'Managed readiness identity mismatch.');
     }
     const client = new HarnessClient({
       origin: descriptor.origin,
       accessToken: descriptor.accessToken,
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
-    await client.health();
-
+    await withSignal(client.health({ signal }), signal);
+    signal.throwIfAborted();
+    if (child.exitCode !== null || child.signalCode !== null) throw childOutcomeError(await outcome);
+    const ownedChild = child;
+    const ownedOutcome = outcome;
+    const ownedDescriptor = descriptorPath;
+    const ownedRoot = ownsStateRoot ? stateRoot : undefined;
     let closePromise: Promise<void> | undefined;
     return {
       client,
@@ -97,22 +147,75 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
       pid: descriptor.pid,
       descriptorPath,
       close() {
-        closePromise ??= closeManagedRuntime({
-          child,
-          outcome,
-          shutdownTimeoutMs,
-          descriptorPath,
-          instanceId: descriptor.instanceId,
-          ownedStateRoot: ownsStateRoot ? stateRoot : undefined,
-        });
+        closePromise ??= (async () => {
+          control?.shutdown();
+          await terminateOwnedChild(ownedChild, ownedOutcome, shutdownTimeoutMs, Boolean(managed));
+          control?.dispose();
+          await removeOwnedDescriptor(ownedDescriptor, descriptor.instanceId);
+          if (ownedRoot) await rm(ownedRoot, { recursive: true, force: true });
+        })();
         return closePromise;
       },
     };
   } catch (error) {
-    await terminateOwnedChild(child, outcome, shutdownTimeoutMs).catch(() => undefined);
-    if (ownsStateRoot) await rm(stateRoot, { recursive: true, force: true });
+    controller.abort(error);
+    try {
+      if (child && outcome) {
+        control?.shutdown();
+        await terminateOwnedChild(child, outcome, shutdownTimeoutMs, Boolean(managed));
+      }
+    } catch {
+      throw new HarnessSdkError(
+        'runtime',
+        'CLEANUP_FAILED: managed process cleanup failed; owned state was retained for diagnosis.',
+      );
+    } finally {
+      control?.dispose();
+    }
+    if (descriptorPath && instanceId) await removeOwnedDescriptor(descriptorPath, instanceId);
+    if (ownsStateRoot && stateRoot) await rm(stateRoot, { recursive: true, force: true });
     if (error instanceof HarnessSdkError) throw error;
-    throw new HarnessSdkError('runtime', 'The managed Runtime failed to start.', { cause: error });
+    throw new HarnessSdkError(
+      'runtime',
+      'The managed Runtime failed to start. Check resolver integrity, Node compatibility and permissions.',
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function checkNode(node: string, signal: AbortSignal): Promise<void> {
+  const { stdout } = await executeFile(
+    node,
+    [
+      '--input-type=commonjs',
+      '-e',
+      'process.stdout.write(JSON.stringify({node:process.versions.node,os:process.platform,cpu:process.arch,electron:Boolean(process.versions.electron)}))',
+    ],
+    {
+      signal,
+      windowsHide: true,
+      maxBuffer: 4096,
+      env: compactEnvironment(
+        Object.fromEntries(['PATH', 'SystemRoot', 'SYSTEMROOT', 'WINDIR'].map((key) => [key, process.env[key]])),
+      ),
+    },
+  );
+  const identity = JSON.parse(stdout) as { node: string; os: string; cpu: string; electron: boolean };
+  // v1 resolver selects the current Node target. Different-architecture injected Node is rejected before resolution.
+  const [major, minor] = identity.node.split('.').map(Number);
+  if (
+    major !== 22 ||
+    minor === undefined ||
+    minor < 22 ||
+    identity.os !== process.platform ||
+    identity.cpu !== process.arch ||
+    identity.electron
+  ) {
+    throw new HarnessSdkError(
+      'runtime',
+      'NODE_UNSUPPORTED: use plain Node >=22.22.0 <23 matching the host architecture.',
+    );
   }
 }
 
@@ -121,78 +224,139 @@ async function waitForDescriptor(options: {
   outcome: Promise<ChildOutcome>;
   descriptorPath: string;
   environment: Readonly<Record<string, string | undefined>>;
-  timeoutMs: number;
+  signal: AbortSignal;
 }) {
-  const deadline = Date.now() + options.timeoutMs;
-  let settledOutcome: ChildOutcome | undefined;
+  let settled: ChildOutcome | undefined;
   void options.outcome.then((value) => {
-    settledOutcome = value;
+    settled = value;
   });
-
-  while (Date.now() < deadline) {
-    if (settledOutcome) throw childOutcomeError(settledOutcome);
-    if (await isFile(options.descriptorPath)) {
-      return readRuntimeDescriptor({
-        descriptorPath: options.descriptorPath,
-        environment: options.environment,
-      });
-    }
-    await delay(Math.min(50, Math.max(1, deadline - Date.now())));
+  while (true) {
+    options.signal.throwIfAborted();
+    if (settled) throw childOutcomeError(settled);
+    if (await isFile(options.descriptorPath))
+      return readRuntimeDescriptor({ descriptorPath: options.descriptorPath, environment: options.environment });
+    await withSignal(delay(50), options.signal);
   }
-
-  if (settledOutcome) throw childOutcomeError(settledOutcome);
-  if (options.child.exitCode !== null || options.child.signalCode !== null) {
-    throw childOutcomeError(await options.outcome);
-  }
-  throw new HarnessSdkError('runtime', 'The managed Runtime did not become ready before the startup timeout.');
 }
 
-async function closeManagedRuntime(options: {
-  child: ChildProcess;
-  outcome: Promise<ChildOutcome>;
-  shutdownTimeoutMs: number;
-  descriptorPath: string;
-  instanceId: string;
-  ownedStateRoot: string | undefined;
-}): Promise<void> {
-  try {
-    await terminateOwnedChild(options.child, options.outcome, options.shutdownTimeoutMs);
-  } finally {
-    await removeOwnedDescriptor(options.descriptorPath, options.instanceId);
-    if (options.ownedStateRoot) await rm(options.ownedStateRoot, { recursive: true, force: true });
-  }
+function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expected: RuntimeLaunchDescriptor) {
+  const launchId = randomUUID();
+  let readyValue: Extract<ManagedControlMessage, { type: 'ready' }> | undefined;
+  let shutdownId: string | undefined;
+  let accept!: (value: Extract<ManagedControlMessage, { type: 'ready' }>) => void;
+  let reject!: (error: Error) => void;
+  const ready = new Promise<Extract<ManagedControlMessage, { type: 'ready' }>>((resolve, fail) => {
+    accept = resolve;
+    reject = fail;
+  });
+  void ready.catch(() => undefined);
+  const onMessage = (raw: unknown) => {
+    try {
+      if (Buffer.byteLength(JSON.stringify(raw)) > 8192) throw new Error();
+      const message = managedControlMessageSchema.parse(raw);
+      if (message.launchId !== launchId) throw new Error();
+      if (
+        message.type === 'ready' &&
+        !readyValue &&
+        !shutdownId &&
+        message.pid === child.pid &&
+        message.runtimeVersion === expected.runtimeVersion &&
+        message.protocolVersion === expected.protocolVersion
+      ) {
+        readyValue = message;
+        accept(message);
+        return;
+      }
+      if (
+        message.type === 'shutdown-complete' &&
+        shutdownId === message.requestId &&
+        message.pid === child.pid &&
+        message.instanceId === readyValue?.instanceId
+      )
+        return;
+      throw new Error();
+    } catch {
+      reject(new HarnessSdkError('protocol', 'Invalid managed control message.'));
+    }
+  };
+  child.on('message', onMessage);
+  void outcome.then((value) => reject(childOutcomeError(value)));
+  child.send({ managedProtocolVersion: 1, type: 'hello', launchId }, (error) => {
+    if (error) reject(new HarnessSdkError('runtime', 'Managed IPC could not be opened.'));
+  });
+  return {
+    ready,
+    shutdown() {
+      if (shutdownId || !child.connected) return;
+      shutdownId = randomUUID();
+      child.send({ managedProtocolVersion: 1, type: 'shutdown', launchId, requestId: shutdownId }, () => undefined);
+    },
+    dispose() {
+      child.off('message', onMessage);
+      if (child.connected) child.disconnect();
+    },
+  };
 }
 
 async function terminateOwnedChild(
   child: ChildProcess,
   outcome: Promise<ChildOutcome>,
-  shutdownTimeoutMs: number,
+  timeoutMs: number,
+  managed = false,
 ): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  if (process.platform === 'win32') {
-    const pid = child.pid;
-    if (!pid) throw new HarnessSdkError('runtime', 'The managed Runtime process does not have a PID.');
-    try {
-      await executeFile('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
-    } catch (error) {
-      if (!(await settlesWithin(outcome, MIN_TIMEOUT_MS))) {
-        throw new HarnessSdkError('runtime', 'The managed Runtime process tree could not be terminated.', {
-          cause: error,
-        });
-      }
-      return;
-    }
-    if (!(await settlesWithin(outcome, shutdownTimeoutMs))) {
-      throw new HarnessSdkError('runtime', 'The managed Runtime did not exit after forced termination.');
-    }
+  const deadline = Date.now() + timeoutMs;
+  const remaining = () => Math.max(1, deadline - Date.now());
+  if (child.pid === undefined) {
+    await settlesWithin(outcome, remaining());
     return;
   }
+  const exited = () => child.exitCode !== null || child.signalCode !== null;
+  if (managed && !exited()) await settlesWithin(outcome, Math.max(1, Math.floor(timeoutMs * 0.6)));
+  if (process.platform === 'win32') {
+    // Never taskkill a PID after our child has exited: Windows may already have reused it.
+    if (!exited()) {
+      const systemRoot = process.env.SystemRoot;
+      if (!systemRoot)
+        throw new HarnessSdkError('runtime', 'Windows SystemRoot is required for owned process cleanup.');
+      await executeFile(path.join(systemRoot, 'System32/taskkill.exe'), ['/PID', String(child.pid), '/T', '/F'], {
+        timeout: remaining(),
+        windowsHide: true,
+      }).catch((error: unknown) => {
+        if (!exited()) throw error;
+      });
+    }
+  } else if (managed) {
+    // New Runtime is a group leader. Detached descendants remain a separate certification gate.
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch (error) {
+      if (!isMissingProcess(error)) throw error;
+    }
+  } else if (!exited()) {
+    child.kill('SIGTERM');
+    if (!(await settlesWithin(outcome, Math.max(1, Math.floor(remaining() * 0.6))))) child.kill('SIGKILL');
+  }
+  if (!(await settlesWithin(outcome, remaining())))
+    throw new HarnessSdkError('runtime', 'CLEANUP_FAILED: Runtime did not exit within shutdownTimeoutMs.');
+}
 
-  child.kill('SIGTERM');
-  if (await settlesWithin(outcome, shutdownTimeoutMs)) return;
-  child.kill('SIGKILL');
-  if (!(await settlesWithin(outcome, shutdownTimeoutMs))) {
-    throw new HarnessSdkError('runtime', 'The managed Runtime did not exit after forced termination.');
+function isMissingProcess(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ESRCH';
+}
+function startTimeout() {
+  return new HarnessSdkError('runtime', 'The managed Runtime did not become ready before the startup timeout.');
+}
+async function withSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  signal.throwIfAborted();
+  let abort!: () => void;
+  const cancelled = new Promise<never>((_, reject) => {
+    abort = () => reject(signal.reason);
+    signal.addEventListener('abort', abort, { once: true });
+  });
+  try {
+    return await Promise.race([promise, cancelled]);
+  } finally {
+    signal.removeEventListener('abort', abort);
   }
 }
 
@@ -256,7 +420,7 @@ async function removeOwnedDescriptor(file: string, instanceId: string): Promise<
   }
 }
 
-async function invocationFor(executablePath: string): Promise<{ command: string; arguments: string[] }> {
+async function invocationFor(executablePath: string, node: string): Promise<{ command: string; arguments: string[] }> {
   if (/\.(?:cmd|bat)$/iu.test(executablePath)) {
     const nodeLauncher = executablePath.replace(/\.(?:cmd|bat)$/iu, '.js');
     try {
@@ -268,10 +432,10 @@ async function invocationFor(executablePath: string): Promise<{ command: string;
         { cause: error },
       );
     }
-    return { command: process.execPath, arguments: [nodeLauncher] };
+    return { command: node, arguments: [nodeLauncher] };
   }
   return /\.[cm]?js$/iu.test(executablePath)
-    ? { command: process.execPath, arguments: [executablePath] }
+    ? { command: node, arguments: [executablePath] }
     : { command: executablePath, arguments: [] };
 }
 

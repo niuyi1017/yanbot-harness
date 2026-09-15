@@ -7,6 +7,10 @@
 - CI 34958355225：Linux 安装和完整 archive/Reference 通过；Mac 安装通过、路径扫描失败；Windows producer 摘要检查失败。Windows CRLF 检出改变脚本字节，使用仓库 `.gitattributes` 固定文本 LF，保持摘要比较严格，不对收到的 kit 放宽校验。
 - 路径扫描继续禁止本次仓库/真实路径及临时装配根，且扫描全部二进制与凭据模式。通用 home 前缀（如 GitHub 与第三方共同使用的 `/Users/runner`）不能证明本次构建路径泄漏，移出全局硬拒绝集合；不修改第三方原字节，不增加 vendor 路径豁免。正式制品仍需来源/许可审计，此扫描不等于完整机密检测。
 - T2/T3 将已测试的 archive 解包与路径契约移入 runtime 包的共享内部模块，构建侧复用同一实现；不复制第二份解析器，不允许运行时依赖仓库 scripts。测试信任根仅显式注入，默认空信任根失败关闭，正式根未配前不宣称可生产安装。
+- 缓存互斥采用内核持有的本机 loopback 独占监听锁（缓存绝对路径摘要映射端口，进程退出自动释放）；不读取 PID 文件、不猜测死锁后删除其他进程锁。端口碰撞只会串行等待/有界失败，不能跳过校验或误抢锁；受策略限制无法绑定时给出缓存错误。它不是 Registry 请求。缓存损坏保留原目录并失败，不自动覆盖或 GC，恢复需显式新 cacheRoot 或人工处理。
+- Windows 新缓存根显式建立仅当前用户继承 ACL 并复读校验；该实现需 Windows CI 通过后才能计作证据。普通运行临时目录的 ACL 与进程树 containment 在 T4 独立收口，不能因缓存 ACL 成功一并勾选。
+- SDK 首版先验证自定义 Node 的版本及与宿主相同的 OS/CPU，跨架构 Node 明确拒绝，不将它错误交给按宿主选包的默认 resolver；后续如支持异架构需要扩展 context。新 IPC 与旧显式路径分支隔离。POSIX 独立组和 Windows taskkill 只是基础回收，脱组后代、Runtime 强杀后 Windows 后代及父宿主强杀的完整 containment 保持发布阻断，不能宣称已保证。
+- 第二次 CI 34959311734：三平台原样 tgz/跨系统 lock 安装均通过，Mac/Linux archive 通过；Windows hoisted 的六个普通 pnpm CLI shim 含装配绝对路径。归一化前仅对已登记 uuidv7/which 的 shell/cmd/ps1 shim 按实际 package.bin 生成相对启动器，校验目标 Node shebang，未知 bin 条目拒绝；第三方包资源仍不变。该变更先加入契约，再重跑 Windows，不删除命中资源。
 - CI 外部结果与本地证据分别记录。T1 已验证的契约足以推进独立 T2/T3 工作，未通过的平台门禁继续保持未完成。
 
 ## 2026-09-15：方案确认，授权启动 T1

@@ -1,6 +1,6 @@
 # 统一本地分发开发步骤
 
-状态：**方案已确认，T1 本机探针进行中；T2–T7 未开始**。2026-09-15。
+状态：**连续实施中：T1 三平台安装通过；T2/T3 已有本机签名平台候选与 resolver/IPC 回归；T4/T5 部分，T6/T7 待收口**。2026-09-15。
 本文件是 P1D 分发工作流的实施清单；整体进度以 [roadmap](../harness-platform-foundation/roadmap.md) 为准。
 `preview.2` 的已有实现/证据不是下列新任务的完成证据。
 
@@ -8,7 +8,7 @@
 
 - [x] 用户确认 local/sdk/runtime 包职责、payload 形态、最低平台矩阵、离线 kit 与分阶段范围。
 - [x] 记录现有 Mac P0 制品源提交/摘要，独立提交已确认 Spec 基线 `1fd2e44` 后开始编码；Windows 冻结仍待实机证据。
-- [ ] T2 产品打包前选择后续 Preview 版本线；T1 使用独立 scope 与 probe 版本。
+- [x] T2 产品打包前选择后续 Preview 版本线 `0.1.0-preview.3`；T1 使用独立 scope 与 probe 版本。
 - [ ] README 等文档变化也会改变 tgz 字节：P0 重建只从其冻结 ref 执行，本规划后的新制品须先切换新版本，不能以 `preview.2` 身份覆盖既有包。
 - [ ] 核实新增包名/scope 权限、Registry/镜像、再分发许可、Node 与包管理器精确版本、签名信任根和实机资源；缺失项登记为发布门禁。
 - 文件：本目录三份 Spec、foundation roadmap、后续 delivery 说明。
@@ -34,6 +34,9 @@
 
 ## T2. Runtime 平台包与确定性 release staging
 
+- [x] 本机首个平台候选：frozen deploy→相对 shim→归一化→SBOM/清单→临时 Ed25519 签名→npm tgz→校验/缓存→新 IPC Reference health/close 通过。证据见 implementation-evidence-t2t3.json；dirty 工作树与测试签名只算开发候选，不是冻结 release。
+- [x] 新公共包版本、contracts 与 Runtime/CLI 版本入口校验；旧 preview.2 archive 未重建。完整 pnpm check 通过，45 个原归档/审计测试继续共用同一 codec。
+
 - [ ] 复用 Runtime 源生成完整 payload，打包成包含 manifest/signature/SBOM 的平台 npm tgz，继续生成 portable archive。
 - [ ] 公共包/平台包统一从 release descriptor 取得版本、源提交、lock 摘要；生成过程不发布内部 Adapter/Core 包。
 - [ ] 保持 common tgz 只构建一次；扩展 artifact allowlist、secret/source/path 扫描和按层依赖断言。
@@ -42,6 +45,10 @@
 - 验收：`pnpm check`，新平台包 build/check，解包后零 workspace 协议/外部 symlink/凭据，payload 运行资源齐全；旧 Preview portable 回归通过。
 
 ## T3. Resolver、本地 facade 与兼容 API
+
+- [x] 新 runtime/local 模块与 SDK 注入点已实现初版；8 项 resolver 安全/缓存测试、SDK 22 项（含原兼容）、local 3 项通过。
+- [x] 签名/版本/target/material/fileList/payload 校验、私有摘要缓存、内核锁、最小默认环境；统一启动 deadline 覆盖迟到 resolver 与无响应 health。正式根保持空，不自动信任制品内公钥。
+- [ ] 待真实 npm/pnpm 新包安装端到端与跨平台权限、故障/升级矩阵，不把内部目录 resolver 成功当作正式安装完成。
 
 - [ ] 新增 `packages/runtime`：固定映射、manifest export、签名/摘要校验、受限展开、同卷原子缓存、并发锁、独立启动器。
 - [ ] SDK 增加可选 resolver/Node 可执行文件注入与统一启动 deadline；保留旧路径/env/options/handle，错误分类增量兼容。
