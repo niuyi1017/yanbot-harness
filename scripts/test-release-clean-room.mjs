@@ -22,6 +22,8 @@ const temporaryRoot = await mkdtemp(path.join(tmpdir(), 'yanbot-harness-release-
 const consumerRoot = path.join(temporaryRoot, 'consumer');
 const runtimeRoot = path.join(temporaryRoot, 'runtime');
 const activeRuntimes = [];
+let failure;
+let cleanupFailure;
 
 try {
   await mkdir(consumerRoot, { recursive: true, mode: 0o700 });
@@ -39,7 +41,7 @@ try {
     '--no-package-lock',
     ...packageArchives,
   ]);
-  await runProcess(npm.command, npm.arguments, { cwd: consumerRoot, env: consumerEnvironment() });
+  await runProcess(npm.command, npm.arguments, { cwd: consumerRoot, env: consumerEnvironment() }, 120000);
 
   const runtimeArchive = await findRuntimeArchive(path.join(releaseRoot, 'runtime'));
   await extractRuntimeArchive(runtimeArchive, runtimeRoot);
@@ -180,10 +182,19 @@ try {
   process.stdout.write(
     `${JSON.stringify({ ok: true, version, sdk: ['managed', 'text', 'interaction', 'cancel'], cli: ['managed', 'text', 'jsonl', 'resume', 'cancel'] })}\n`,
   );
+} catch (error) {
+  failure = error;
+  throw error;
 } finally {
   await Promise.allSettled(activeRuntimes.map((runtime) => stopRuntime(runtime)));
-  await rm(temporaryRoot, { recursive: true, force: true });
+  try {
+    await rm(temporaryRoot, { recursive: true, force: true, maxRetries: 8, retryDelay: 100 });
+  } catch (error) {
+    if (!failure) cleanupFailure = error;
+    process.stderr.write('Owned clean-room diagnostics retained after cleanup failure: ' + temporaryRoot + '\n');
+  }
 }
+if (cleanupFailure) throw cleanupFailure;
 
 async function startRuntime(scenario, launcher) {
   const stateRoot = path.join(temporaryRoot, `state-${scenario}-${Date.now()}`);
@@ -257,25 +268,26 @@ function startStreamingProcess(command, arguments_, options) {
   return { firstLine, completed };
 }
 
-async function runProcess(command, arguments_, options = {}) {
+async function runProcess(command, arguments_, options = {}, timeoutMs = 30000) {
   const child = spawn(command, arguments_, { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (chunk) => (stdout += String(chunk)));
   child.stderr.on('data', (chunk) => (stderr += String(chunk)));
-  const result = await waitForExit(child, 30_000);
+  const result = await waitForExit(child, timeoutMs);
   if (result.code !== 0) throw new Error(`${path.basename(command)} exited ${result.code}: ${stderr.trim()}`);
   return { ...result, stdout, stderr };
 }
 
 async function waitForExit(child, timeoutMs) {
   let timer;
+  const closed = new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('close', (code, signal) => resolve({ code, signal }));
+  });
   try {
     return await Promise.race([
-      new Promise((resolve, reject) => {
-        child.once('error', reject);
-        child.once('close', (code, signal) => resolve({ code, signal }));
-      }),
+      closed,
       new Promise((_, reject) => {
         timer = globalThis.setTimeout(() => {
           child.kill('SIGKILL');
@@ -283,6 +295,20 @@ async function waitForExit(child, timeoutMs) {
         }, timeoutMs);
       }),
     ]);
+  } catch (error) {
+    // Do not delete a Windows working directory before the killed process has closed its handles.
+    let cleanupTimer;
+    try {
+      await Promise.race([
+        closed.catch(() => undefined),
+        new Promise((resolve) => {
+          cleanupTimer = globalThis.setTimeout(resolve, 5000);
+        }),
+      ]);
+    } finally {
+      if (cleanupTimer) globalThis.clearTimeout(cleanupTimer);
+    }
+    throw error;
   } finally {
     if (timer) globalThis.clearTimeout(timer);
   }

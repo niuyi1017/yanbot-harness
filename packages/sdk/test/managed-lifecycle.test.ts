@@ -1,12 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 import { startManagedRuntime, HARNESS_RELEASE_VERSION, type ManagedRuntimeHandle } from '../src/index.js';
-import { verifyManagedDescriptor } from '../src/managed-permissions.js';
+import { protectManagedState, verifyManagedDescriptor } from '../src/managed-permissions.js';
 
 const runtimeEntry = path.resolve(import.meta.dirname, '../../../apps/local-runtime/dist/main.js');
 const handles: ManagedRuntimeHandle[] = [];
@@ -56,7 +57,7 @@ it('concurrent managed instances own distinct state and closing one preserves th
   await expect(b.client.health()).resolves.toMatchObject({ status: 'ok' });
 }, 15000);
 
-it('parent IPC loss closes a normal Reference child while preserving caller-owned state', async () => {
+it('parent death stops the normal Reference child and preserves caller-owned state', async () => {
   const root = await fixture();
   const state = path.join(root, 'state');
   await mkdir(state, { mode: 0o700 });
@@ -84,7 +85,31 @@ setInterval(() => {}, 1000);`,
   await once(owner, 'exit');
   expect(await gone(pid)).toBe(true);
   await expect(stat(state)).resolves.toBeDefined();
-  await expect(stat(descriptor)).rejects.toMatchObject({ code: 'ENOENT' });
+  if (process.platform === 'win32') {
+    // libuv's parent-owned Job Object may kill the child before IPC cleanup runs.
+    try {
+      expect(JSON.parse(await readFile(descriptor, 'utf8')).pid).toBe(pid);
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
+  } else await expect(stat(descriptor)).rejects.toMatchObject({ code: 'ENOENT' });
+}, 15000);
+
+it('IPC disconnect while the parent remains alive gracefully removes the owned descriptor', async () => {
+  const root = await fixture();
+  await protectManagedState(root, AbortSignal.timeout(10000));
+  const child = spawn(process.execPath, [runtimeEntry, '--reference'], {
+    env: { ...process.env, YANBOT_HARNESS_STATE_DIR: root },
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+  });
+  processes.push(child);
+  const ready = once(child, 'message', { signal: AbortSignal.timeout(10000) });
+  child.send({ type: 'hello', managedProtocolVersion: 1, launchId: randomUUID() });
+  expect((await ready)[0]).toMatchObject({ type: 'ready', pid: child.pid });
+  const exit = once(child, 'exit', { signal: AbortSignal.timeout(10000) });
+  child.disconnect();
+  expect((await exit)[0]).toBe(0);
+  await expect(stat(path.join(root, 'runtime.json'))).rejects.toMatchObject({ code: 'ENOENT' });
 }, 15000);
 
 it('new managed path rejects insecure caller state without changing its files', async () => {

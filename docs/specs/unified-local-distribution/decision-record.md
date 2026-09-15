@@ -27,6 +27,8 @@
 
 ## 外部发布门禁
 
+Windows 父死亡测试细化：Node 22 所用 libuv 1.51 的父属 Job Object 会在父死亡时强杀非 detached 子进程，故不能要求此时 Runtime 一定完成 descriptor 删除。测试分别验证“父被强杀后子进程消失、持久目录/可能的旧 descriptor 保留”和“父存活但 IPC 断开时正常 close/descriptor 清理”。不改成 detached 来逃避 OS 保护；旧 descriptor 的死 PID 不能作为可连接服务。libuv Job 允许子进程 breakaway，仍不构成全树保证。依据：[libuv Windows process implementation](https://github.com/libuv/libuv/blob/v1.51.0/src/win/process.c#L65-L91)。
+
 CI 34965940828 的直接权限测试定位真正前置失败：从 PowerShell 7 启动的 Node 继承了其模块环境，固定 Windows PowerShell 5.1 的 Get-Acl 自动加载到不兼容 Security 模块。改用其内置 .NET Framework Directory/File.GetAccessControl、SetAccessControl 与强类型构造器，不依赖 Get-Acl/New-Object 自动加载；保持固定系统解释器、ACL 复核与受限目录逻辑，不因命令失败跳过保护。
 
 Linux 阻网门禁仅在一次性 GitHub runner 创建独立 network namespace；只启用该 namespace 的 lo，在加载任何 kit/npm 代码之前降回原用户 UID/GID 并清除 supplementary groups。外连预检必须 ENETUNREACH；不修改 runner 主 network namespace、防火墙或用户电脑配置。无可用 sudo/unshare 时测试失败，不能当作已认证。
