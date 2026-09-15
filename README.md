@@ -6,7 +6,9 @@ production adapter; future harnesses can integrate without changing the public S
 The target architecture has two independent dimensions: Local/Remote Runtime deployment and SDK/CLI vendor Adapter
 integration. See the [canonical system architecture](docs/architecture/system-architecture.md) and its
 [copyable PNG diagram](docs/architecture/assets/yanbot-harness-runtime-adapter-architecture.png). The target diagram
-does not replace the implementation status below.
+does not replace the implementation status below. The
+[master development roadmap](docs/specs/harness-platform-foundation/roadmap.md) is the single source for phase order,
+current progress, dependencies, and the next implementation gate.
 
 The foundation, M2 Local Runtime, and M3 TypeScript SDK/CLI are complete for offline development. Contracts, adapter
 SPI, managed runs, local persistence, authentication, workspace grants, configuration, extension discovery,

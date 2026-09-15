@@ -136,6 +136,8 @@ Local Runtime 不能通过修改监听地址直接充当 Remote Runtime；Remote
 ## 9. 文档一致性规则
 
 - 本文负责总体运行边界和术语。
+- [`roadmap`](../specs/harness-platform-foundation/roadmap.md) 是阶段顺序、当前状态和下一开发门禁的唯一进度总纲；
+  本文不承担进度声明。
 - [`harness-platform-foundation`](../specs/harness-platform-foundation/design.md) 负责平台完整模块与阶段规划。
 - [`dual-runtime-compatibility`](../specs/dual-runtime-compatibility/design.md) 负责 Local/Remote 协议迁移和实现任务。
 - [`cli-harness-adapter`](../specs/cli-harness-adapter/design.md) 负责 Sidecar、Wrapper 和厂商 CLI 进程细节。
