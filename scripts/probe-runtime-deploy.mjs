@@ -5,17 +5,23 @@ import { createHash } from 'node:crypto';
 import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, stat, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
+import { createRequire } from 'node:module';
 import { promisify } from 'node:util';
 
 import { startManagedRuntime } from '../packages/sdk/dist/index.js';
 import { auditDeployedPackages } from './lib/deploy-probe-audit.mjs';
 import { NORMALIZATION_METADATA, normalizeRuntimeStaging } from './lib/normalize-runtime-staging.mjs';
+import { extractRuntimeArchive, packRuntimeArchive } from './lib/runtime-archive-probe.mjs';
+import { inspectCandidate } from './lib/normalize-runtime-staging.mjs';
 
 const executeFile = promisify(execFile);
 const repository = path.resolve(import.meta.dirname, '..');
 const pnpmEntry = process.env.npm_execpath;
 assert(pnpmEntry && /pnpm/iu.test(pnpmEntry), 'Run via pnpm probe:runtime-deploy after building.');
 const args = process.argv.slice(2).filter((item) => item !== '--');
+const archiveProbe = args.includes('--archive');
+if (archiveProbe) args.splice(args.indexOf('--archive'), 1);
 assert(args.length === 0 || (args.length === 2 && args[0] === '--output-dir'), 'Use --output-dir DIRECTORY');
 const outputParent = args.length ? path.resolve(args[1]) : tmpdir();
 await mkdir(outputParent, { recursive: true });
@@ -45,6 +51,31 @@ const report = {
     'Graph equality deduplicates identical package/asset/edge records; physical duplication is reported and module singleton identity is not certified.',
   ],
 };
+if (archiveProbe) {
+  report.kind = 'runtime-archive-mechanism-probe';
+  report.archiveScriptSha256 = hash(await readFile(path.join(import.meta.dirname, 'lib/runtime-archive-probe.mjs')));
+  const require = createRequire(import.meta.url);
+  const packagePath = require.resolve('tar-stream/package');
+  const manifest = JSON.parse(await readFile(packagePath, 'utf8'));
+  assert.equal(manifest.version, '3.2.1');
+  report.archiveLibrary = {
+    name: manifest.name,
+    version: manifest.version,
+    license: manifest.license,
+    zlib: process.versions.zlib,
+    sourceSha256: Object.fromEntries(
+      await Promise.all(
+        ['pack.js', 'extract.js', 'headers.js'].map(async (file) => [
+          file,
+          hash(await readFile(path.join(path.dirname(packagePath), file))),
+        ]),
+      ),
+    ),
+  };
+  report.limitations.push(
+    'USTAR-only framing and trusted test digests; no production signature, shared-cache locking or Windows ACL certification.',
+  );
+}
 try {
   const pnpm = await executeFile(process.execPath, [pnpmEntry, '--version'], { cwd: repository });
   report.pnpm = pnpm.stdout.trim();
@@ -73,7 +104,7 @@ try {
   assert.equal(hash(await readFile(path.join(repository, 'pnpm-lock.yaml'))), report.lockSha256, 'Root lock changed.');
   report.original = await inventory(deployed);
   assert.equal(report.original.externalLinks.length, 0, 'Deploy contains links outside staging.');
-  for (const name of ['typescript', 'vitest', '@yanbot-harness/testing']) {
+  for (const name of ['typescript', 'vitest', '@yanbot-harness/testing', 'tar-stream']) {
     assert(!report.original.packages.some((item) => item.name === name), `Unexpected development package: ${name}`);
   }
   await executeFile(
@@ -146,7 +177,40 @@ try {
   report.normalized = await inventory(normalized);
   assert.equal(report.normalized.links, 0);
   assert.equal(report.normalized.localReferenceManifests.length, 0);
-  await cp(normalized, relocated, { recursive: true, verbatimSymlinks: true });
+  let relocationSource = normalized;
+  if (archiveProbe) {
+    const packedAt = performance.now();
+    const packed = await packRuntimeArchive({
+      source: normalized,
+      outputDirectory: path.join(root, 'archive'),
+      signal: globalThis.AbortSignal.timeout(120_000),
+    });
+    const extractedAt = performance.now();
+    const extracted = await extractRuntimeArchive({
+      ...packed,
+      outputParent: root,
+      signal: globalThis.AbortSignal.timeout(120_000),
+    });
+    const completedAt = performance.now();
+    const extractedInventory = await inspectCandidate(extracted.directory);
+    assert.equal(
+      extractedInventory.sha256,
+      report.normalization.after.sha256,
+      'Archive round-trip changed inventory bytes/modes.',
+    );
+    report.archive = {
+      payload: packed.payload,
+      fileList: packed.fileList,
+      tarBytes: extracted.tarBytes,
+      packMs: Math.round(extractedAt - packedAt),
+      extractMs: Math.round(completedAt - extractedAt),
+      inventorySha256: extractedInventory.sha256,
+      files: extractedInventory.files,
+      bytes: extractedInventory.bytes,
+    };
+    relocationSource = extracted.directory;
+  }
+  await cp(relocationSource, relocated, { recursive: true, verbatimSymlinks: true });
   report.relocated = await inventory(relocated);
   assert.equal(report.relocated.externalLinks.length, 0, 'Relocation still points into original staging.');
   assert.equal(report.relocated.fileTreeSha256, report.normalized.fileTreeSha256);

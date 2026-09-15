@@ -80,6 +80,8 @@ T1 后续探针优先验证包管理器的 hoisted deploy 能否从同一 frozen
 
 T1c 在新目录中归一化候选制品，不原地修改 deploy：仅剔除准确列明的根 pnpm 元数据；仅对工作区已登记的自有 package.json 删除开发/发布工具字段，并将自有生产依赖改为实际安装的精确版本。第三方 manifest/代码/许可证保持原字节，未列明的文件不得顺手删除。清理前后的非授权变更、符号链接、本机路径或疑似凭据均使探针失败，不通过替换内容“修复”扫描。逐文件差异允许集与忽略 package.json 字节的依赖图分别验证，避免 manifest 归一化掩盖其他资源变化。固定制品字段与候选限值见 [artifact-contract](artifact-contract.md)；解包器选型、实机和生产签名仍需独立证据。
 
+T1d 已在本机完成 tar-stream 3.2.1 的受限归档 round-trip 和攻击样例；库只解析流，USTAR framing/清单检查先于 entry 解码与文件写入。gzip 单 member、摘要/CRC、取消后收口和唯一临时容器提交的约束见 artifact-contract 第 6 节。现有候选目录可用该 USTAR 子集表达，但需要 PAX 的内部资源名仍拒绝；目标目录中文/空格支持不等同于任意内部命名支持。此探针不实现正式验签、共享缓存锁或 Windows ACL。
+
 Runtime npm 包不携带 Node；普通 Node 宿主使用受支持的 Node 22。平台并非纯 JS 就可以通用：厂商辅助程序、原生模块、文件权限及生命周期都需要目标环境构建和验收。
 
 首轮 payload 继续装配现有 Reference 与 CodeBuddy SDK Adapter，不预装所有未来厂商 CLI。以后新增 Wrapper/CLI

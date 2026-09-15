@@ -1,0 +1,102 @@
+{
+  "recordedAt": "2026-09-15",
+  "baseCommit": "2c3f345",
+  "probeReportId": "harness-runtime-deploy-probe-BwpJv8",
+  "repositoryChecks": {
+    "status": "passed",
+    "command": "pnpm check",
+    "archiveTests": 28,
+    "allProbeTests": 45,
+    "oldPreviewArchiveSha256": "109ae675089927f7244ce4a0754b5604414e937cd213e48e0f857e5cc4e8c1b0"
+  },
+  "packageIntegrityVerifiedAgainstOfficialRegistry": "sha512-nqsEO8zLZJvrOMdEwkA0QdCLFbetHMn95Zqu4fKwX+hkaTWJPZZOrxx/PwtxoK0MMGQmBQNRW3CPs8IFYQz4cQ==",
+  "status": "passed",
+  "target": "darwin-arm64",
+  "node": "v22.23.1",
+  "pnpm": "11.10.0",
+  "scriptSha256": "c2efad764f27cded6ce862923773d98e2b53de9f5d3178d60dd9f237a3a25b30",
+  "auditScriptSha256": "60085e0b806a531e09e0d0c9789e8080362a2e7f084c8df1cc13dae6d41b21cb",
+  "normalizationScriptSha256": "92980da1532350fe3a3e2fa242df3d742a370f1ef2dbc8e056ecbcd402b4a2a2",
+  "archiveScriptSha256": "fccb9d2e0f3a4e8b82e28b5fac9ddcc4369a02ef5d82680ccb35490c5124b516",
+  "archiveLibrary": {
+    "name": "tar-stream",
+    "version": "3.2.1",
+    "license": "MIT",
+    "zlib": "1.3.1-e00f703",
+    "sourceSha256": {
+      "pack.js": "9885de07c3fc948aeebdec5e113f536c3e540230a3f0a24c82c3e80339bc8235",
+      "extract.js": "dcdbac54ad8316508160b677e039da33698e57f5e193558899b8e040bc6325ff",
+      "headers.js": "c357da39df0205ad01b0861af153902586237c4e6e9ab0cddd12336ce4f03e79"
+    }
+  },
+  "lockSha256": "b86ab84b722bd6782c8683dead3504c031cb7470cf464686db451b6ad88c9aec",
+  "archive": {
+    "payload": {
+      "size": 53307040,
+      "sha256": "01bbe40e8840382e92d10079c268d09e10ed6c6d90af6561ecc8a907b305f6a0"
+    },
+    "fileList": {
+      "size": 1304886,
+      "sha256": "b8a1bd1f9c52f898ec8da299fdd4719a82404fc08e2ba86db1a97a0f38f73f10",
+      "entryCount": 7021
+    },
+    "tarBytes": 176051200,
+    "packMs": 30896,
+    "extractMs": 8690,
+    "inventorySha256": "b8a1bd1f9c52f898ec8da299fdd4719a82404fc08e2ba86db1a97a0f38f73f10",
+    "files": 6277,
+    "bytes": 170732190
+  },
+  "normalized": {
+    "files": 6277,
+    "bytes": 170732190,
+    "links": 0,
+    "localReferences": [],
+    "fileTreeSha256": "c301c086e10cf3478b47eaa46d6105f8569e9857a94eba7a9e3cddde79e8d310"
+  },
+  "graphComparison": {
+    "original": {
+      "packageCount": 109,
+      "distinctPackageCount": 109,
+      "graphSha256": "25f8fd2c2d0cbf0bcb1973db2ed2bd830be77ed6d40677e57dd01e528e6b947b",
+      "layoutSha256": "25f8fd2c2d0cbf0bcb1973db2ed2bd830be77ed6d40677e57dd01e528e6b947b"
+    },
+    "hoisted": {
+      "packageCount": 110,
+      "distinctPackageCount": 109,
+      "graphSha256": "25f8fd2c2d0cbf0bcb1973db2ed2bd830be77ed6d40677e57dd01e528e6b947b",
+      "layoutSha256": "6235a0ad724589c59e3cf96010a766a3b8a1d6e31ef7d354bc5dcd3160161b30"
+    },
+    "normalized": {
+      "packageCount": 110,
+      "distinctPackageCount": 109,
+      "graphSha256": "fce4065402ea34983e99ccd43b861982962276d88b48119eba440eedec3ec593",
+      "layoutSha256": "f3f74c59f6dc26c22bf5f02b432de79babf67e585c94a7777f990663f701138c"
+    }
+  },
+  "relocated": {
+    "files": 6277,
+    "bytes": 170732190,
+    "fileTreeSha256": "c301c086e10cf3478b47eaa46d6105f8569e9857a94eba7a9e3cddde79e8d310"
+  },
+  "reference": {
+    "health": {
+      "service": "yanbot-harness-local-runtime",
+      "protocolVersion": "1.0.0",
+      "status": "ok",
+      "startedAt": "2026-09-15T10:11:56.877Z"
+    },
+    "terminal": "run.completed",
+    "version": "0.1.0-preview.2",
+    "cleanedDescriptor": true
+  },
+  "limitations": [
+    "Offline deployment uses the existing frozen-lock pnpm store; this is not an empty-cache install.",
+    "Raw deploy includes local file references and package-manager metadata; it is not a distributable payload.",
+    "Reference startup/run/close only; vendor executable availability is an inventory, not permission or real-vendor certification.",
+    "Normalized staging is an unsigned local candidate, not a platform archive; bounded extraction and production trust remain required.",
+    "Known path and credential-pattern scanning is a fail-closed hygiene check, not an exhaustive secret detector.",
+    "Graph equality deduplicates identical package/asset/edge records; physical duplication is reported and module singleton identity is not certified.",
+    "USTAR-only framing and trusted test digests; no production signature, shared-cache locking or Windows ACL certification."
+  ]
+}

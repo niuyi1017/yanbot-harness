@@ -44,3 +44,11 @@ T1 发现影响方案的机制差异时，先更新 Spec 和本记录，再进�
 - 第二轮扫描命中 jose PEM 解析器中的纯格式头字符串，并非私钥材料；规则改为同时要求私钥头与连续编码体，补充纯格式头放行/私钥体拒绝测试，不给包或路径添加扫描豁免。
 - 具体 manifest/files/signature/resolver/IPC 字段及候选大小上限落在 [artifact-contract](artifact-contract.md)。它是实现约束，不是已实现的签名或跨平台生命周期认证。
 - 精确解包依赖、攻击样例、跨系统 fixture 和正式发布信任根仍未完成；T1 总项不勾选，T2–T7 不提前开始。
+
+## 2026-09-15：T1d 受限归档与解包探针
+
+- 选定 tar-stream 3.2.1，精确锁入根开发依赖及 pnpm-lock；使用 ignore-scripts 安装，不增加 SDK/Runtime 生产依赖，不执行产品发布。
+- 维护者源码显示 PAX/GNU 长头在 entry 回调之前处理；因此将 USTAR framing/type/路径/长度/checksum 检查放在 tar-stream 之前，并拒绝所有扩展头。库只做流解析，由应用代码以 wx 创建清单允许的文件，不调用文件系统提取器。
+- 首版 builder 对需要 PAX 的内部资源名失败，不做转码/改名；目标父目录中的中文/空格/特殊字符与内部归档命名分别测试。此限制及选择理由先落入 artifact-contract 再实现。
+- 压缩输入先校验摘要并复制至唯一私有容器；从快照验证单 member gzip CRC/ISIZE/实际输入消耗量，避免尾随空 member 被忽略。失败/超时等待解析器及写入任务结束后只删除本次容器；没有共享缓存锁或正式签名的产品实现。
+- 新增独立攻击样例，并把完整 archive round-trip 接入现有 deploy→归一化→搬迁→Reference 的链路；本机和跨平台结果分开记录。旧 preview.2 archive 不重建。

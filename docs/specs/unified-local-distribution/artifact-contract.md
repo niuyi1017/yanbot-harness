@@ -1,6 +1,6 @@
 # 平台制品与受管启动契约 v1
 
-状态：T1c 固定字段和验证顺序，供 T2–T4 实现；**不是当前公开 API，也不表示签名、解包器或跨平台生命周期已实现**。与 [design](design.md) 同属已确认方案的实施细化；验证发现不适用时先修订本契约并记录原因，不能静默放宽限制。精确解包库版本和平台 containment 实现仍是 T1/T4 待决项。
+状态：T1c 固定字段和验证顺序，T1d 增加精确解包候选及本机安全探针，供 T2–T4 实现；**不是当前公开 API，也不表示生产签名/解包器或跨平台生命周期已实现**。与 [design](design.md) 同属已确认方案的实施细化；验证发现不适用时先修订本契约并记录原因，不能静默放宽限制。跨平台格式/性能和 containment 仍需独立验证。
 
 ## 1. 平台包布局与身份
 
@@ -79,9 +79,9 @@ T1c 使用逐文件允许差异集验证第三方字节与可执行标志未变�
 | 文件加目录 entry 数 | 100,000       |
 | 单路径 UTF-8 字节   | 1,024         |
 
-这是基于本机约 163 MiB 候选目录的保守安全预算，**不是其他平台已通过的大小认证，也不是已完成 gzip/tar 限制测试**。T1c 目录探针执行展开大小、单文件、entry、路径、清单限制；压缩流和材料读取上限由后续解包探针实现。超限阻断构建/启动，禁止调用方自动扩大上限；确需调整时必须有目标平台数据和显式契约修订。Windows 实际路径支持还取决于 cacheRoot 全长，不承诺所有 1,024 字节路径都能创建。
+这是基于本机约 163 MiB 候选目录的保守安全预算，**不是其他平台已通过的大小认证**。T1c 目录探针执行展开大小、单文件、entry、路径、清单限制；T1d 增加本机 gzip/tar 受限流和攻击样例，材料读取上限仍待产品校验器实现。超限阻断构建/启动，禁止调用方自动扩大上限；确需调整时必须有目标平台数据和显式契约修订。Windows 实际路径支持还取决于 cacheRoot 全长，不承诺所有 1,024 字节路径都能创建。
 
-校验顺序：受限读取与验签 → 包身份/Node/协议 → 校验 materials 和 fileList 的字节摘要/严格结构 → 有界流式校验 payload 压缩摘要 → 排他锁/私有临时目录 → 逐 entry 受限展开与校验 → 无多余或缺失 entry → 原子提交 cache。tar 库本身可执行的写入不能先于应用层路径/type/大小检查；终止、超时或校验失败不得提交半成品。精确解包库和 gzip/tar parser 的扩展头、尾随数据、截断、超额输出处理仍需 T1 独立选型与攻击样例证据。
+目标产品校验顺序：受限读取与验签 → 包身份/Node/协议 → 校验 materials 和 fileList 的字节摘要/严格结构 → 有界流式校验 payload 压缩摘要 → 排他锁/私有临时目录 → 逐 entry 受限展开与校验 → 无多余或缺失 entry → 原子提交 cache。tar 库本身可执行的写入不能先于应用层路径/type/大小检查；终止、超时或校验失败不得提交半成品。T1d 本机已验证第 6 节的受限解析和失败清理；正式信任、共享缓存提交和跨平台证据仍待后续实现。
 
 ## 4. Resolver 与单一启动期限
 
@@ -113,9 +113,23 @@ ready 的 pid 必须等于 owned ChildProcess.pid；instanceId 必须与该实�
 
 ACK 仅表示子端正常关闭步骤结束，不证明进程或厂商孙进程已退出。父端必须等待 owned 树退出，宽限后进行平台有界回收；全局 shutdown timeout 延续默认 5 秒/可配 100–30,000 ms，并预留强制回收预算。失败返回 CLEANUP_FAILED，不能先删除仍使用中的状态。PID 复用、Windows Job Object/ACL、POSIX 脱组后代、父崩溃时 watchdog 等仍由 T4 验证；只实现 IPC 不足以声称整树回收保证。
 
-## 6. 尚未解除的门禁
+## 6. T1d 解包候选与格式边界
 
-- T1：精确解包依赖与攻击样例；Mac→Windows/Linux 同一 kit 的真实运行；平台大小和安装布局。
+选定探针依赖 `tar-stream@3.2.1`（MIT），仅加入根 devDependencies，传递依赖由根 lock 固定；不改变 SDK/Runtime 的生产依赖。复用其公开 pack/extract 流 API，不使用 tar-fs/系统 tar 的文件系统写入器。Node 22 的 zlib 负责 gzip/DEFLATE；本机源码与包完整性、回归结果必须记录。库升级需要重跑攻击样例，不能只改版本。
+
+首版限定 USTAR 普通文件/目录、清单顺序、零 uid/gid/mtime、空 owner/link/device 字段、确定 mode、零 padding 和恰好两个结束块。在 tar-stream 前按 512-byte framing 检查这些字段及 checksum，并用已验证清单限定每一项路径/长度；PAX/GNU/稀疏/其他类型在送入库之前拒绝，防止扩展头被库消费后无法审计。现有平台候选目录需要实测可由该子集表达；tar-stream 对非 ASCII 内部资源名或过长 USTAR 路径会输出 PAX，构建探针必须失败，不能改名或偷偷放行。**解包目标目录仍支持中文/空格；任意 UTF-8 内部资源名的打包支持须后续明确设计 PAX 后再声明**。原 1,024-byte 路径上限是安全上限，不承诺所有路径能被首版 builder 表达。
+
+gzip 限定无可选字段的单 member：固定方法/flags/mtime，核对 CRC32、ISIZE，以及 DEFLATE 实际消耗的输入字节，拒绝尾随零/垃圾/拼接 member。验证压缩大小/摘要后先保存至专属临时目录中的快照，再从快照流式展开；压缩体积上限 128 MiB，展开 tar 流上限为清单预测的 header/body/padding/end 总长且受全局上限约束。文件内容按清单逐项流式核验 SHA-256；不把压缩文件摘要等同于已展开文件完整性。
+
+T1d 使用唯一 mkdtemp 容器及独立 staging，只有全部流结束、checksum/清单/摘要通过且 signal 未取消后才 rename 为该容器内的 payload 并返回。失败/超时先终止并等待所有流与写入收口，再删除本次拥有的容器；不得删除输出父目录或其他既有目录。仅在受控探针中以 caller 提供的可信摘要模拟已验签清单，不提供生产未签 fallback；共享缓存锁、Windows ACL 和正式信任根仍属 T3–T5。
+
+备选：node-tar 的完整文件系统提取器更便利，但本切片不需要其链接/扩展格式及权限恢复能力；通用 tar 库的成功解析也不代表符合本项目归档格式。维护者的安全记录提示扩展头、链接、解析资源限制需要独立验证，不据此声称其他库没有漏洞。
+
+选型资料：[tar-stream README](https://github.com/mafintosh/tar-stream)、[extract 源码](https://github.com/mafintosh/tar-stream/blob/v3.2.1/extract.js)、[node-tar advisories](https://github.com/isaacs/node-tar/security/advisories)。
+
+## 7. 尚未解除的门禁
+
+- T1：Mac→Windows/Linux 同一 kit 的真实运行；平台大小、安装布局、路径/权限与冷启动预算。本机受限归档/攻击样例证据见 probe-results。
 - T2/T3：正式生成器、严格 schema/签名校验器、缓存锁恢复与权限、取消一致性、resolver 实现。
 - T4/T5：双平台生命周期与 ACL、正式信任根/轮换、Registry 和再分发许可。
 - 现有 preview.2 仍从原冻结 ref 使用；本契约不允许覆盖同版本制品。

@@ -10,7 +10,7 @@
 - 安装探针：`pnpm probe:distribution`。
 - Runtime 装配探针：先按仓库要求安装 frozen-lock 开发依赖，再执行 `pnpm probe:runtime-deploy`。该命令先 build，再执行离线 deploy。
 - 默认在系统临时目录创建独立运行目录，保留 `report.json` 与 fixtures/deploy 供检查；支持 `--output-dir DIRECTORY`。不要把输出放入受源码检查的目录。
-- 版本、脚本 SHA-256、制品 SHA-256、用例结果与局限随报告记录；初轮摘录见 [probe-evidence.json](probe-evidence.json)，续作见 [T1b](probe-evidence-t1b.json) 与 [T1c](probe-evidence-t1c.json)。历史报告绑定各自脚本摘要，不冒充后来版本的运行结果。
+- 版本、脚本 SHA-256、制品 SHA-256、用例结果与局限随报告记录；初轮摘录见 [probe-evidence.json](probe-evidence.json)，续作见 [T1b](probe-evidence-t1b.json)、[T1c](probe-evidence-t1c.json) 与 [T1d](probe-evidence-t1d.json)。历史报告绑定各自脚本摘要，不冒充后来版本的运行结果。
 - `.github/workflows/distribution-probes.yml` 提供 Mac arm64 / Windows Server 2022 x64 / Linux x64 的实际宿主入口。T1b 增加 Mac producer，只生成一次 fixture tgz/locks，再传给三个 consumer；单测与报告也纳入流程。**本次没有执行远端 CI**，也不以 Windows Server 代替 Windows 10/11 产品验收。
 
 ## 安装机制：16/16 通过
@@ -79,12 +79,23 @@
 - [artifact-contract](artifact-contract.md) 固定 v1 字段、逐文件清单、签名输入字节、候选资源限制、resolver 最小类型及 IPC 消息序列；对应校验器、解包器、缓存权限及生命周期仍需后续实现/验证。
 - 完整装配探针结束后顺序执行 `pnpm check`，格式/lint/依赖边界/build/typecheck/全部单测及 17 项探针测试通过。未修改 SDK/Runtime 产品代码或原有测试超时；旧 preview.2 archive 摘要仍为 decision-record 的冻结值。
 
+## T1d：受限归档、清单验证与取消清理
+
+- 锁定 tar-stream 3.2.1（MIT）为根开发依赖，ignore-scripts 安装；Registry 返回的包 integrity 与官方 npm Registry 一致。根 lock 只增加该开发工具闭包，不修改原生产依赖版本；本机 Runtime 实际依赖图与 T1c 相同。
+- 从新 frozen-lock deploy→归一化目录生成 USTAR/gzip 测试 archive。压缩包 53,307,040 字节（约 50.8 MiB），tar 流 176,051,200 字节，清单 1,304,886 字节/7,021 entries；均在候选上限内。完整摘要及实际库源码摘要见 [T1d evidence](probe-evidence-t1d.json)。
+- 从压缩快照展开后 6,277 文件、170,732,190 字节；包含执行标志的 inventory SHA-256 与 T1c 完全一致。搬迁后 CLI shim、Reference Session/Run/close 和 descriptor 清理通过，不等于真实厂商或跨平台认证。
+- 单机打包 30,896 ms、展开 8,690 ms。探针打包计时包括目录扫描；展开计时包括压缩快照/校验/展开/提交，不包括后续额外 inventory 扫描和 Runtime 启动。这不是冷磁盘统计或 15 秒完整首启保证；T3 仍需把验签、缓存校验、启动/health 纳入同一 deadline 测量。
+- 归档安全测试覆盖：清单 digest/canonical JSON/大小/数量、路径穿越与别名、Windows 非法名称、符号/硬链接、PAX/global PAX/GNU/稀疏/设备/FIFO、异常数字/权限/checksum、文件 hash/零 padding/双结束块、截断/重复/尾随数据、gzip CRC/ISIZE/拼接 member、展开炸弹、逐字节分片，以及预取消、超时、观察到文件写入后取消和并发独立目录。失败后校验本次容器消失、已有 sentinel 不变，不给任意输入调用系统解包器。
+- 首版只接受可由 builder 表达的 USTAR 子集；需要 PAX 的非 ASCII 内部资源名/过长路径被拒绝，不静默改名。目标父目录中文/空格/`&` 已实测，与内部资源命名能力分开声明。
+- `pnpm probe:runtime-archive` 在现有 deploy 探针基础上增加归档/展开环节，CI matrix 已切换到此入口；原 `probe:runtime-deploy` 保留。本次未推送或运行远端 CI，Windows/Linux 结果仍待取得。
+- 完整归档探针结束后顺序运行 `pnpm check` 全部通过，含新增 28 项归档测试、累计 45 项探针测试。没有修改 SDK/Runtime 产品实现、原有测试超时或旧 archive；根锁新增开发依赖闭包的变更明确纳入当前证据。
+
 ## 下一段 T1 与发布门禁
 
 - 执行已接通的公共 tgz 跨宿主复用与 Mac→Windows lockfile 转移 CI，取得实际报告。
 - Linux libc 与 Windows ACL/长路径的实际结果；Windows 10/11 和真实厂商场景单独认证。
-- 将已归一化候选目录推进到有界 archive 构建/解包、正式 SBOM/材料生成、厂商真实运行与再分发审核。
-- 解包库精确版本、攻击样例、缓存权限/生命周期的实现机制；当前候选字段与 Mac 大小数据不能代替其他平台的实测证据。
+- 将本机 archive 探针推进到各平台实测；正式 SBOM/签名材料生成、厂商真实运行与再分发审核仍需完成。
+- 缓存权限/锁恢复、生命周期与完整启动 deadline 的实现机制；当前候选字段与 Mac 大小数据不能代替其他平台的实测证据。
 - 真实 Registry、签名身份、目标平台资源仍是外部门禁。
 
 T1b 首次全量检查与装配探针并行时，既有 CLI 交互清理用例触发 5 秒超时；未修改产品代码或超时阈值，待探针结束后顺序完整重跑 `pnpm check` 全通过（包括新增 7 项审计测试）。此记录只说明复跑结果，不把超时原因确认为负载。P1D 与 T1 保持进行中，T2–T7 不提前勾选。

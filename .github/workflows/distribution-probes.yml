@@ -68,7 +68,7 @@ jobs:
           name: distribution-transfer-fixtures
           path: ${{ runner.temp }}/transfer-kit
       - run: pnpm probe:distribution --import-kit "${{ runner.temp }}/transfer-kit" --output-dir "${{ runner.temp }}/distribution-probes"
-      - run: pnpm probe:runtime-deploy --output-dir "${{ runner.temp }}/distribution-probes"
+      - run: pnpm probe:runtime-archive --output-dir "${{ runner.temp }}/distribution-probes"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

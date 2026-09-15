@@ -26,7 +26,8 @@
 - [x] T1b 验证 hoisted deploy 与仅 `.bin` Node 链接的相对 exec shim，得到零链接候选目录；比对逐包资源/实际依赖上下文、搬迁后 Reference 与 CLI shim。新增审计单测覆盖资源/版本/peer 错接、重复副本和越界链接。
 - [x] T1c 本机发布 metadata 归一化：只移除六项 pnpm metadata，归一化十份自有 manifest，其余 6,267 文件保持原字节；零本地依赖引用/链接，资源与解析图对比、搬迁后的 Reference Run/close 通过。独立探针单测累计 17 项。
 - [x] T1c 明确 [artifact-contract](artifact-contract.md) 的 manifest/files/signature/resolver/IPC 字段与候选大小限值；仅为实施契约，不算生产签名/解包/生命周期已实现。
-- 待续：精确解包库与攻击样例，Mac→Windows/Linux CI 与实机门禁，厂商许可和正式签名。目录已归一化但仍不是已签名平台 archive；T1 总项继续保持未完成。
+- [x] T1d 本机：锁定 tar-stream 3.2.1，新增 scripts/lib/runtime-archive-probe.mjs 与独立攻击测试；验证有界压缩快照/USTAR framing/清单/取消及失败清理。完整目录 archive round-trip 与搬迁后 Reference 通过；复用 T1c 归一化/资源审计，不改旧 release 构建器。前置 T1c，验收 pnpm test:probes、pnpm probe:runtime-archive 及 pnpm check；跨平台执行另记。
+- 待续：Mac→Windows/Linux CI 与实机门禁，平台大小/路径/权限/冷启动预算，以及厂商许可和正式签名。USTAR 子集和测试可信摘要通过不等于已签名生产平台包；T1 总项继续保持未完成。
 - 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`scripts/lib/{deploy-probe-audit,normalize-runtime-staging}.mjs` 及对应单测、`.github/workflows/distribution-probes.yml`、本目录契约/探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
 - 前置：T0 的产品方案确认；真实 Registry 缺失可使用本地测试 Registry，签名使用标明的测试密钥。
 - 验收：Mac/Windows 空目录探针输出安装依赖图、实际下载包和 hash；明确不支持的组合；不可把本机一种布局通过当作跨平台通过。

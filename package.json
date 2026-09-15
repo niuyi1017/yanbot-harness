@@ -13,7 +13,8 @@
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
     "probe:distribution": "node scripts/test-distribution-packaging.mjs",
     "probe:runtime-deploy": "pnpm build && node scripts/probe-runtime-deploy.mjs",
-    "test:probes": "node --test scripts/test-deploy-probe-audit.mjs scripts/test-normalize-runtime-staging.mjs",
+    "probe:runtime-archive": "pnpm build && node scripts/probe-runtime-deploy.mjs --archive",
+    "test:probes": "node --test scripts/test-deploy-probe-audit.mjs scripts/test-normalize-runtime-staging.mjs scripts/test-runtime-archive-probe.mjs",
     "build:client-packages": "node scripts/build-client-packages.mjs",
     "build:runtime-bundle": "node scripts/build-runtime-bundle.mjs",
     "release:assemble": "node scripts/assemble-release.mjs",
@@ -35,6 +36,7 @@
     "eslint": "9.39.1",
     "eslint-config-prettier": "10.1.8",
     "prettier": "3.6.2",
+    "tar-stream": "3.2.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.48.0",
     "vitest": "4.0.18"
