@@ -44,6 +44,8 @@ host 的 pid 是 VM 生命周期 owner；guest Runtime pid 只在私有 bootstra
 
 开发期保留 Darwin 兼容 Runtime 与新增 VM guest 于同一签名 payload；因此归档压缩上限从 128 MiB 调为 256 MiB，展开总量仍限定 512 MiB、单文件 256 MiB，其余数量/路径/摘要限制不变。新增 manifest containment 类型 `macos-vm-v1`，固定 host/kernel/initrd 路径并绑定 guestTarget=linux-arm64、每个 guest 摘要与签名 files.json 一致。仅显式 `--vm-guest-config` + 测试签名构建候选；正式镜像身份/许可未审批前不允许该构建路径使用正式密钥。
 
+同一限制同步到离线 kit：单 tgz 上限 256 MiB、总闭包 512 MiB。安装 smoke 在启动前显式声明自身新建工作区；不为测试绕过 workspace 边界。Mac OS 阻网 profile 仅额外允许受保护 `/private/tmp/hvm-UUID/http.sock` Unix 通道，外网拒绝基线继续验证；VM 默认无网络设备，不将 XPC 后端误认作继承 sandbox 的普通子进程。独立 Daemon/显式 Runtime 路径继续是 native 兼容模式，不宣称 VM containment。
+
 持久 stateRoot 复用固定的私有 `guest-state` 子目录；Swift host 在启动前对其父目录中的 `vm-lease` 普通文件持有独占 flock，锁不共享给 guest、不可被子进程继承，host 退出由内核释放，拒绝并发复用而不以 PID 扫描恢复。guest wrapper 发固定心跳；失联 5 秒停止 VM。内核参数使用 panic=0，重复 guest-ready 视为异常重启并停止；[Linux panic 参数](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html) 中负数代表立即重启，不能用负数模拟持续失活。
 
 flock 另写 active/stopped 标记：只有 VZ 已停止才标记 stopped。host SIGKILL 会保留 active，防止 OS 释放锁后旧 VM 后端尚未退出时新实例并发写状态；禁止凭 PID 消失自动清标记。父 SDK 退出但 host 正常收尾时，host 只移除固定位置、schema 已知且 pid 绑定自身的公开代理 descriptor，保证持久根可再次启动；畸形或不属于本 host 的文件保留。
