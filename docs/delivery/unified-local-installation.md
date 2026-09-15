@@ -4,9 +4,9 @@
 
 ## 已验证路径
 
-本机 macOS arm64 已通过实际 npm/pnpm 包安装、pnpm 严格隔离布局、SDK-only 不下载 Runtime、平台 optional 缺失/401 诊断。local 的 Reference 文本、权限、提问、取消均通过。
+本机 macOS arm64 以及 CI macOS/Linux 已通过实际 npm/pnpm 包安装、pnpm 严格隔离布局、SDK-only 不下载 Runtime、平台 optional 缺失/401 诊断。local 的 Reference 文本、权限、提问、取消均通过。Windows 仍在权限/安装链路收口。
 
-离线候选包含 18 个公共/第三方闭包 tgz 加 1 个目标平台 tgz；空 npm cache、npm 10.9.8、offline/ignore-scripts 安装后完成 Reference Run/close。这里的离线证据来自包管理器 offline 模式和隔离 Registry，不等于已在每个 OS 上验证防火墙断网。三平台 CI 结果另见对应报告。
+离线候选包含 18 个公共/第三方闭包 tgz 加 1 个目标平台 tgz；空 npm cache、npm 10.9.8、offline/ignore-scripts 安装后完成 Reference Run/close。macOS 26.4.1 另使用 OS sandbox 阻断外网（预检 EPERM，仅保留 loopback）重复完成安装和 Reference；同一测试接入 Mac CI。其他 OS 的网络隔离不据此认证。
 
 ## 本地 API
 
@@ -62,6 +62,8 @@ node install-local.mjs --prefix ./new-consumer --trusted-key-file /trusted/chann
 失败时切回完整 V1 目录和锁文件；不要在活动 V1 node_modules/缓存中覆盖文件。当前 Runtime state schema 为 1，未知 schema 拒绝读取；不可逆迁移必须从迁移前备份恢复到独立目录。工作区和 BYOK 始终不属于安装器的清理对象。
 
 ## 发布前仍需完成
+
+完整顺序、密钥轮换与人工批准边界见 [正式发布门禁](unified-release-gates.md)。小型签名 fixture 的缓存 V1→V2→V1、持有旧版本文件、锁持有者崩溃恢复、阻塞路径保留及未知状态 schema 拒绝已加入测试；不替代两个真实冻结 release 的完整业务回滚认证。新 SDK 对冻结 preview.2 显式 Runtime 的 Reference Run/close 已在本机通过，旧 ZIP 摘要不变。
 
 - 正式 Registry/scope/镜像 ACL、安装与发布 token 分权、不可变版本与全平台可取性。
 - 正式可信发布公钥、轮换/撤销、原生组件签名要求和厂商资产再分发审核。

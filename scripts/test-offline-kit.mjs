@@ -77,12 +77,35 @@ test('offline target mismatch and signed path escape fail before installation', 
   await assert.rejects(f.install());
   await assert.rejects(stat(f.prefix), { code: 'ENOENT' });
 });
-test('offline duplicate package, missing closure and oversized input fail closed', async (t) => {
+test('offline duplicate package fails before consumer creation', async (t) => {
   const f = await fixture(t);
   f.manifest.artifacts[1].name = f.manifest.artifacts[0].name;
   await f.save();
   await assert.rejects(f.install(), /Duplicate package/u);
-  f.manifest.artifacts.pop();
+  await assert.rejects(stat(f.prefix), { code: 'ENOENT' });
+});
+test('offline missing closure fails independently of duplicate detection', async (t) => {
+  const f = await fixture(t);
+  f.manifest.artifacts.at(-1).name = 'a-benign-third-party-fixture';
+  await f.save();
+  await assert.rejects(f.install(), /closure missing required package/u);
+  await assert.rejects(stat(f.prefix), { code: 'ENOENT' });
+});
+test('offline oversized signed artifact fails without reading or writing its bytes', async (t) => {
+  const f = await fixture(t);
+  f.manifest.artifacts[0].size = 128 * 1024 * 1024 + 1;
+  await f.save();
+  await assert.rejects(f.install());
+  await assert.rejects(stat(f.prefix), { code: 'ENOENT' });
+});
+test('offline installer tampering and package path aliasing are rejected', async (t) => {
+  const f = await fixture(t);
+  const installer = path.join(f.root, 'install-local.mjs');
+  const original = await readFile(installer);
+  await writeFile(installer, 'tampered bootstrap');
+  await assert.rejects(f.install(), /digest|changed/u);
+  await writeFile(installer, original);
+  f.manifest.artifacts[1].file = f.manifest.artifacts[0].file;
   await f.save();
   await assert.rejects(f.install());
   await assert.rejects(stat(f.prefix), { code: 'ENOENT' });

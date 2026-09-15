@@ -126,5 +126,5 @@ try {
   process.exitCode = 1;
 } finally {
   await writeFile(path.join(root, 'build-report.json'), JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
-  console.log(JSON.stringify({ status: report.status, directory: root }));
+  console.log(JSON.stringify({ status: report.status, directory: root, error: report.error }));
 }

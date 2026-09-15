@@ -14,7 +14,7 @@ import { Buffer } from 'node:buffer';
 import tar from 'tar-stream';
 
 import { npmInvocation } from './lib/release-platform.mjs';
-import { macOfflineNetworkGate } from './lib/offline-network-gate.mjs';
+import { macOfflineNetworkGate, linuxOfflineNetworkGate } from './lib/offline-network-gate.mjs';
 
 const execute = promisify(execFile);
 assert(
@@ -297,6 +297,9 @@ try {
   if (process.platform === 'darwin') {
     const evidence = await macOfflineNetworkGate({ kit, prefix: path.join(root, 'offline-os-blocked'), environment });
     cases.push({ name: 'os-blocked-external-network-offline-reference', status: 'passed', evidence });
+  } else if (process.platform === 'linux' && process.env.GITHUB_ACTIONS === 'true') {
+    const evidence = await linuxOfflineNetworkGate({ kit, prefix: path.join(root, 'offline-os-blocked'), environment });
+    cases.push({ name: 'os-blocked-external-network-offline-reference', status: 'passed', evidence });
   } else {
     cases.push({
       name: 'os-blocked-external-network-offline-reference',
@@ -314,5 +317,5 @@ try {
   report.requests = requests;
   report.artifacts = artifacts.map(({ name, version, file, size, sha256 }) => ({ name, version, file, size, sha256 }));
   await writeFile(path.join(root, 'installation-report.json'), JSON.stringify(report, null, 2) + '\n');
-  console.log(JSON.stringify({ status: report.status, directory: root, cases: cases.length }));
+  console.log(JSON.stringify({ status: report.status, directory: root, cases: cases.length, error: report.error }));
 }

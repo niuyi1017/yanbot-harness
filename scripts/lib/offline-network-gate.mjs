@@ -6,6 +6,34 @@ import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
 
+export async function linuxOfflineNetworkGate({ kit, prefix, environment }) {
+  assert.equal(process.platform, 'linux');
+  assert.equal(
+    process.env.GITHUB_ACTIONS,
+    'true',
+    'Privileged namespace creation is limited to the disposable CI runner.',
+  );
+  const result = await execute(
+    '/usr/bin/sudo',
+    [
+      '-n',
+      '/usr/bin/unshare',
+      '--net',
+      '--',
+      process.execPath,
+      path.join(import.meta.dirname, 'linux-offline-network-child.mjs'),
+      String(process.getuid()),
+      String(process.getgid()),
+      path.join(kit.directory, 'install-local.mjs'),
+      prefix,
+      kit.externalTestTrust,
+      JSON.stringify(environment),
+    ],
+    { timeout: 200000, maxBuffer: 8192 },
+  );
+  return JSON.parse(result.stdout);
+}
+
 // Per-process policy, inherited by npm and Runtime. Never changes the host firewall.
 export async function macOfflineNetworkGate({ kit, prefix, environment }) {
   assert.equal(process.platform, 'darwin');

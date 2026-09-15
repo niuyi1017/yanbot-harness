@@ -69,6 +69,15 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
+          name: unified-reports-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/platform/*/build-report.json
+            ${{ runner.temp }}/unified-result.json
+          if-no-files-found: warn
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
           name: unified-installation-${{ matrix.target }}
           path: |
             ${{ runner.temp }}/platform/*/build-report.json
