@@ -23,7 +23,7 @@ export async function verifyManagedDescriptor(file: string, signal: AbortSignal)
     const script = `$ErrorActionPreference='Stop'
 $identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()
 $sid=$identity.User
-$acl=Get-Acl -LiteralPath '${path.resolve(file).replaceAll("'", "''")}'
+$acl=[System.IO.File]::GetAccessControl('${path.resolve(file).replaceAll("'", "''")}')
 $owner=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
 if($owner -ne $sid.Value -and $owner -ne $identity.Owner.Value){throw 'Unexpected descriptor owner'}
 $rules=$acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
@@ -89,16 +89,16 @@ export async function protectManagedState(directory: string, signal: AbortSignal
 $p='${file}'
 $identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()
 $sid=$identity.User
-$acl=Get-Acl -LiteralPath $p
+$acl=[System.IO.Directory]::GetAccessControl($p)
 $owner=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
 if($owner -ne $sid.Value -and $owner -ne $identity.Owner.Value){throw 'Unexpected directory owner'}
-$new=New-Object System.Security.AccessControl.DirectorySecurity
+$new=[System.Security.AccessControl.DirectorySecurity]::new()
 $new.SetOwner($sid)
 $new.SetAccessRuleProtection($true,$false)
-$rule=New-Object System.Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
+$rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
 $new.AddAccessRule($rule)
-Set-Acl -LiteralPath $p -AclObject $new
-$actual=Get-Acl -LiteralPath $p
+[System.IO.Directory]::SetAccessControl($p,$new)
+$actual=[System.IO.Directory]::GetAccessControl($p)
 if($actual.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value){throw 'Owner normalization failed'}
 $rules=$actual.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
 if(!$actual.AreAccessRulesProtected -or $rules.Count -ne 1 -or $rules[0].IdentityReference.Value -ne $sid.Value -or $rules[0].AccessControlType -ne 'Allow'){throw 'Unexpected ACL'}

@@ -27,6 +27,8 @@
 
 ## 外部发布门禁
 
+CI 34965940828 的直接权限测试定位真正前置失败：从 PowerShell 7 启动的 Node 继承了其模块环境，固定 Windows PowerShell 5.1 的 Get-Acl 自动加载到不兼容 Security 模块。改用其内置 .NET Framework Directory/File.GetAccessControl、SetAccessControl 与强类型构造器，不依赖 Get-Acl/New-Object 自动加载；保持固定系统解释器、ACL 复核与受限目录逻辑，不因命令失败跳过保护。
+
 Linux 阻网门禁仅在一次性 GitHub runner 创建独立 network namespace；只启用该 namespace 的 lo，在加载任何 kit/npm 代码之前降回原用户 UID/GID 并清除 supplementary groups。外连预检必须 ENETUNREACH；不修改 runner 主 network namespace、防火墙或用户电脑配置。无可用 sudo/unshare 时测试失败，不能当作已认证。
 
 Windows ACL 实施补充：elevated token 创建文件的默认 owner 不一定等于 User SID；[WindowsIdentity.Owner](https://learn.microsoft.com/en-us/dotnet/api/system.security.principal.windowsidentity.owner) 返回该 token 的默认 owner SID。专用目录只接受当前 User/Token Owner，随后强制 owner 为 User 且 DACL 仅 User；descriptor 接受这两个受当前 token 控制的 owner，但有效 DACL 仍只能授予当前 User，不能增加 Administrators/Everyone 访问规则。不使用固定英文组名或管理员 SID 全局豁免。

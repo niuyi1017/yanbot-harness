@@ -57,16 +57,16 @@ export async function privateDirectory(directory, signal) {
 $p='${file}'
 $identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()
 $sid=$identity.User
-$acl=Get-Acl -LiteralPath $p
+$acl=[System.IO.Directory]::GetAccessControl($p)
 $owner=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
 if($owner -ne $sid.Value -and $owner -ne $identity.Owner.Value){throw 'Unexpected directory owner'}
-$new=New-Object System.Security.AccessControl.DirectorySecurity
+$new=[System.Security.AccessControl.DirectorySecurity]::new()
 $new.SetOwner($sid)
 $new.SetAccessRuleProtection($true,$false)
-$rule=New-Object System.Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
+$rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
 $new.AddAccessRule($rule)
-Set-Acl -LiteralPath $p -AclObject $new
-$actual=Get-Acl -LiteralPath $p
+[System.IO.Directory]::SetAccessControl($p,$new)
+$actual=[System.IO.Directory]::GetAccessControl($p)
 if($actual.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value){throw 'Owner normalization failed'}
 if(!$actual.AreAccessRulesProtected){throw 'Unprotected ACL'}
 $rules=$actual.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
