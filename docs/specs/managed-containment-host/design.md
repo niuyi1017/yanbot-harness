@@ -42,6 +42,8 @@ VM 路径映射采用显式预声明：调用方通过启动选项声明 workspa
 
 host 的 pid 是 VM 生命周期 owner；guest Runtime pid 只在私有 bootstrap 中核验，不写作 host descriptor pid。旧 Darwin 制品仍不能满足 requireContainment；只有含已核验 VM host/kernel/initrd 的新描述符才能进入 VM 路径。
 
+开发期保留 Darwin 兼容 Runtime 与新增 VM guest 于同一签名 payload；因此归档压缩上限从 128 MiB 调为 256 MiB，展开总量仍限定 512 MiB、单文件 256 MiB，其余数量/路径/摘要限制不变。新增 manifest containment 类型 `macos-vm-v1`，固定 host/kernel/initrd 路径并绑定 guestTarget=linux-arm64、每个 guest 摘要与签名 files.json 一致。仅显式 `--vm-guest-config` + 测试签名构建候选；正式镜像身份/许可未审批前不允许该构建路径使用正式密钥。
+
 - 复用 `packages/sdk/src/managed-runtime.ts` 的统一 deadline/handle、`apps/local-runtime/src/managed-control.ts` 的业务关闭、runtime cache/signature codec 与 `scripts/probe-managed-containment.mjs` 的自有认证 fixture 清理。
 - 原 `terminateOwnedChild` 的 process group/taskkill 仍是旧路径兼容实现，不当作新宿主能力，也不额外新建一套 Session/Run 客户端。
 - 拒绝全机 PID 扫描/kill、扩大超时冒充回收、允许 breakaway 以迁就测试、继承 Job handle 到厂商进程、无资源时静默回退原生 host 运行。
