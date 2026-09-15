@@ -200,7 +200,8 @@ const trustedKeys = ${JSON.stringify(trustedKeys)};
 const workspace = path.join(import.meta.dirname, 'workspace'); await mkdir(workspace);
 for (const scenario of ['text', 'question', 'permission', 'wait-for-cancel']) {
   process.env.YANBOT_HARNESS_REFERENCE_SCENARIO = scenario;
-  const handle = await startManagedRuntime({ reference: true, trustedKeys, cacheRoot: path.join(import.meta.dirname, 'cache'), startupTimeoutMs: 120000 });
+  const handle = await startManagedRuntime({ reference: true, trustedKeys, cacheRoot: path.join(import.meta.dirname, 'cache'), startupTimeoutMs: 120000,
+    vm: { workspaces: [{ path: workspace, readOnly: true }] } });
   try {
     const grant = await handle.client.grantWorkspace({ path: workspace });
     const session = await handle.client.createSession({ adapterId: 'cn.yanbot.reference' });

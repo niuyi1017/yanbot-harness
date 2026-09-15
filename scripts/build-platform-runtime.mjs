@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 
 import { sha256 } from '../packages/runtime/lib/archive.mjs';
 import { currentTarget, resolvePlatformDirectory } from '../packages/runtime/lib/index.mjs';
-import { VERSION } from '../packages/runtime/lib/manifest.mjs';
+import { readBounded, VERSION } from '../packages/runtime/lib/manifest.mjs';
 import { startManagedRuntime } from '../packages/local/dist/index.js';
 import { buildPlatformPackage } from './lib/build-platform-package.mjs';
 import { stageRuntime } from './lib/runtime-staging.mjs';
@@ -113,7 +113,7 @@ try {
     for (const name of ['kernel', 'initrd']) {
       const artifact = guest[name];
       assert(path.isAbsolute(artifact.path) && (await stat(artifact.path)).size <= 256 * 1024 * 1024);
-      const bytes = await readFile(artifact.path);
+      const bytes = await readBounded(artifact.path, 256 * 1024 * 1024);
       assert.equal(sha256(bytes), artifact.sha256, 'Guest build digest mismatch.');
       await writeFile(path.join(staged.directory, 'native/guest', name), bytes, { flag: 'wx' });
       containment[name] = { path: 'native/guest/' + name, sha256: artifact.sha256 };

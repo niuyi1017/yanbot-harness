@@ -39,7 +39,8 @@ export async function linuxOfflineNetworkGate({ kit, prefix, environment }) {
 export async function macOfflineNetworkGate({ kit, prefix, environment }) {
   assert.equal(process.platform, 'darwin');
   const profile =
-    '(version 1)(allow default)(deny network*)(allow network-outbound (remote ip "localhost:*"))(allow network-inbound (local ip "localhost:*"))';
+    '(version 1)(allow default)(deny network*)(allow network-outbound (remote ip "localhost:*"))(allow network-inbound (local ip "localhost:*"))' +
+    '(allow network* (local unix-socket (regex #"^/private/tmp/hvm-[A-F0-9-]+/http[.]sock$")) (remote unix-socket (regex #"^/private/tmp/hvm-[A-F0-9-]+/http[.]sock$")))';
   const base = ['-p', profile, process.execPath];
   const options = { env: environment, timeout: 180000, maxBuffer: 8192 };
   const probe = await execute(

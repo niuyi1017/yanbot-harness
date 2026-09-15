@@ -92,10 +92,10 @@ export async function installOfflineKit({ kitDirectory, prefix, trustedKeys, cac
     }
     assert(!paths.has(artifact.file));
     paths.add(artifact.file);
-    assert(Number.isSafeInteger(artifact.size) && artifact.size >= 0 && artifact.size <= 128 * 1024 * 1024);
+    assert(Number.isSafeInteger(artifact.size) && artifact.size >= 0 && artifact.size <= 256 * 1024 * 1024);
     assert(/^[a-f0-9]{64}$/u.test(artifact.sha256));
     total += artifact.size;
-    assert(total <= 256 * 1024 * 1024, 'Kit total byte limit.');
+    assert(total <= 512 * 1024 * 1024, 'Kit total byte limit.');
     const file = path.join(kit, artifact === m.installer ? '' : 'packages', artifact.file);
     const content = await bounded(file, artifact.size);
     assert(content.length === artifact.size && hash(content) === artifact.sha256, 'Kit artifact digest failed.');
@@ -183,12 +183,13 @@ import path from 'node:path';
 import { startManagedRuntime, HARNESS_RELEASE_VERSION } from '@yanbot-harness/local';
 assert.equal(HARNESS_RELEASE_VERSION, ${JSON.stringify(m.version)});
 const trustedKeys = JSON.parse(await readFile(new URL('./.harness-release-trust.json', import.meta.url), 'utf8'));
-const runtime = await startManagedRuntime({ reference: true, trustedKeys, startupTimeoutMs: 120000, ${cacheRoot ? 'cacheRoot: ' + JSON.stringify(path.resolve(cacheRoot)) : ''} });
+const workspace = path.join(import.meta.dirname, '.harness-smoke-workspace');
+await mkdir(workspace, { recursive: true });
+const runtime = await startManagedRuntime({ reference: true, trustedKeys, startupTimeoutMs: 120000,
+  vm: { workspaces: [{ path: workspace, readOnly: true }] }, ${cacheRoot ? 'cacheRoot: ' + JSON.stringify(path.resolve(cacheRoot)) : ''} });
 try {
   await runtime.client.health();
   const [adapter] = await runtime.client.listAdapters();
-  const workspace = path.join(import.meta.dirname, '.harness-smoke-workspace');
-  await mkdir(workspace, { recursive: true });
   const grant = await runtime.client.grantWorkspace({ path: workspace });
   const session = await runtime.client.createSession({ adapterId: adapter.manifest.adapterId });
   const run = await runtime.client.createRun(session.sessionId, { prompt: 'Offline Reference smoke', workspaceGrant: grant.grant,
