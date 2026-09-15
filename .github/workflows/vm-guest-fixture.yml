@@ -1,0 +1,31 @@
+name: VM guest development fixture
+on:
+  push:
+    paths:
+      - native/guest/**
+      - scripts/build-vm-runtime-root.mjs
+      - .github/workflows/vm-guest-fixture.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guest:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.1
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec node scripts/build-vm-runtime-root.mjs native-build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-arm64-development-guest
+          path: native-build/runtime-root.tar.gz
+          retention-days: 3
