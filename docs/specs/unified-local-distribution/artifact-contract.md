@@ -1,6 +1,6 @@
 # 平台制品与受管启动契约 v1
 
-状态：T1c 固定字段和验证顺序，T1d 增加精确解包候选及本机安全探针，供 T2–T4 实现；**不是当前公开 API，也不表示生产签名/解包器或跨平台生命周期已实现**。与 [design](design.md) 同属已确认方案的实施细化；验证发现不适用时先修订本契约并记录原因，不能静默放宽限制。跨平台格式/性能和 containment 仍需独立验证。
+状态：T1 固定的契约已进入 preview.3 开发实现；本机测试签名、解包、resolver/IPC 与真实包安装已验证，**不表示生产签名或跨平台完整生命周期已认证**。与 [design](design.md) 同属已确认方案的实施细化；验证发现不适用时先修订本契约并记录原因，不能静默放宽限制。跨平台格式/性能和 containment 仍需独立验证。
 
 ## 1. 平台包布局与身份
 
@@ -63,7 +63,7 @@ type FileEntry = { path: string; type: 'file'; size: number; sha256: string; exe
 
 archive entries 与清单一一对应，包括目录；无额外根目录 `./`、无尾斜线别名、无重复路径。拒绝绝对路径、空/`.`/`..` 段、反斜杠、控制字符、冒号/ADS、Windows 保留名、尾点/空格及 NFC+小写折叠碰撞。不静默重命名路径。禁止符号/硬链接、设备/FIFO、稀疏文件、扩展头覆盖路径；构建器与解包器必须对同一限制进行对抗测试。文件 mode 仅普通 0644/可执行 0755，目录不信任 archive 权限，在私有缓存内按平台安全策略建立；Windows 不依靠 POSIX mode 代替 ACL。
 
-T1c 使用逐文件允许差异集验证第三方字节与可执行标志未变，再独立比较忽略 manifest 字节后的包资源/实际依赖上下文。已知构建目录和用户目录在所有文件（含大文件/二进制）的 UTF-8/UTF-16LE 内容中扫描；常见凭据模式命中直接失败且不打印匹配值。该扫描不是任意编码或所有凭据类型的完备检测。正式 T2 仍需来源/文件允许列表与 SBOM 门禁。
+T1c 使用逐文件允许差异集验证第三方字节与可执行标志未变，再独立比较忽略 manifest 字节后的包资源/实际依赖上下文。本次仓库/真实路径与临时装配根在所有文件（含大文件/二进制）的 UTF-8/UTF-16LE 内容中扫描；通用 home 前缀不足以证明构建泄漏，见 decision-record 的上游 ripgrep 构建路径证据。常见凭据模式命中直接失败且不打印匹配值。该扫描不是任意编码或所有凭据类型的完备检测，来源/许可仍需人工审核。
 
 ## 3. 候选资源上限与展开验证
 
@@ -96,7 +96,7 @@ type ManagedRuntimeResolver = (context: { signal: AbortSignal }) => Promise<{
 
 保持设计中的最小注入类型；signal 承载整次启动的剩余期限，不引入跨进程墙钟时间戳。默认 15 秒，既有可配范围 100–120,000 ms，覆盖 Node 检查、resolver、锁等待、读/展开/验签、spawn、IPC、descriptor 和 health/profile。超时/取消后不得迟到 spawn 或提交 cache；可取消 I/O 和每个提交点都要检查 signal。
 
-自定义 Node 必须先验证版本/OS/CPU，再由内置 resolver 使用该验证结果选包；不能拿宿主 process.arch 代替所选 Node 架构。自定义 resolver 结果也必须与最终 Runtime 握手一致。显式路径 → 环境路径 → 注入 resolver → local 默认 resolver 的顺序保持不变，高优先级失败不 fallback；旧 SDK 无 resolver 保持原错误。字段是 T3 目标，不在 T1 修改现有 SDK 公共行为。
+自定义 Node 先验证版本/OS/CPU；v1 仅接受与宿主相同的 OS/CPU，异架构注入直接拒绝，不能误用宿主目标。自定义 resolver 结果也必须与最终 Runtime 握手一致。显式路径 → 环境路径 → 注入 resolver → local 默认 resolver 的顺序保持不变，高优先级失败不 fallback；旧 SDK 无 resolver 保持原错误。
 
 ## 5. 私有 managed IPC v1
 

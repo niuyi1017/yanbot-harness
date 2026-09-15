@@ -1,0 +1,79 @@
+name: Unified local installation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  common:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.1
+      - run: npm install --global npm@10.9.8 --ignore-scripts --no-audit --no-fund
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm build:unified-common --output-dir "${{ runner.temp }}/unified-common"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: unified-common-packages
+          path: |
+            ${{ runner.temp }}/unified-common/*/common-manifest.json
+            ${{ runner.temp }}/unified-common/*/packages/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+  installation:
+    needs: common
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: windows-2022
+            target: win32-x64
+          - runner: ubuntu-24.04
+            target: linux-x64
+    name: Installed local (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.1
+      - run: npm install --global npm@10.9.8 --ignore-scripts --no-audit --no-fund
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/download-artifact@v8
+        with:
+          name: unified-common-packages
+          path: ${{ runner.temp }}/common
+      - run: pnpm build:platform-runtime --test-signing --skip-build --output-dir "${{ runner.temp }}/platform"
+      - run: node scripts/run-unified-ci.mjs "${{ runner.temp }}/common" "${{ runner.temp }}/platform" "${{ runner.temp }}/unified-result.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: unified-installation-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/platform/*/build-report.json
+            ${{ runner.temp }}/platform/*/*.tgz
+            ${{ runner.temp }}/platform/*/test-trust.json
+            ${{ runner.temp }}/unified-result.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -60,6 +60,9 @@
 
 ## T4. 双平台生命周期与权限收口
 
+- [x] 初版 IPC hello/ready/shutdown、版本/PID/instanceId 绑定、默认/上限启动与关闭期限；本机新增并发实例互不影响、父 IPC 丢失、组内顽固孙进程、私有状态拒绝测试通过。SDK 累计 26 项通过。
+- [ ] Windows 新 state/cache ACL 代码已加入，待远端结果；强杀 Runtime/脱组孙进程仍需完整 containment，不把基础 taskkill/进程组行为标为完整保证。
+
 - [ ] 新 Runtime 增加 versioned private IPC，父断开触发正常取消/关闭；SDK graceful close 后有界强制回收整个 owned tree。
 - [ ] 覆盖 POSIX 进程组、Windows owned tree、PID 复用风险、Runtime 失去响应和厂商孙进程；必要时先补 containment/watchdog 设计，再实现相关 helper。
 - [ ] 实现 Windows state/descriptor/cache ACL 校验，临时状态/持久状态/缓存 ownership 分离，以及清理失败保留诊断。
@@ -78,6 +81,11 @@
 - 验收：测试 Registry 全流程安装，所有 mandatory target 实际可取；篡改被拒；日志/产物/Runtime 环境中无 Registry token；真实发布另按授权执行。
 
 ## T6. 离线套件与手动升级回滚
+
+- [x] 本机实际公共闭包 18 包 + 平台包，签名 kit 与显式 fresh-consumer 安装器；验签后快照 tgz，保留相对 file 锁依赖。原有项目拒绝覆盖。
+- [x] 本机 npm/pnpm local Reference 文本/权限/提问/取消、SDK-only 无 Runtime 下载、optional 缺失与平台 401 诊断；空 npm cache 的 offline/ignore-scripts 安装与 Reference Run/close 通过。7 组真实包用例见 implementation-evidence-t6.json。
+- [x] 新增 5 项离线完整性/拒绝覆盖及 Windows shim 单测；三平台真实包安装 CI 已配置，共用 Mac 构建一次的 common tgz，等待运行证据。
+- [ ] 跨版本回滚/状态不兼容/占用/磁盘故障与 OS 级阻网仍需补齐，生产签名和企业 Registry 不因本地 fixture 通过而解除。
 
 - [ ] 生成当前平台闭包 tgz、签名清单、显式安装器和独立 consumer 样例；禁止其他平台 tgz 混装及已有项目静默覆盖。
 - [ ] 验证空 npm cache + 阻网 + `--ignore-scripts` 的安装、首次展开/Reference；必要的元数据和 lock 支持必须随 kit 提供。

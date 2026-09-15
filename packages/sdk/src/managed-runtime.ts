@@ -15,6 +15,7 @@ import {
 
 import { HarnessClient } from './client.js';
 import { readRuntimeDescriptor } from './daemon.js';
+import { protectManagedState } from './managed-permissions.js';
 import { HarnessSdkError } from './transport.js';
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
@@ -107,6 +108,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     await mkdir(stateRoot, { recursive: true, mode: 0o700 });
     descriptorPath = path.join(stateRoot, 'runtime.json');
     await assertDescriptorAbsent(descriptorPath);
+    if (managed) await protectManagedState(stateRoot, signal);
     signal.throwIfAborted();
     child = spawn(invocation.command, [...invocation.arguments, ...(options.reference ? ['--reference'] : [])], {
       env: compactEnvironment({ ...environment, YANBOT_HARNESS_STATE_DIR: stateRoot }),
@@ -134,6 +136,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
     await withSignal(client.health({ signal }), signal);
+    control?.assertHealthy();
     signal.throwIfAborted();
     if (child.exitCode !== null || child.signalCode !== null) throw childOutcomeError(await outcome);
     const ownedChild = child;
@@ -151,6 +154,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
           control?.shutdown();
           await terminateOwnedChild(ownedChild, ownedOutcome, shutdownTimeoutMs, Boolean(managed));
           control?.dispose();
+          control?.assertHealthy();
           await removeOwnedDescriptor(ownedDescriptor, descriptor.instanceId);
           if (ownedRoot) await rm(ownedRoot, { recursive: true, force: true });
         })();
@@ -158,6 +162,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
       },
     };
   } catch (error) {
+    const failure = signal.aborted ? signal.reason : error;
     controller.abort(error);
     try {
       if (child && outcome) {
@@ -174,7 +179,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     }
     if (descriptorPath && instanceId) await removeOwnedDescriptor(descriptorPath, instanceId);
     if (ownsStateRoot && stateRoot) await rm(stateRoot, { recursive: true, force: true });
-    if (error instanceof HarnessSdkError) throw error;
+    if (failure instanceof HarnessSdkError) throw failure;
     throw new HarnessSdkError(
       'runtime',
       'The managed Runtime failed to start. Check resolver integrity, Node compatibility and permissions.',
@@ -243,6 +248,7 @@ function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expe
   const launchId = randomUUID();
   let readyValue: Extract<ManagedControlMessage, { type: 'ready' }> | undefined;
   let shutdownId: string | undefined;
+  let protocolFailure: HarnessSdkError | undefined;
   let accept!: (value: Extract<ManagedControlMessage, { type: 'ready' }>) => void;
   let reject!: (error: Error) => void;
   const ready = new Promise<Extract<ManagedControlMessage, { type: 'ready' }>>((resolve, fail) => {
@@ -276,7 +282,9 @@ function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expe
         return;
       throw new Error();
     } catch {
-      reject(new HarnessSdkError('protocol', 'Invalid managed control message.'));
+      protocolFailure = new HarnessSdkError('protocol', 'Invalid managed control message.');
+      reject(protocolFailure);
+      if (child.connected) child.disconnect();
     }
   };
   child.on('message', onMessage);
@@ -286,6 +294,9 @@ function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expe
   });
   return {
     ready,
+    assertHealthy() {
+      if (protocolFailure) throw protocolFailure;
+    },
     shutdown() {
       if (shutdownId || !child.connected) return;
       shutdownId = randomUUID();

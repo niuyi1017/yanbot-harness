@@ -159,8 +159,11 @@ export async function resolvePlatformDirectory({
       'Cannot verify or create the private Runtime cache. Check permissions, available space, local lock policy, and timeout; use a fresh cacheRoot for corrupt content.',
     );
   } finally {
-    if (temporary) await rm(temporary.root, { recursive: true, force: true });
-    if (release) await release();
+    try {
+      if (temporary) await rm(temporary.root, { recursive: true, force: true });
+    } finally {
+      if (release) await release();
+    }
   }
 }
 

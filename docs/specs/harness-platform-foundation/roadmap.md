@@ -122,7 +122,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ### P1D `[~]` 统一本地安装与 Runtime 平台包
 
-**状态**：T1 本机原始 kit/lock 转移、零链接目录、发布 metadata 归一化及受限 archive round-trip/安全攻击探针已通过，制品/resolver/IPC 字段与解包候选已细化；Mac producer→三平台 consumer CI 已接通但未远端执行。平台大小/路径/权限、完整首启预算与生命周期门禁仍待完成，T2–T7 未开始。新增包仍不是已发布能力。
+**状态**：preview.3 连续实施中。T1 三平台原始 kit/lock 安装通过，Mac/Linux archive 通过，Windows shim 差异持续修正。T2/T3 本机实际签名候选、resolver/local、SDK deadline/IPC 通过；T6 本机 npm/pnpm 真实包的四种 Reference 场景、SDK-only 和 19 个 tgz 空缓存离线安装通过。T4 基础生命周期/私有状态已有实现，完整 containment、跨版本回滚、OS 阻网、生产身份与实机认证仍为未完成门禁。新增包未真实发布。
 
 **目标**：本地只安装 `@yanbot-harness/local` 即可无路径 managed 启动；Remote-only 只安装轻量 SDK；Runtime 继续独立模块/进程并支持独立分发。
 
@@ -262,22 +262,22 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ## 6. 当前进度汇总
 
-| 阶段                      | 状态  | 当前结论                                            | 下一动作                                         |
-| ------------------------- | ----- | --------------------------------------------------- | ------------------------------------------------ |
-| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞 | 固定候选提交和摘要；并行等待 Windows 验收        |
-| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移 |
-| P1D 统一本地安装          | `[~]` | T1 本机 kit/lock、归一化与受限 archive/攻击探针通过 | 跨系统 CI、平台安全与完整首启预算                |
-| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                         | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI  |
-| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                  | 先做能力与许可证探针，不直接写 Wrapper           |
-| P4 Remote Reference       | `[ ]` | 只有设计                                            | 建立 cloud-server 子 Spec 和 Reference 闭环      |
-| P5 Remote CodeBuddy       | `[ ]` | 未实现                                              | P4 通过后建设 Worker/Sandbox                     |
-| P6 四象限认证             | `[ ]` | 未开始                                              | 等待 P3、P5 和 Windows 实机条件                  |
-| P7 产品/运营              | `[ ]` | 未脚手架化                                          | Local Web 可在 P1 后并行，其余按依赖进入         |
+| 阶段                      | 状态  | 当前结论                                                          | 下一动作                                                |
+| ------------------------- | ----- | ----------------------------------------------------------------- | ------------------------------------------------------- |
+| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞               | 固定候选提交和摘要；并行等待 Windows 验收               |
+| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                              | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移        |
+| P1D 统一本地安装          | `[~]` | preview.3 本机签名候选、实际 npm/pnpm local 与离线 Reference 通过 | 三平台新安装、完整 containment/回滚、正式身份/许可/实机 |
+| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                       | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI         |
+| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                | 先做能力与许可证探针，不直接写 Wrapper                  |
+| P4 Remote Reference       | `[ ]` | 只有设计                                                          | 建立 cloud-server 子 Spec 和 Reference 闭环             |
+| P5 Remote CodeBuddy       | `[ ]` | 未实现                                                            | P4 通过后建设 Worker/Sandbox                            |
+| P6 四象限认证             | `[ ]` | 未开始                                                            | 等待 P3、P5 和 Windows 实机条件                         |
+| P7 产品/运营              | `[ ]` | 未脚手架化                                                        | Local Web 可在 P1 后并行，其余按依赖进入                |
 
 ## 7. 最近两个执行节点
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
-2. **推进后续 Preview 工作流**：P1D Spec 已确认并启动 T1，继续补齐跨平台、link-free payload 与安全契约探针；P1 中立协议按已有子 Spec 推进，共同冻结 managed target/handle 契约。建议 `gpt-6-astra + high`。
+2. **推进后续 Preview 工作流**：P1D preview.3 已连续推进到实际新包安装与离线候选，继续收口三平台、生命周期/回滚与发布门禁；P1 中立协议仍按已有子 Spec 推进，共用 managed target/handle 契约。建议 `gpt-6-astra + high`。
 
 P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之间并行推进；Local Web 也可在协议稳定后单独立项。
 

@@ -10,7 +10,7 @@ export async function normalizeWindowsBinShims(root) {
     actual.every((item) => item.isFile()),
     'Windows bin shim must be a regular file.',
   );
-  assert.deepEqual(actual.map((item) => item.name).sort(), expected, 'Unreviewed Windows bin shim.');
+  assert.deepEqual(actual.map((item) => item.name.toLowerCase()).sort(), expected, 'Unreviewed Windows bin shim.');
   const result = [];
   for (const [name, entry] of [
     ['uuidv7', 'cli.js'],
@@ -34,8 +34,9 @@ export async function normalizeWindowsBinShims(root) {
       ['.cmd', cmd],
       ['.ps1', ps1],
     ]) {
-      await writeFile(path.join(bins, name + extension), content);
-      result.push({ path: 'node_modules/.bin/' + name + extension, target });
+      const filename = actual.find((item) => item.name.toLowerCase() === name + extension).name;
+      await writeFile(path.join(bins, filename), content);
+      result.push({ path: 'node_modules/.bin/' + filename, target });
     }
   }
   return result;

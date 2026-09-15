@@ -1,28 +1,25 @@
-# 后续 Preview：本地统一安装交付说明草案
+# 统一安装候选：0.1.0-preview.3
 
-**方案已确认，尚未实现，不能用本文命令安装当前 `preview.2`。**
-当前使用 [SDK/CLI quickstart](./sdk-cli-quickstart.md) 或 [Windows 手册](./windows-sdk-cli-integration-guide.zh-CN.md)。
-设计与实施细节见 [统一分发 Spec](../specs/unified-local-distribution/design.md)。
+当前是开发/测试签名候选，不是已发布 npm 版本。生产 Registry、信任根、再分发许可、Windows 10/11 与真实厂商认证尚未完成。旧 preview.2 从其冻结制品使用，本指南不替换旧发布证据。
 
-## 1. 用户选择
+## 已验证路径
 
-| 需要什么              | 推荐安装内容（未来）                                                    | 用户承担什么                                              |
-| --------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
-| 在本机跑任务          | `@yanbot-harness/local@<V>`                                             | 安装受支持 Node，配置自己的厂商凭据，显式启动/关闭 handle |
-| 只连接 Remote         | `@yanbot-harness/sdk@<V>`                                               | 配置 Remote 端点与平台认证；服务本身仍未交付              |
-| 多客户端共享/高级部署 | `@yanbot-harness/runtime@<V>` 或 portable archive，客户端按需装 SDK/CLI | 操作员管理 Runtime 生命周期、状态与升级                   |
+本机 macOS arm64 已通过实际 npm/pnpm 包安装、pnpm 严格隔离布局、SDK-only 不下载 Runtime、平台 optional 缺失/401 诊断。local 的 Reference 文本、权限、提问、取消均通过。
 
-新增名字为本次推荐。统一包内部会安装 SDK、Runtime meta 和当前平台 payload，业务代码只 import 本地入口。
-SDK 与 Runtime 仍通过 HTTP/SSE 跨进程通信。安装包不含 Node、不安装系统服务、不内置厂商 Key。
+离线候选包含 18 个公共/第三方闭包 tgz 加 1 个目标平台 tgz；空 npm cache、npm 10.9.8、offline/ignore-scripts 安装后完成 Reference Run/close。这里的离线证据来自包管理器 offline 模式和隔离 Registry，不等于已在每个 OS 上验证防火墙断网。三平台 CI 结果另见对应报告。
 
-## 2. 目标本地体验
+## 本地 API
 
-在团队批准的私有 Registry 配置就绪后安装精确版本 V；以下仅表达未来调用形态：
+得到完整、已授权的同版本包后：
 
 ```ts
 import { startManagedRuntime } from '@yanbot-harness/local';
 
-const runtime = await startManagedRuntime({ reference: true });
+const runtime = await startManagedRuntime({
+  reference: true,
+  trustedKeys: approvedPublicKeys,
+  startupTimeoutMs: 120_000,
+});
 try {
   console.log(await runtime.client.listAdapters());
 } finally {
@@ -30,42 +27,45 @@ try {
 }
 ```
 
-首次显式启动会验证并在用户缓存目录展开随包安装的 Runtime，无网络下载；后续启动复用该版本缓存并验证完整性。
-Reference 验收不需要模型 Key。真正使用 CodeBuddy 时仍需本机 BYOK 文件，并由 Runtime 自己读取；不要把平台 token 当作厂商 Key。
+`approvedPublicKeys` 必须来自可信外部渠道。当前内置生产信任根为空；不提供测试根或未签名 fallback。显式 trustedKeys 是宿主的信任决定，不能把 payload 自带公钥直接视为可信。默认启动期限仍是 15 秒，但完整候选的跨平台冷启动认证未完成；上例明确使用可配置的 120 秒预算。
 
-只安装 SDK 的用户仍可使用 `fromDaemon()`、显式连接或带路径的 managed 方法。`preview.2` 的这些已有用法继续保留；
-使用新 local 的自动发现只需迁移安装入口和 import，业务 Session/Run/Event 方法复用同一 SDK。
+覆盖顺序：explicit executablePath → 所选 environment 的 YANBOT_HARNESS_RUNTIME_PATH → runtimeResolver → local 内置 resolver。选中后失败不回退。旧 SDK 显式路径保留兼容等级，不强制要求新 IPC/签名。
 
-## 3. 离线与企业交付
+只连接既有 Runtime 的用户继续使用轻量 `@yanbot-harness/sdk`，不需要安装 local。CLI 仍是轻量客户端，没有默认携带 payload。
 
-未来离线套件按 OS/CPU 分发，包含中立包、匹配平台包和全部消费者传递依赖的同版 tgz、签名清单与一个显式安装器。
-建议入口 `node install-local.mjs --prefix ./consumer` 尚未实现；它将使用本地文件和 npm offline/ignore-scripts 安装，并验证匹配平台已就位。
+## 凭据、状态与缓存
 
-“一个入口”不等于万能单 tgz。不要把所有 OS 的平台包一起作为直接依赖安装，不依赖机器已有 npm cache。
-只有空 cache、无源码仓库、阻断网络的 Mac/Windows 测试通过后，才能发布离线承诺。消费者侧首轮不要求安装 pnpm。
+默认 local 环境只保留必要 OS/路径/代理/CA、Runtime 配置和 credential-file 引用，不继承 Registry token、inline Key、NODE_OPTIONS、NODE_PATH 或动态链接注入。真实厂商建议 CODEBUDDY_API_KEY_FILE；显式 environment 属高级宿主信任边界。
 
-企业可镜像全部 Registry 元数据和依赖到隔离网。Registry token 只用于包安装；不要将其传入 Runtime 子进程环境。
+cacheRoot 与 stateRoot 分离；缓存按 version/target/digest 共存，关闭不删除缓存。每次解析核验签名、压缩体与已展开文件；损坏缓存拒绝运行，保留原字节，使用新的私有 cacheRoot 恢复，不自动覆盖/GC。
 
-## 4. 目标平台与诊断
+显式 stateRoot 必须是专用私有目录，新受管路径执行 POSIX owner/mode 或 Windows 当前用户 ACL 校验。调用方状态/工作区/BYOK 文件不会递归删除。临时状态只在已拥有的 Runtime 回收后清理；失败保留诊断。Windows ACL 与复杂进程树场景须以 Windows CI/实机证据为准。
 
-- 必验：Mac arm64、Windows x64；Windows Server CI 与 Windows 10/11 实机分别记录。
-- Linux x64 glibc 保留 Reference 回归；Intel Mac、Windows arm64、Linux arm64/musl 尚不在首轮认证范围。
-- 按 Node 实际架构选择 payload。Apple Silicon 使用 x64/Rosetta Node 时，不自动改用 arm64 Runtime。
-- 如果 optional dependencies 被禁用或 Registry 拒绝平台包，安装可能完成而启动失败；错误应说明目标、版本和补装/重装办法，不自动联网修复。
-- Node 不符合范围、payload 校验失败、缓存无写权限或路径不支持时，应停止并给出诊断；不要用关闭签名校验作为修复。
-- Electron 是高级宿主，需 ASAR 外资源和经验证的 Node/utilityProcess 启动器；普通 Node 安装验证不能替代 Electron 认证。
+目前仅普通 Node >=22.22.0 <23 的 darwin-arm64、win32-x64、linux-x64 glibc 是候选目标。Rosetta x64 Node、musl、Electron process.execPath 和跨架构 Node 注入明确不在候选认证范围。
 
-## 5. 关闭、状态与版本管理
+## 离线安装
 
-每个 managed handle 只管理自己的 Runtime；多次 close 幂等。未来新包通过私有控制通道正常关闭，再按需要有界终止受拥有子树。
-当前 `preview.2` Windows 仍使用强制树终止，父进程死亡回收未交付，不能引用未来行为作保证。
+先通过可信渠道核验 bootstrap 安装器与 kit 签名身份，再执行：
 
-未传 `stateRoot` 的临时运行状态随 owned 实例关闭清理；显式持久目录、用户工作区和凭据文件保留。payload 缓存在用户目录内按版本/摘要保存，关闭或 npm 卸载不会自动删除它；第一版提供显式清理说明，后续增加自动 GC。
+```sh
+node install-local.mjs --prefix ./new-consumer --trusted-key-file /trusted/channel/release-public-keys.json
+```
 
-升级应停止/排空后切换整套精确锁定依赖，验证新版本再替换宿主部署。回滚恢复旧 lockfile/整套制品，并检查状态 Schema；
-不可逆状态迁移需使用升级前备份。运行中的旧版本缓存不原地覆盖，BYOK 与配置不随包回滚。
+目标目录必须不存在，安装器不覆盖已有工程。先验证签名和全部 tgz 摘要，再将已验证字节快照保存到 consumer/.harness-packages；npm 只安装这些显式本地文件。保留该目录可让 lockfile 的相对 file 引用继续有效。npm 使用独立空配置和 cache；不读取安装/发布 token。
 
-## 6. 发布时必须补齐
+成功写入 installation-evidence.json，保留可复跑的 .harness-reference-smoke.mjs；失败写入 installation-failure.json 的阶段和隔离诊断目录。不要把失败但存在 node_modules 当作验收通过。当前安装器只认证 npm 10.9.8，其他 npm/pnpm 离线方式需另测。
 
-实际版本 V、Node/npm/pnpm 精确范围、Registry 配置、签名信任根、各平台摘要、安装/冷启动/磁盘占用实测、
-SDK 与 Runtime 兼容表、离线与生命周期证据、CodeBuddy 独立认证记录，以及回滚演练结果。齐全前本文保持“草案”。
+## 手动升级与回滚
+
+保留 V1 消费者目录、完整 kit、锁文件、用户配置和状态备份。在另一个新目录安装整套 V2，完成验签和 Reference smoke，再停止/排空 V1、检查状态 schema 兼容并切换宿主。
+
+失败时切回完整 V1 目录和锁文件；不要在活动 V1 node_modules/缓存中覆盖文件。当前 Runtime state schema 为 1，未知 schema 拒绝读取；不可逆迁移必须从迁移前备份恢复到独立目录。工作区和 BYOK 始终不属于安装器的清理对象。
+
+## 发布前仍需完成
+
+- 正式 Registry/scope/镜像 ACL、安装与发布 token 分权、不可变版本与全平台可取性。
+- 正式可信发布公钥、轮换/撤销、原生组件签名要求和厂商资产再分发审核。
+- Windows 10/11 与 Mac 真实厂商验收；Linux CI Reference 不替代它们。
+- 完整 containment：尤其 Runtime 被强杀后的 Windows 孙进程、脱离 POSIX 进程组的后代。IPC ACK、Runtime PID 消失或普通 taskkill 成功均不能替代整树保证。
+
+实现/证据明细见 docs/specs/unified-local-distribution/tasks.md；不得据本指南提前宣布所有门禁已完成。
