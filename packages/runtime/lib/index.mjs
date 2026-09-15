@@ -151,6 +151,14 @@ export async function resolvePlatformDirectory({
       runtimeVersion: manifest.version,
       protocolVersion: manifest.protocolVersion,
       managedProtocolVersion: 1,
+      ...(manifest.containment
+        ? {
+            containment: {
+              kind: manifest.containment.kind,
+              executablePath: path.join(destination, manifest.containment.entryPath),
+            },
+          }
+        : {}),
     };
   } catch {
     if (signal.aborted) throw signal.reason;

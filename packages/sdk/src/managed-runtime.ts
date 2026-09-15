@@ -17,6 +17,7 @@ import { HarnessClient } from './client.js';
 import { readRuntimeDescriptor } from './daemon.js';
 import { protectManagedState, verifyManagedDescriptor } from './managed-permissions.js';
 import { HarnessSdkError } from './transport.js';
+import { jobHostControl } from './windows-job-host.js';
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5_000;
@@ -30,6 +31,7 @@ export type RuntimeLaunchDescriptor = {
   runtimeVersion: string;
   protocolVersion: string;
   managedProtocolVersion: 1;
+  containment?: { kind: 'windows-job-v1'; executablePath: string };
 };
 export type ManagedRuntimeResolver = (context: { signal: AbortSignal }) => Promise<RuntimeLaunchDescriptor>;
 export type StartManagedRuntimeOptions = {
@@ -80,6 +82,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
   let instanceId: string | undefined;
   let managed: RuntimeLaunchDescriptor | undefined;
   let control: ReturnType<typeof parentControl> | undefined;
+  let job: ReturnType<typeof jobHostControl> | undefined;
   const ownsStateRoot = options.stateRoot === undefined;
   try {
     const selectedPath = options.executablePath ?? environment.YANBOT_HARNESS_RUNTIME_PATH;
@@ -101,6 +104,15 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     const executablePath = path.resolve(selectedPath ?? managed!.entryPath);
     await validateExecutable(executablePath);
     const invocation = await invocationFor(executablePath, node);
+    if (managed?.containment) {
+      if (
+        process.platform !== 'win32' ||
+        managed.containment.kind !== 'windows-job-v1' ||
+        !path.isAbsolute(managed.containment.executablePath)
+      )
+        throw new HarnessSdkError('protocol', 'Unsupported containment host descriptor.');
+      await validateExecutable(managed.containment.executablePath);
+    }
     signal.throwIfAborted();
     stateRoot = ownsStateRoot
       ? await mkdtemp(path.join(tmpdir(), 'yanbot-harness-managed-'))
@@ -110,20 +122,31 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     await assertDescriptorAbsent(descriptorPath);
     if (managed) await protectManagedState(stateRoot, signal);
     signal.throwIfAborted();
-    child = spawn(invocation.command, [...invocation.arguments, ...(options.reference ? ['--reference'] : [])], {
-      env: compactEnvironment({ ...environment, YANBOT_HARNESS_STATE_DIR: stateRoot }),
-      stdio: managed ? ['ignore', 'ignore', 'ignore', 'ipc'] : 'ignore',
-      detached: Boolean(managed && process.platform !== 'win32'),
-      windowsHide: true,
-    });
+    const runtimeArguments = [...invocation.arguments, ...(options.reference ? ['--reference'] : [])];
+    child = spawn(
+      managed?.containment?.executablePath ?? invocation.command,
+      managed?.containment ? ['--', invocation.command, ...runtimeArguments] : runtimeArguments,
+      {
+        env: compactEnvironment({ ...environment, YANBOT_HARNESS_STATE_DIR: stateRoot }),
+        stdio: managed?.containment
+          ? ['pipe', 'pipe', 'pipe', 'ipc']
+          : managed
+            ? ['ignore', 'ignore', 'ignore', 'ipc']
+            : 'ignore',
+        detached: Boolean(managed && process.platform !== 'win32'),
+        windowsHide: true,
+      },
+    );
     outcome = observeChild(child);
-    if (managed) control = parentControl(child, outcome, managed);
+    if (managed?.containment) job = jobHostControl(child);
+    const runtimePid = job ? await withSignal(job.started, signal) : child.pid;
+    if (managed) control = parentControl(child, outcome, managed, runtimePid);
     const descriptor = await withSignal(
       waitForDescriptor({ child, outcome, descriptorPath, environment, signal, managed: Boolean(managed) }),
       signal,
     );
     instanceId = descriptor.instanceId;
-    if (descriptor.pid !== child.pid)
+    if (descriptor.pid !== runtimePid)
       throw new HarnessSdkError('protocol', 'The managed Runtime descriptor belongs to an unexpected process.');
     if (control) {
       const ready = await withSignal(control.ready, signal);
@@ -152,7 +175,8 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
       close() {
         closePromise ??= (async () => {
           control?.shutdown();
-          await terminateOwnedChild(ownedChild, ownedOutcome, shutdownTimeoutMs, Boolean(managed));
+          if (job) await job.terminate(shutdownTimeoutMs);
+          else await terminateOwnedChild(ownedChild, ownedOutcome, shutdownTimeoutMs, Boolean(managed));
           control?.dispose();
           control?.assertHealthy();
           await removeOwnedDescriptor(ownedDescriptor, descriptor.instanceId);
@@ -167,7 +191,8 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     try {
       if (child && outcome) {
         control?.shutdown();
-        await terminateOwnedChild(child, outcome, shutdownTimeoutMs, Boolean(managed));
+        if (job) await job.terminate(shutdownTimeoutMs);
+        else await terminateOwnedChild(child, outcome, shutdownTimeoutMs, Boolean(managed));
       }
     } catch {
       throw new HarnessSdkError(
@@ -247,7 +272,12 @@ async function waitForDescriptor(options: {
   }
 }
 
-function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expected: RuntimeLaunchDescriptor) {
+function parentControl(
+  child: ChildProcess,
+  outcome: Promise<ChildOutcome>,
+  expected: RuntimeLaunchDescriptor,
+  runtimePid = child.pid,
+) {
   const launchId = randomUUID();
   let readyValue: Extract<ManagedControlMessage, { type: 'ready' }> | undefined;
   let shutdownId: string | undefined;
@@ -268,7 +298,7 @@ function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expe
         message.type === 'ready' &&
         !readyValue &&
         !shutdownId &&
-        message.pid === child.pid &&
+        message.pid === runtimePid &&
         message.runtimeVersion === expected.runtimeVersion &&
         message.protocolVersion === expected.protocolVersion
       ) {
@@ -279,7 +309,7 @@ function parentControl(child: ChildProcess, outcome: Promise<ChildOutcome>, expe
       if (
         message.type === 'shutdown-complete' &&
         shutdownId === message.requestId &&
-        message.pid === child.pid &&
+        message.pid === runtimePid &&
         message.instanceId === readyValue?.instanceId
       )
         return;

@@ -57,6 +57,14 @@ try {
       runtimeVersion: HARNESS_RELEASE_VERSION,
       protocolVersion: '1.0.0',
       managedProtocolVersion: 1,
+      ...(process.env.HARNESS_NATIVE_JOB_HOST
+        ? {
+            containment: {
+              kind: 'windows-job-v1',
+              executablePath: path.resolve(process.env.HARNESS_NATIVE_JOB_HOST),
+            },
+          }
+        : {}),
     }),
   });
   endpoint = JSON.parse(await readFile(endpointFile, 'utf8'));

@@ -14,7 +14,16 @@ import {
 import { auditDeployedPackages } from './deploy-probe-audit.mjs';
 
 // Destination must be new. Caller owns release identity and signing authority.
-export async function buildPlatformPackage({ source, destination, release, target, privateKey, keyId, signal }) {
+export async function buildPlatformPackage({
+  source,
+  destination,
+  release,
+  target,
+  privateKey,
+  keyId,
+  signal,
+  containment,
+}) {
   assert(privateKey.asymmetricKeyType === 'ed25519', 'Only Ed25519 signing keys are supported.');
   const root = JSON.parse(await readFile(path.join(source, 'package.json'), 'utf8'));
   assert.equal(root.version, release.version, 'Payload release version mismatch.');
@@ -110,6 +119,7 @@ export async function buildPlatformPackage({ source, destination, release, targe
     materials,
     adapters,
     keyId,
+    ...(containment ? { containment } : {}),
   };
   const bytes = manifestBytes(manifest);
   validateManifest(bytes);

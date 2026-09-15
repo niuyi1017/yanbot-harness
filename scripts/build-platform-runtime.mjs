@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -69,6 +69,22 @@ try {
       maxBuffer: 8 * 1024 * 1024,
     });
   const staged = await stageRuntime({ repository, root, pnpmEntry: process.env.npm_execpath });
+  let containment;
+  if (target.os === 'win32') {
+    const nativeRoot = path.join(root, 'native-build');
+    await execute(process.execPath, [path.join(repository, 'scripts/build-native-host.mjs'), nativeRoot], {
+      cwd: repository,
+      timeout: 120000,
+      maxBuffer: 1024 * 1024,
+    });
+    await mkdir(path.join(staged.directory, 'native'));
+    await copyFile(
+      path.join(nativeRoot, 'managed-job-host.exe'),
+      path.join(staged.directory, 'native/managed-job-host.exe'),
+    );
+    containment = { kind: 'windows-job-v1', entryPath: 'native/managed-job-host.exe' };
+    report.nativeHost = JSON.parse(await readFile(path.join(nativeRoot, 'native-build.json'), 'utf8'));
+  }
   const platform = path.join(root, 'platform');
   const manifest = await buildPlatformPackage({
     source: staged.directory,
@@ -77,6 +93,7 @@ try {
     target,
     privateKey,
     keyId,
+    containment,
   });
   const npm = npmInvocation(['pack', platform, '--ignore-scripts', '--json', '--pack-destination', root]);
   const packed = JSON.parse(

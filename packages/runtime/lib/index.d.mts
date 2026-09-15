@@ -3,6 +3,7 @@ export type RuntimeLaunchDescriptor = {
   runtimeVersion: string;
   protocolVersion: string;
   managedProtocolVersion: 1;
+  containment?: { kind: 'windows-job-v1'; executablePath: string };
 };
 export type ResolveInstalledRuntimeOptions = {
   cacheRoot?: string;

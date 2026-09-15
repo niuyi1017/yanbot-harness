@@ -10,5 +10,6 @@ coverage/
 release/
 release-runtime/
 release-work/
+native-build/
 .idea/
 .vscode/

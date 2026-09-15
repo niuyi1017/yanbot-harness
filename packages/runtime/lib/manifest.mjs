@@ -39,7 +39,8 @@ export function validateManifest(bytes) {
   const m = JSON.parse(bytes.toString('utf8'));
   keys(
     m,
-    'schemaVersion packageName version sourceCommit sourceLockSha256 target nodeRange protocolVersion managedProtocolVersion sdkVersion entryPath payload fileList materials adapters keyId',
+    'schemaVersion packageName version sourceCommit sourceLockSha256 target nodeRange protocolVersion managedProtocolVersion sdkVersion entryPath payload fileList materials adapters keyId' +
+      (Object.hasOwn(m, 'containment') ? ' containment' : ''),
   );
   assert.equal(m.schemaVersion, 1);
   assert(version.test(m.version) && m.sdkVersion === m.version, 'Invalid release version.');
@@ -53,6 +54,12 @@ export function validateManifest(bytes) {
   assert.equal(m.protocolVersion, '1.0.0');
   assert.equal(m.managedProtocolVersion, 1);
   assert.equal(m.entryPath, 'dist/main.js');
+  if (m.containment) {
+    keys(m.containment, 'kind entryPath');
+    assert.equal(m.target.os, 'win32');
+    assert.equal(m.containment.kind, 'windows-job-v1');
+    assert.equal(m.containment.entryPath, 'native/managed-job-host.exe');
+  } else assert(!Object.hasOwn(m, 'containment'), 'Invalid containment descriptor.');
   material(m.payload, 'payload/runtime.tar.gz', ARCHIVE_LIMITS.compressedBytes);
   assert(m.payload.size >= 18);
   material(m.fileList, 'files.json', ARCHIVE_LIMITS.fileListBytes, true);
@@ -135,6 +142,11 @@ export async function verifyPlatformPackage({
   }
   const fileListBytes = await readBounded(path.join(directory, 'files.json'), m.fileList.size, signal);
   const entries = validateFileList(fileListBytes, m.fileList);
+  if (m.containment)
+    assert(
+      entries.some((entry) => entry.path === m.containment.entryPath && entry.type === 'file'),
+      'Missing containment host.',
+    );
   assert(
     entries.some((entry) => entry.path === m.entryPath && entry.type === 'file'),
     'Missing Runtime entry.',
