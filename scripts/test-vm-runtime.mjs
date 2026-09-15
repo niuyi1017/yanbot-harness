@@ -108,6 +108,34 @@ for (const scenario of ['text', 'question', 'wait-for-cancel']) {
     await Promise.all([handle.close(), handle.close()]);
     assert.equal(await readFile(path.join(workspace, 'sentinel.txt'), 'utf8'), 'user-owned-marker');
     assert(!(await readdir(stateRoot)).includes('runtime.json'));
+    assert.equal(await readFile(path.join(stateRoot, 'vm-lease'), 'utf8'), 'stopped\n');
+    if (scenario === 'text') {
+      const reopened = await startManagedRuntime({
+        runtimeResolver: async () => resolver,
+        requireContainment: true,
+        reference: true,
+        stateRoot,
+        startupTimeoutMs: 45000,
+        shutdownTimeoutMs: 10000,
+      });
+      try {
+        assert((await reopened.client.listSessions()).some((entry) => entry.sessionId === session.sessionId));
+        await assert.rejects(
+          startManagedRuntime({
+            runtimeResolver: async () => resolver,
+            requireContainment: true,
+            reference: true,
+            stateRoot,
+            startupTimeoutMs: 45000,
+          }),
+          /descriptor already exists/u,
+        );
+        assert.equal((await reopened.client.health()).status, 'ok');
+      } finally {
+        await reopened.close();
+      }
+      results.push({ scenario: 'persistent-reopen-and-same-root-refusal', status: 'passed' });
+    }
     results.push({ scenario, status: 'passed', actualVM: true, publicProtocol: true, explicitWorkspace: true });
   });
 }
@@ -117,9 +145,10 @@ await test('SDK parent crash stops the actual Runtime VM', { timeout: 60000 }, a
     return;
   }
   const sdk = pathToFileURL(path.resolve(import.meta.dirname, '../packages/sdk/dist/index.js')).href;
+  const parentState = path.join(root, 'parent-state');
   const holder = `import { startManagedRuntime } from ${JSON.stringify(sdk)};
     const handle = await startManagedRuntime({ runtimeResolver: async()=>(${JSON.stringify(resolver)}), requireContainment:true,
-      reference:true,startupTimeoutMs:45000,shutdownTimeoutMs:10000});
+      reference:true,stateRoot:${JSON.stringify(parentState)},startupTimeoutMs:45000,shutdownTimeoutMs:10000});
     process.stdout.write(JSON.stringify({ready:true,pid:handle.pid})+'\\n');
     setTimeout(()=>handle.close(),45000);`;
   const child = spawn(process.execPath, ['--input-type=module', '-e', holder], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -148,14 +177,51 @@ await test('SDK parent crash stops the actual Runtime VM', { timeout: 60000 }, a
   child.kill('SIGKILL');
   await closed;
   await waitFor(async () => (await backendPids()).length === 0);
+  assert.equal(await readFile(path.join(parentState, 'vm-lease'), 'utf8'), 'stopped\n');
+  assert(!(await readdir(parentState)).includes('runtime.json'));
+  const recovered = await startManagedRuntime({
+    runtimeResolver: async () => resolver,
+    requireContainment: true,
+    reference: true,
+    stateRoot: parentState,
+    startupTimeoutMs: 45000,
+    shutdownTimeoutMs: 10000,
+  });
+  await recovered.close();
   results.push({ scenario: 'sdk-parent-sigkill', status: 'passed', ownedVMBackendExited: true });
+});
+await test('Independent VM instances do not share lifecycle or state', { timeout: 60000 }, async () => {
+  const first = await startManagedRuntime({
+    runtimeResolver: async () => resolver,
+    requireContainment: true,
+    reference: true,
+    startupTimeoutMs: 45000,
+    shutdownTimeoutMs: 10000,
+  });
+  let second;
+  try {
+    second = await startManagedRuntime({
+      runtimeResolver: async () => resolver,
+      requireContainment: true,
+      reference: true,
+      startupTimeoutMs: 45000,
+      shutdownTimeoutMs: 10000,
+    });
+    assert.notEqual(first.pid, second.pid);
+    assert.notEqual(first.origin, second.origin);
+    await first.close();
+    assert.equal((await second.client.health()).status, 'ok');
+    results.push({ scenario: 'concurrent-vm-isolation', status: 'passed' });
+  } finally {
+    await Promise.all([first.close(), second?.close()]);
+  }
 });
 const report = {
   schemaVersion: 1,
   kind: 'vm-runtime-development-integration',
   target: 'darwin-arm64',
   guestTarget: 'linux-arm64',
-  status: results.length === 4 ? 'passed' : 'failed',
+  status: results.length === 6 ? 'passed' : 'failed',
   results,
   productionCertified: false,
 };

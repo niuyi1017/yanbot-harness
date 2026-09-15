@@ -347,6 +347,7 @@ function vmControl(child: ChildProcess) {
   let guest = false;
   let stopped = false;
   let failure = false;
+  let recoveryRequired = false;
   const invalid = () => {
     failure = true;
     reject(new HarnessSdkError('protocol', 'Invalid VM host lifecycle.'));
@@ -369,6 +370,24 @@ function vmControl(child: ChildProcess) {
       try {
         const message = JSON.parse(line);
         if (message.protocolVersion !== 1 || stopped) throw new Error();
+        const fields: Record<string, string[]> = {
+          started: ['boundary', 'hostPid', 'protocolVersion', 'type'],
+          'transport-ready': ['protocolVersion', 'socketPath', 'type'],
+          'guest-ready': ['certification', 'guestTarget', 'protocolVersion', 'type'],
+          stopped: ['guestReady', 'protocolVersion', 'state', 'type'],
+          'guest-fault': ['kind', 'protocolVersion', 'type'],
+        };
+        if (
+          message.type === 'error' &&
+          !started &&
+          message.stage === 'state-recovery-required' &&
+          Object.keys(message).sort().join(',') === 'protocolVersion,stage,type'
+        ) {
+          recoveryRequired = true;
+          throw new Error();
+        }
+        if (!fields[message.type] || Object.keys(message).sort().join(',') !== fields[message.type]!.join(','))
+          throw new Error();
         if (
           message.type === 'started' &&
           !started &&
@@ -387,7 +406,8 @@ function vmControl(child: ChildProcess) {
           accept(message.socketPath);
         } else if (message.type === 'guest-ready' && started && !guest && message.guestTarget === 'linux-arm64')
           guest = true;
-        else if (message.type === 'stopped' && started && message.state === 'stopped') stopped = true;
+        else if (message.type === 'stopped' && started && message.state === 'stopped' && message.guestReady === guest)
+          stopped = true;
         else if (message.type === 'guest-fault' && started && message.kind === 'kernel-panic') {
           // The heartbeat watchdog owns VM stop; this fixed diagnostic contains no guest console text.
         } else throw new Error();
@@ -403,6 +423,15 @@ function vmControl(child: ChildProcess) {
     });
     child.once('close', (code, signal) => {
       reject(new HarnessSdkError('runtime', 'VM host exited before readiness.'));
+      if (recoveryRequired) {
+        fail(
+          new HarnessSdkError(
+            'runtime',
+            'STATE_RECOVERY_REQUIRED: the previous VM host did not confirm state release; use a fresh state root or explicitly recover the retained instance.',
+          ),
+        );
+        return;
+      }
       if (failure || code !== 0 || signal !== null || !stopped || buffer.length)
         fail(new HarnessSdkError('runtime', 'CLEANUP_FAILED: VM host provided no stopped proof; state retained.'));
       else resolve();

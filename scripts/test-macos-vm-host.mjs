@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout } from 'node:timers';
@@ -114,6 +114,62 @@ for (const scenario of ['host-sigkill', 'parent-sigkill']) {
     });
   });
 }
+await test(
+  'Persistent state lease rejects concurrent owners and unconfirmed crash recovery',
+  { timeout: 25000 },
+  async (t) => {
+    const state = path.join(root, 'leased-state');
+    await mkdir(state, { mode: 0o700 });
+    await mkdir(path.join(state, 'guest-state'), { mode: 0o700 });
+    const data = {
+      ...JSON.parse(await readFile(config, 'utf8')),
+      runtime: {
+        shares: [{ name: 'state', path: await realpath(path.join(state, 'guest-state')), readOnly: false }],
+        network: false,
+      },
+    };
+    const file = path.join(root, 'leased-config.json');
+    await writeFile(file, JSON.stringify(data));
+    async function launch() {
+      const child = spawn(binary, ['--probe-run', file], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let output = '';
+      child.stdout.on('data', (chunk) => {
+        output += chunk;
+        assert(output.length < 16384);
+      });
+      child.stderr.resume();
+      const closed = new Promise((resolve, reject) => {
+        child.once('error', reject);
+        child.once('close', resolve);
+      });
+      t.after(() => {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      });
+      await waitFor(async () => output.includes('"type":"guest-ready"'));
+      return { child, closed };
+    }
+    const first = await launch();
+    await assert.rejects(execute(binary, ['--validate', file]), (error) => error.code === 1);
+    first.child.stdin.end('stop\n');
+    assert.equal(await first.closed, 0);
+    assert.equal(await readFile(path.join(state, 'vm-lease'), 'utf8'), 'stopped\n');
+    await execute(binary, ['--validate', file]);
+    const crashed = await launch();
+    crashed.child.kill('SIGKILL');
+    await crashed.closed;
+    assert.equal(await readFile(path.join(state, 'vm-lease'), 'utf8'), 'active\n');
+    await assert.rejects(
+      execute(binary, ['--validate', file]),
+      (error) => error.code === 1 && error.stdout.includes('state-recovery-required'),
+    );
+    results.push({
+      scenario: 'persistent-state-lease',
+      status: 'passed',
+      concurrentOwnerRefused: true,
+      unconfirmedCrashRefused: true,
+    });
+  },
+);
 if (panicConfigArg)
   await test('Actual guest kernel panic loses heartbeat and stops the VM', { timeout: 20000 }, async (t) => {
     const child = spawn(binary, ['--probe-run', path.resolve(panicConfigArg)], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -161,7 +217,7 @@ const report = {
   target: 'darwin-arm64',
   guestTarget: 'linux-arm64',
   kind: 'real-vm-mechanism-not-sdk-certification',
-  status: results.length === (panicConfigArg ? 8 : 7) ? 'passed' : 'failed',
+  status: results.length === (panicConfigArg ? 9 : 8) ? 'passed' : 'failed',
   results,
   pending: ['Runtime guest and SDK/SSE integration', 'signed guest image supply chain'],
 };

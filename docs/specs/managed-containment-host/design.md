@@ -46,6 +46,8 @@ host 的 pid 是 VM 生命周期 owner；guest Runtime pid 只在私有 bootstra
 
 持久 stateRoot 复用固定的私有 `guest-state` 子目录；Swift host 在启动前对其父目录中的 `vm-lease` 普通文件持有独占 flock，锁不共享给 guest、不可被子进程继承，host 退出由内核释放，拒绝并发复用而不以 PID 扫描恢复。guest wrapper 发固定心跳；失联 5 秒停止 VM。内核参数使用 panic=0，重复 guest-ready 视为异常重启并停止；[Linux panic 参数](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html) 中负数代表立即重启，不能用负数模拟持续失活。
 
+flock 另写 active/stopped 标记：只有 VZ 已停止才标记 stopped。host SIGKILL 会保留 active，防止 OS 释放锁后旧 VM 后端尚未退出时新实例并发写状态；禁止凭 PID 消失自动清标记。父 SDK 退出但 host 正常收尾时，host 只移除固定位置、schema 已知且 pid 绑定自身的公开代理 descriptor，保证持久根可再次启动；畸形或不属于本 host 的文件保留。
+
 - 复用 `packages/sdk/src/managed-runtime.ts` 的统一 deadline/handle、`apps/local-runtime/src/managed-control.ts` 的业务关闭、runtime cache/signature codec 与 `scripts/probe-managed-containment.mjs` 的自有认证 fixture 清理。
 - 原 `terminateOwnedChild` 的 process group/taskkill 仍是旧路径兼容实现，不当作新宿主能力，也不额外新建一套 Session/Run 客户端。
 - 拒绝全机 PID 扫描/kill、扩大超时冒充回收、允许 breakaway 以迁就测试、继承 Job handle 到厂商进程、无资源时静默回退原生 host 运行。

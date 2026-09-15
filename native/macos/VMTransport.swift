@@ -41,12 +41,20 @@ final class VMTransport {
             if peer < 0 { return }
             guard active < 64 else { close(peer); continue }
             fcntl(peer, F_SETFD, FD_CLOEXEC)
+            // Darwin accept may inherit nonblocking status. Only the listener is polled on the main queue;
+            // bounded relay workers use blocking descriptors so EAGAIN cannot truncate HTTP/SSE streams.
+            let peerFlags = fcntl(peer, F_GETFL)
+            guard peerFlags >= 0, fcntl(peer, F_SETFL, peerFlags & ~O_NONBLOCK) == 0 else { close(peer); continue }
             active += 1
             device.connect(toPort: 1024) { result in
                 switch result {
                 case .failure: close(peer); self.active -= 1
                 case .success(let connection):
                     let remote = connection.fileDescriptor
+                    let remoteFlags = fcntl(remote, F_GETFL)
+                    guard remoteFlags >= 0, fcntl(remote, F_SETFL, remoteFlags & ~O_NONBLOCK) == 0 else {
+                        close(peer); self.active -= 1; return
+                    }
                     let group = DispatchGroup()
                     for (input, output) in [(peer, remote), (remote, peer)] {
                         group.enter()

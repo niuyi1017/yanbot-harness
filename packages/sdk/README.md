@@ -82,6 +82,9 @@ Mac VM mode preserves the same client HTTP/SSE API but deliberately narrows host
 - `handle.pid` and the host descriptor identify the VM owner, not the Linux guest PID. State is held in an isolated
   guest subdirectory. Normal close requests Runtime shutdown then stops the VM; missing stop proof reports
   `CLEANUP_FAILED` and retains state. Parent death, host death and guest heartbeat loss stop the VM boundary.
+  A persistent `vm-lease` also records active/stopped state: an abruptly killed native host leaves an active marker,
+  so a new instance refuses that state root until explicit recovery instead of racing a still-exiting VM backend.
+  Use a fresh state root for an independent instance; do not delete an active marker merely because a PID disappeared.
 
 The public SDK remains Node-only and has no native build or VM image dependency; helpers/images belong to the
 separately verified Runtime platform package. No user-machine compilation or background Docker daemon is required.

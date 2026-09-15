@@ -4,7 +4,7 @@ import CryptoKit
 import Darwin
 
 // Explicit development VM host. Production guest/signing/vendor certification remains a separate gate.
-enum HostFailure: Error { case configuration, artifact, unsupported }
+enum HostFailure: Error { case configuration, artifact, unsupported, stateRecovery }
 
 func emit(_ value: [String: Any]) {
     guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]), data.count < 4096 else { exit(1) }
@@ -71,6 +71,7 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
     var heartbeat = ProcessInfo.processInfo.systemUptime
     var kernelPanic = false
     var stateLease: Int32 = -1
+    var hostDescriptor: URL?
 
     init(configuration: Configuration, root: URL) throws {
         self.root = root
@@ -110,10 +111,24 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
                         throw HostFailure.configuration
                     }
                     let lockPath = parent.appendingPathComponent("vm-lease").path
-                    stateLease = open(lockPath, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
+                    hostDescriptor = parent.appendingPathComponent("runtime.json")
+                    stateLease = open(lockPath, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
+                    let fresh = stateLease >= 0
+                    if !fresh && errno == EEXIST { stateLease = open(lockPath, O_RDWR | O_NOFOLLOW | O_CLOEXEC) }
                     guard stateLease >= 0, fstat(stateLease, &info) == 0, info.st_uid == getuid(),
                           (info.st_mode & S_IFMT) == S_IFREG, (info.st_mode & 0o077) == 0,
                           flock(stateLease, LOCK_EX | LOCK_NB) == 0 else { throw HostFailure.configuration }
+                    if !fresh {
+                        var marker = [UInt8](repeating: 0, count: 32)
+                        let count = pread(stateLease, &marker, marker.count, 0)
+                        guard count == 8, Data(marker.prefix(8)) == Data("stopped\n".utf8) else {
+                            throw HostFailure.stateRecovery
+                        }
+                    }
+                    let leaseDescriptor = stateLease
+                    guard ftruncate(stateLease, 0) == 0,
+                          "active\n".withCString({ pwrite(leaseDescriptor, $0, 7, 0) }) == 7,
+                          fsync(stateLease) == 0 else { throw HostFailure.configuration }
                 }
                 directories[share.name] = VZSharedDirectory(url: canonical, readOnly: share.readOnly)
             }
@@ -219,7 +234,7 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
     func stop() {
         stopRequested = true
         if stopping { return }
-        if vm.state == .stopped { finish(); return }
+        if vm.state == .stopped { finish() }
         if vm.state == .starting { return }
         guard vm.canStop else { fail("vm-not-stoppable") }
         stopping = true
@@ -232,9 +247,27 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
 
     func finish() -> Never {
         guard vm.state == .stopped else { fail("vm-not-stopped") }
+        releaseStateLease()
+        removeOwnedHostDescriptor()
         emit(["protocolVersion": 1, "type": "stopped", "state": "stopped", "guestReady": guestReady])
         try? FileManager.default.removeItem(at: root) // Only this invocation's newly created snapshot directory.
         exit(invalidLease ? 1 : 0)
+    }
+    func releaseStateLease() {
+        if stateLease < 0 { return }
+        guard vm.state == .stopped, ftruncate(stateLease, 0) == 0,
+              "stopped\n".withCString({ pwrite(stateLease, $0, 8, 0) }) == 8,
+              fsync(stateLease) == 0 else { fail("state-lease-release") }
+        // Keep the kernel lock held until process exit; no second VM can race a live owner.
+    }
+    func removeOwnedHostDescriptor() {
+        guard let file = hostDescriptor,
+              let bytes = try? boundedFile(file.path, maximum: 65536),
+              let object = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              Set(object.keys) == Set(["schemaVersion", "instanceId", "pid", "origin", "accessToken", "expiresAt"]),
+              object["schemaVersion"] as? Int == 1, object["pid"] as? Int32 == getpid() else { return }
+        // Only a descriptor bound to this still-owned host, after VZ confirmed stopped; never a PID-based kill.
+        try? FileManager.default.removeItem(at: file)
     }
     func guestDidStop(_ virtualMachine: VZVirtualMachine) { finish() }
     func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) { fail("vm-error") }
@@ -274,12 +307,14 @@ final class OwnedVM: NSObject, VZVirtualMachineDelegate {
             do { owned = try OwnedVM(configuration: config, root: root) }
             catch { try? FileManager.default.removeItem(at: root); throw error }
             if args[1] == "--validate" {
+                owned.releaseStateLease()
                 emit(["protocolVersion": 1, "type": "configuration-valid", "guestBootTested": false])
                 try FileManager.default.removeItem(at: root)
                 return
             }
             owned.run()
             withExtendedLifetime(owned) { RunLoop.main.run() }
-        } catch { fail("configuration-or-artifact") }
+        } catch HostFailure.stateRecovery { fail("state-recovery-required") }
+        catch { fail("configuration-or-artifact") }
     }
 }
