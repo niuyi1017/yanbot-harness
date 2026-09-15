@@ -8,6 +8,7 @@
   },
   "packageManager": "pnpm@11.10.0",
   "scripts": {
+    "build:vm-guest": "node scripts/build-vm-runtime-root.mjs",
     "build": "pnpm -r --if-present build",
     "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm build && pnpm typecheck && pnpm test:unit && pnpm test:probes",
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
