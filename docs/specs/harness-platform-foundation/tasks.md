@@ -45,6 +45,7 @@ M0 仓库、Adapter SPI与SDK探针
 | R4 Electron客户端        | M4、M6              |
 | R5 Local Runtime         | M1、M2              |
 | R6 云端执行              | M5、M10A、M10B      |
+| R6 双 Runtime 协议兼容   | M3、M5、M10A、M10B  |
 | R7 账号、组织与权限      | M5、M7              |
 | R8 模型、额度与用量      | M5、M7、M10B        |
 | R9 MCP、Skill与Agent管理 | M2、M4、M8          |
@@ -342,6 +343,9 @@ M0 仓库、Adapter SPI与SDK探针
 **目标**：基于现有项目技术和服务器基础，验证CodeBuddy可在单机Docker沙箱中完成无头执行闭环。
 
 **前置依赖**：M1；可与M2–M7并行，开始前建立轻量云端PoC子Spec。
+
+**协议前置**：实施前完成 `docs/specs/dual-runtime-compatibility/` 中的中立协议、认证、工作区输入和
+双模式 Conformance 任务；PoC 不得通过直接公网暴露 Local Runtime 或复制一套云端专用 SDK 绕过该基线。
 
 **主要文件**：
 

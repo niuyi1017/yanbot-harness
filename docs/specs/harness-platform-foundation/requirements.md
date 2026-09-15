@@ -51,6 +51,8 @@
 - 集成方只依赖平台定义的稳定类型，不直接依赖 CodeBuddy SDK 消息类型。
 - SDK 支持启动、续接、中断运行，以及订阅统一事件流。
 - SDK 可连接嵌入式本地 Runtime、独立 Daemon 或云端执行服务。
+- Local Runtime 与 Remote Runtime 必须使用同一套 SDK 公共方法、CLI 命令、Session/Run/Event/Interaction
+  语义和稳定错误分类；运行位置只能影响连接、认证、工作区传输和能力声明，不能要求集成方改写业务调用。
 - 任一厂商 SDK 升级时，非对应Adapter包不应被迫同步修改。
 
 ### R2A. Harness Adapter机制
@@ -87,10 +89,19 @@
 ### R6. 云端执行
 
 - 用户可使用相同协议创建云端运行，并获取流式事件。
+- SDK/CLI 通过显式连接配置选择 Local 或 Remote Runtime；禁止根据连接失败静默回退到另一种运行位置。
+- Remote Runtime 必须提供版本与能力协商，并对本地路径授权、远端快照、Git 引用等不同工作区输入方式作显式声明；
+  客户端不得把仅限本机的路径授权请求原样发送给远端。
 - 每次运行具有隔离工作区、资源限制、超时、并发限制和可审计生命周期。
 - 对声明支持会话恢复的Adapter，同一云端Session在容器销毁并重建后仍可恢复；凭据不得随Session状态持久化。
 - 用户和组织数据严格隔离，运行容器不持有平台长期密钥。
 - 云端执行失败后可以区分用户任务失败、模型失败、基础设施失败和策略拒绝。
+- Local 与 Remote 必须通过同一套协议一致性测试；环境不支持的非核心能力必须通过 capability
+  明确返回 `unsupported`，不得改变同名 API 的含义或伪造成功。
+
+双运行形态的详细兼容边界、迁移路径和验收矩阵见
+[`dual-runtime-compatibility`](../dual-runtime-compatibility/requirements.md)。当前 SDK/CLI Preview 仅认证 Local Runtime，
+“可配置任意 origin”不等于 Remote Runtime 已完成或已通过认证。
 
 ### R7. 账号、组织与权限
 

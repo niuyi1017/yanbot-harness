@@ -9,6 +9,8 @@
 5. **默认安全**：权限、配置来源、工作区、凭据和日志均采用最小授权。
 6. **复用而非复制耦合**：复用教师端已验证的机制，重新划分模块边界，不复制业务分支和业务 Schema。
 7. **保持团队栈一致**：不为架构新颖性引入 PostgreSQL、Turborepo、Fastify或另一套前端框架。
+8. **一种客户端、两种运行位置**：Local 与 Remote 共享 SDK/CLI 和核心协议；差异收敛在连接认证、工作区准备、
+   状态存储和执行调度层，不分叉上层业务 API。
 
 ## 2. 总体架构
 
@@ -42,6 +44,21 @@
 
 Cloud Control Plane ── MongoDB / Redis / Ali OSS / new-api
 ```
+
+### 2.1 双 Runtime 兼容基线
+
+上图中的 `local mode` 与 `cloud mode` 是同一产品的两种 Runtime 部署形态，不是两个独立客户端产品。
+CLI、Local Web、Electron 和集成方代码都只依赖 `@yanbot-harness/sdk`；连接目标由配置选择，核心的
+Session、Run、Event、Interaction、取消、恢复和错误语义保持一致。
+
+两种形态允许存在实现差异：Local 使用 loopback token、本机路径 Workspace Grant 和本地状态目录；Remote
+使用 HTTPS、短期用户/设备令牌、租户上下文、上传快照或 Git 引用、持久化事件与队列 Worker。SDK 必须先读取
+Runtime 的协议版本与 capability，再决定可用的工作区输入和扩展能力，不允许把 Local Runtime 直接监听公网来代替
+Remote Runtime，也不允许连接失败后静默切换运行位置。
+
+当前 `0.1.0-preview.2` 的 `/local/*` 路由和 `Local*` 类型属于已交付的 Local Preview 契约。双形态实现将按
+[`dual-runtime-compatibility`](../dual-runtime-compatibility/design.md) 增加部署形态中立的协议表面，并保留明确的
+兼容迁移层；在远端控制平面、认证、远端工作区和一致性测试完成前，不得宣称 Remote Runtime 已兼容。
 
 ## 3. Monorepo 结构
 

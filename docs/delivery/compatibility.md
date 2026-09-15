@@ -25,13 +25,18 @@ The SDK and CLI require a compatible Harness Runtime. They do not connect direct
 
 ## Certified environments
 
-| Environment                | Status            | Evidence                                                                                        |
-| -------------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
-| macOS arm64, Node 22       | Preview certified | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI |
-| Linux x64, Node 22         | Delivery target   | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
-| Windows 10/11 x64, Node 22 | Candidate         | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending   |
-| Browser                    | Not supported     | The Preview SDK includes Node-only Runtime discovery and process management                     |
-| Cloud multi-tenant Runtime | Not supported     | Deferred to the cloud control-plane milestones                                                  |
+| Environment                | Status                    | Evidence                                                                                        |
+| -------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| macOS arm64, Node 22       | Preview certified         | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI |
+| Linux x64, Node 22         | Delivery target           | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
+| Windows 10/11 x64, Node 22 | Candidate                 | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending   |
+| Browser                    | Not supported             | The Preview SDK includes Node-only Runtime discovery and process management                     |
+| Remote Runtime             | Required, not implemented | Product design is defined; implementation and dual-mode certification are pending               |
+
+The product must support both Local and Remote Runtime through one SDK/CLI surface. This release certifies Local Runtime only:
+an explicit `origin` and bearer token are transport primitives, not evidence that remote authentication, tenant isolation,
+remote workspace preparation, durable event replay, or sandbox execution is available. The implementation and acceptance plan is
+defined in [`docs/specs/dual-runtime-compatibility/`](../specs/dual-runtime-compatibility/requirements.md).
 
 ## Protocol compatibility
 

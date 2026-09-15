@@ -1,0 +1,75 @@
+# Local / Remote Runtime 双形态兼容任务清单
+
+## 当前状态（2026-09-15）
+
+- [x] 审计总体需求、总体设计、SDK/CLI Spec、当前 contracts 与交付兼容矩阵。
+- [x] 明确“一套 SDK/CLI、两种 Runtime”是强制产品要求。
+- [x] 冻结需求、架构边界、迁移原则和验收维度。
+- [ ] Remote Runtime 尚未实现或认证；当前交付仍为 Local-only Preview。
+
+## Phase 1：中立协议与迁移层
+
+- [ ] 在 `packages/contracts` 增加中立 Session/Run/Request 类型，并为 `Local*` 导出提供弃用别名。
+- [ ] 定义 Runtime Profile、部署 capability、工作区来源与认证模式 Schema。
+- [ ] 冻结协议版本决策与 `/local/*` 到中立路由的兼容周期。
+- [ ] 在 `apps/local-runtime` 实现中立路由，并保留已承诺的 Preview 兼容别名。
+- [ ] 增加 Schema 往返、旧客户端兼容、错误码与版本阻断测试。
+
+验收：旧 Local Preview 场景不回退；新客户端不再要求业务代码使用 `Local*`；协议 major 不兼容时明确阻断。
+
+## Phase 2：SDK/CLI 双目标连接
+
+- [ ] 在 `packages/sdk` 实现 `RuntimeTarget` 与远端 `AccessTokenProvider`。
+- [ ] 建立 health/profile 握手与明确 transport 选择，不使用 404 猜测协议。
+- [ ] CLI 增加 Local/Remote profile 与登录凭据查找，保持 `run`、`sessions`、`cancel` 等命令一致。
+- [ ] 禁止 token 命令行参数、静默 fallback 和远端本机路径请求。
+- [ ] 更新 SDK 示例、CLI 帮助、安装与迁移文档。
+
+验收：同一 SDK 示例只替换 target 即可连接两种 Reference Runtime；CLI JSONL 与退出码保持一致。
+
+## Phase 3：双模式 Reference Conformance
+
+- [ ] 把现有 Local Runtime 黑盒场景抽成部署无关 Conformance Kit。
+- [ ] 实现最小 Remote Reference Runtime/fixture，不连接真实模型。
+- [ ] 覆盖 Session、Run、Event、Interaction、取消、幂等、重连、能力不支持与错误分类。
+- [ ] 增加跨租户拒绝、token 过期、事件重放、恶意工作区清单和日志脱敏测试。
+- [ ] 将 Local macOS/Windows 与 Remote service 作为独立矩阵项输出证据。
+
+验收：Reference Adapter 在 Local 与 Remote 两套后端通过同一组核心断言，没有模式专用公共 API。
+
+## Phase 4：Remote 控制平面与工作区
+
+- [ ] 建立 `apps/cloud-server` 认证、组织/用户/设备、Session、Run、execution grant 与审计模块子 Spec。
+- [ ] 实现 HTTPS API、短期访问令牌、刷新流程和租户作用域查询。
+- [ ] 实现上传快照与受控 Git 引用的准备、摘要校验、大小限制、TTL 和清理。
+- [ ] 实现 Run 元数据、事件持久化、SSE 重放和幂等创建。
+- [ ] 建立额度、并发和权限预检；失败不得绕过安全边界。
+
+验收：跨用户/组织资源不可见；本机路径被拒绝；网关重启后仍可在保留期内重放事件。
+
+## Phase 5：Worker、沙箱与 CodeBuddy
+
+- [ ] 建立 `apps/cloud-worker` 队列领取、lease、心跳、取消、重试与孤儿任务收敛。
+- [ ] 每个 Run 使用非 root 隔离容器和临时工作区，限制 CPU、内存、磁盘、进程、网络和挂载。
+- [ ] 仅通过 `adapter-api` 启动 CodeBuddy Adapter，并按 Run 注入短期凭据。
+- [ ] 实现 Session 写锁、隔离状态目录、TTL、容器重建恢复与凭据分离。
+- [ ] 完成真实 CodeBuddy 远端初始运行、续接、交互、取消、超时和故障恢复门禁。
+
+验收：容器不能读取平台长期密钥、Docker 控制接口或其他租户工作区；所有任务有确定终态并可审计。
+
+## Phase 6：联合交付认证
+
+- [ ] 在 macOS 完成 Local 包与 Remote 目标的 SDK/CLI 全流程测试。
+- [ ] 在真实 Windows 10/11 x64 完成 Local 包与同一 Remote 目标的 SDK/CLI 全流程测试。
+- [ ] 输出 Local/Remote 能力矩阵、已知限制、回滚方案和测试方使用文档。
+- [ ] 仅在证据齐全后更新 `docs/delivery/compatibility.md` 的 Remote 状态。
+
+验收：测试方使用同一个 SDK 包和 CLI 包，仅修改连接 profile 即可选择本机或远端执行；两端终端事件、错误分类
+和脚本输出一致。
+
+## 实施门禁
+
+- Phase 1 属于公共协议改动，开始编码前需要评审本 Spec，按 contracts → producer → consumer 顺序实施。
+- Phase 4、5 涉及认证、多租户和沙箱，分别建立模块级子 Spec 与威胁模型。
+- 开始 Remote 实现节点时建议切换到 `gpt-6-astra + high`；文档审计与任务拆分使用当前
+  `gpt-5.6-sol + high` 足够。
