@@ -1,6 +1,6 @@
 # 统一本地分发开发步骤
 
-状态：**连续实施中：T1 三平台安装通过；T2/T3 已有本机签名平台候选与 resolver/IPC 回归；T4/T5 部分，T6/T7 待收口**。2026-09-15。
+状态：**连续实施中，尚未全部完成**。T1 三平台机制/归档通过；T2/T3 三平台签名候选、resolver 与 npm/pnpm local 安装通过；Mac/Linux OS 阻网离线通过。Windows 离线入口/生命周期修正待最终 CI；T4 强 containment 已证实缺口，T5–T7 正式发布/实机及完整故障回滚仍有门禁。2026-09-15。
 本文件是 P1D 分发工作流的实施清单；整体进度以 [roadmap](../harness-platform-foundation/roadmap.md) 为准。
 `preview.2` 的已有实现/证据不是下列新任务的完成证据。
 
@@ -9,7 +9,7 @@
 - [x] 用户确认 local/sdk/runtime 包职责、payload 形态、最低平台矩阵、离线 kit 与分阶段范围。
 - [x] 记录现有 Mac P0 制品源提交/摘要，独立提交已确认 Spec 基线 `1fd2e44` 后开始编码；Windows 冻结仍待实机证据。
 - [x] T2 产品打包前选择后续 Preview 版本线 `0.1.0-preview.3`；T1 使用独立 scope 与 probe 版本。
-- [ ] README 等文档变化也会改变 tgz 字节：P0 重建只从其冻结 ref 执行，本规划后的新制品须先切换新版本，不能以 `preview.2` 身份覆盖既有包。
+- [x] README 等文档也改变 tgz 字节：已切 preview.3，旧 preview.2 ZIP 反复校验摘要未变，未重建/覆盖。
 - [ ] 核实新增包名/scope 权限、Registry/镜像、再分发许可、Node 与包管理器精确版本、签名信任根和实机资源；缺失项登记为发布门禁。
 - 文件：本目录三份 Spec、foundation roadmap、后续 delivery 说明。
 - 前置：无；方案确认记录见 [decision-record](decision-record.md)。
@@ -17,17 +17,17 @@
 
 ## T1. 平台打包与包管理器可行性探针
 
-- [ ] 在隔离 staging 验证 facade/meta/platform export 定位，以及 npm 10.9.8（拟定）/pnpm 11.10.0 的 optional、os/cpu/libc、脚本禁用行为。
-- [ ] 确定 frozen-lock Runtime 生产依赖装配方式，检查厂商辅助程序/资源、peer/optional 闭包、解引用和许可证。
-- [ ] 用最小测试包验证同一公共 tgz 跨平台安装、Mac 产生的 lockfile 在 Windows 重装、空缓存离线 kit、平台缺包/Registry 拒绝诊断。
-- [ ] 冻结 manifest、resolver 类型、解包库精确版本、大小限值、缓存权限与生命周期 control protocol；不可行之处先修 Spec。
-- 本机证据：npm/pnpm 安装机制 16/16 通过；frozen-lock 离线 deploy、搬迁后 Reference Run/close 通过。尚不能勾选完整跨平台验收项，详见 [probe-results](probe-results.md)。
-- [x] T1b 本机验证同一 kit/tgz/原始 lock 的 export→import（18/18），并连接 Mac producer→三平台 consumer CI；本机只算 Mac→Mac，跨系统结果未取得。
+- [x] 三平台隔离 staging 的 facade/meta/platform export、npm 10.9.8/pnpm 11.10.0 optional/os/cpu/libc/ignore-scripts 机制通过。
+- [x] frozen-lock 装配、资源/peer/optional 图、零链接与许可证盘点通过；盘点不等于再分发批准。
+- [x] 同一 Mac fixture tgz/原始 lock 在三平台消费；空缓存离线、缺包/Registry 拒绝诊断通过。
+- [x] manifest/resolver、tar-stream 3.2.1、限值、缓存/IPC 契约落地；差异先记 decision-record。
+- 历史本机证据见 [probe-results](probe-results.md)；后续跨系统运行已取得，不能把历史“未运行 CI”说明当作当前状态。
+- [x] T1b 同一 kit/tgz/原始 lock export→import（18/18）及 Mac producer→三平台 consumer CI 均已通过。
 - [x] T1b 验证 hoisted deploy 与仅 `.bin` Node 链接的相对 exec shim，得到零链接候选目录；比对逐包资源/实际依赖上下文、搬迁后 Reference 与 CLI shim。新增审计单测覆盖资源/版本/peer 错接、重复副本和越界链接。
 - [x] T1c 本机发布 metadata 归一化：只移除六项 pnpm metadata，归一化十份自有 manifest，其余 6,267 文件保持原字节；零本地依赖引用/链接，资源与解析图对比、搬迁后的 Reference Run/close 通过。独立探针单测累计 17 项。
 - [x] T1c 明确 [artifact-contract](artifact-contract.md) 的 manifest/files/signature/resolver/IPC 字段与候选大小限值；仅为实施契约，不算生产签名/解包/生命周期已实现。
 - [x] T1d 本机：锁定 tar-stream 3.2.1，新增 scripts/lib/runtime-archive-probe.mjs 与独立攻击测试；验证有界压缩快照/USTAR framing/清单/取消及失败清理。完整目录 archive round-trip 与搬迁后 Reference 通过；复用 T1c 归一化/资源审计，不改旧 release 构建器。前置 T1c，验收 pnpm test:probes、pnpm probe:runtime-archive 及 pnpm check；跨平台执行另记。
-- 待续：Mac→Windows/Linux CI 与实机门禁，平台大小/路径/权限/冷启动预算，以及厂商许可和正式签名。USTAR 子集和测试可信摘要通过不等于已签名生产平台包；T1 总项继续保持未完成。
+- T1 机制探针通过不等于正式发布；实际冷启动认证、完整生命周期、厂商许可/生产身份与实机验收仍在 T3–T7 收口。
 - 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`scripts/lib/{deploy-probe-audit,normalize-runtime-staging}.mjs` 及对应单测、`.github/workflows/distribution-probes.yml`、本目录契约/探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
 - 前置：T0 的产品方案确认；真实 Registry 缺失可使用本地测试 Registry，签名使用标明的测试密钥。
 - 验收：Mac/Windows 空目录探针输出安装依赖图、实际下载包和 hash；明确不支持的组合；不可把本机一种布局通过当作跨平台通过。
@@ -38,21 +38,21 @@
 - [x] 新公共包版本、contracts 与 Runtime/CLI 版本入口校验；旧 preview.2 archive 未重建。完整 pnpm check 通过，45 个原归档/审计测试继续共用同一 codec。
 
 - [ ] 复用 Runtime 源生成完整 payload，打包成包含 manifest/signature/SBOM 的平台 npm tgz，继续生成 portable archive。
-- [ ] 公共包/平台包统一从 release descriptor 取得版本、源提交、lock 摘要；生成过程不发布内部 Adapter/Core 包。
-- [ ] 保持 common tgz 只构建一次；扩展 artifact allowlist、secret/source/path 扫描和按层依赖断言。
+- [x] 公共包/平台包校验统一 release descriptor、源提交/lock；不发布内部 Adapter/Core 包。
+- [x] common tgz 在 CI 只构建一次，三平台消费同一摘要；文件允许集、路径/凭据和依赖边界检查已接通。
 - 文件：`scripts/build-runtime-bundle.mjs`、`build-client-packages.mjs`、`assemble-release.mjs`、`check-release-artifacts.mjs`、`check-common-package-hashes.mjs`、`scripts/lib/*`、Runtime 版本入口、CI；新增平台包模板目录。
 - 前置：T1。
 - 验收：`pnpm check`，新平台包 build/check，解包后零 workspace 协议/外部 symlink/凭据，payload 运行资源齐全；旧 Preview portable 回归通过。
 
 ## T3. Resolver、本地 facade 与兼容 API
 
-- [x] 新 runtime/local 模块与 SDK 注入点已实现初版；8 项 resolver 安全/缓存测试、SDK 22 项（含原兼容）、local 3 项通过。
+- [x] runtime/local 与 SDK 注入已实现；本机 resolver 14 项、SDK 30 项、local 3 项通过；Windows 依其实际权限/父死亡语义单独记录。
 - [x] 签名/版本/target/material/fileList/payload 校验、私有摘要缓存、内核锁、最小默认环境；统一启动 deadline 覆盖迟到 resolver 与无响应 health。正式根保持空，不自动信任制品内公钥。
-- [ ] 待真实 npm/pnpm 新包安装端到端与跨平台权限、故障/升级矩阵，不把内部目录 resolver 成功当作正式安装完成。
+- [x] 三平台实际 npm/pnpm 新 local 包安装、四种 Reference 场景、SDK-only 与缺包/401 已通过；完整故障/升级认证仍未完成。
 
-- [ ] 新增 `packages/runtime`：固定映射、manifest export、签名/摘要校验、受限展开、同卷原子缓存、并发锁、独立启动器。
-- [ ] SDK 增加可选 resolver/Node 可执行文件注入与统一启动 deadline；保留旧路径/env/options/handle，错误分类增量兼容。
-- [ ] 新增 `packages/local`，重导出 SDK，为 managed 调用装配默认 resolver/最小环境，不增加模块加载时副作用。
+- [x] `packages/runtime` 固定映射、manifest export、验签/摘要、受限展开、原子缓存、锁与独立启动器。
+- [x] SDK 可选 resolver/Node 注入与统一 deadline；保留旧路径/env/options/handle，错误分类增量兼容。
+- [x] `packages/local` 重导出 SDK、装配 resolver/最小环境，无 import 时启动副作用。
 - [ ] 完成严格 pnpm 布局、只读 node_modules、空格/中文/特殊字符路径、Rosetta、错误 manifest、缓存损坏和目录逃逸用例。
 - 文件：`packages/{local,runtime}/src` 与 test/manifests、`packages/sdk/src/{managed-runtime,index,transport}.ts`、SDK tests、`pnpm-workspace.yaml`、根 lockfile、boundary checker、示例。
 - 前置：T1、T2 的 artifact contract；生产签名身份尚缺时只做测试签名，不开放默认未签包。
@@ -60,18 +60,24 @@
 
 ## T4. 双平台生命周期与权限收口
 
-- [x] 初版 IPC hello/ready/shutdown、版本/PID/instanceId 绑定、默认/上限启动与关闭期限；本机新增并发实例互不影响、父 IPC 丢失、组内顽固孙进程、私有状态拒绝测试通过。SDK 累计 26 项通过。
-- [ ] Windows 新 state/cache ACL 代码已加入，待远端结果；强杀 Runtime/脱组孙进程仍需完整 containment，不把基础 taskkill/进程组行为标为完整保证。
+- [x] 进一步覆盖父死亡 watchdog、真实 IPC 断开、未知 schema 保留、descriptor 有界读取/ACL；Windows 父被强杀与正常 IPC 清理分开测试。
+- [ ] 强 containment 已证实缺口：Mac `pnpm probe:managed-containment` exit 1/status blocked，detached 后代在 close 后存活。探针安全回收自身 fixture，不把其他绿灯当作该保证通过。
+
+- [x] IPC hello/ready/shutdown、版本/PID/instanceId、启动/关闭期限、并发隔离、IPC 丢失、组内顽固孙进程、私有状态拒绝通过；SDK 累计 30 项。
+- [x] Windows cache ACL/resolver 单测与真实包 managed startup 已远端通过；state/descriptor 使用固定系统 .NET API，完整 containment 单列阻断。
 
 - [ ] 新 Runtime 增加 versioned private IPC，父断开触发正常取消/关闭；SDK graceful close 后有界强制回收整个 owned tree。
 - [ ] 覆盖 POSIX 进程组、Windows owned tree、PID 复用风险、Runtime 失去响应和厂商孙进程；必要时先补 containment/watchdog 设计，再实现相关 helper。
 - [ ] 实现 Windows state/descriptor/cache ACL 校验，临时状态/持久状态/缓存 ownership 分离，以及清理失败保留诊断。
-- [ ] 保留旧 Runtime 显式路径兼容行为，新包必须协商 managed protocol；将来的 `local-managed` target 复用 handle 的 close 所有权。
+- [x] 新协议与旧显式路径分开；当前 SDK 对冻结 preview.2 Runtime 的 Reference Run/close 本机通过；后续 target 必须复用现有 handle。
 - 文件：`apps/local-runtime/src/{main,server,managed-control}.ts`、SDK managed runtime、平台 lifecycle/ACL 模块、Fake Vendor fixtures、release lifecycle 测试。
 - 前置：T3；新 control contract 不修改 descriptor schema 1。与 P2 Sidecar 复用进程树基础能力时保持单一 ownership。
 - 验收：Mac 与 Windows 的正常关闭、父进程崩溃、Runtime 强杀、超时、并发、未响应孙进程测试；受管树无残留且其他 Daemon 不受影响。若某条只能尽力清理，阻断该保证的发布声明。
 
 ## T5. 签名、Registry 与发布策略
+
+- [x] 测试 Ed25519 平台/kit 签名、未知/篡改/版本拒绝、轮换/撤销后缓存拒绝，以及实际 fixture Registry 安装已实现。
+- [x] docs/delivery/unified-release-gates.md 明确正式发布顺序、token 分权、信任分发/轮换、许可、不可变版本和人工授权；默认 CI 不执行发布。
 
 - [ ] 集成正式发布清单和 payload 签名，固定信任根/keyId，验证篡改、未知签名、轮换、重放旧版和 Node/protocol mismatch。
 - [ ] 校验私有 scope/平台包 ACL、第三方镜像闭包、不可变版本及发布顺序；分别验证安装 token 和发布 token 的权限。
@@ -84,10 +90,11 @@
 
 - [x] 本机实际公共闭包 18 包 + 平台包，签名 kit 与显式 fresh-consumer 安装器；验签后快照 tgz，保留相对 file 锁依赖。原有项目拒绝覆盖。
 - [x] 本机 npm/pnpm local Reference 文本/权限/提问/取消、SDK-only 无 Runtime 下载、optional 缺失与平台 401 诊断；空 npm cache 的 offline/ignore-scripts 安装与 Reference Run/close 通过。7 组真实包用例见 implementation-evidence-t6.json。
-- [x] 新增 5 项离线完整性/拒绝覆盖及 Windows shim 单测；三平台真实包安装 CI 已配置，共用 Mac 构建一次的 common tgz，等待运行证据。
-- [ ] 跨版本回滚/状态不兼容/占用/磁盘故障与 OS 级阻网仍需补齐，生产签名和企业 Registry 不因本地 fixture 通过而解除。
+- [x] 离线完整性/拒绝覆盖、CLI 路径别名与 Windows shim 独立测试现为 9 项，连同归档/审计共 54 项；真实包 CI 共用一次构建的 common tgz。
+- [x] 小型缓存 fixture V1→V2→V1、打开旧文件、锁超时/持有者死亡、占用路径保留和未知 state schema 拒绝已覆盖；Mac/Linux OS 阻外网安装通过。
+- [ ] 两个正式冻结 release 的完整业务回滚、实际 ENOSPC、Windows 文件占用/阻网仍待认证；生产身份/企业 Registry 不因 fixture 通过解除。
 
-- [ ] 生成当前平台闭包 tgz、签名清单、显式安装器和独立 consumer 样例；禁止其他平台 tgz 混装及已有项目静默覆盖。
+- [x] 已生成平台闭包 tgz、签名清单、显式安装器与 consumer；错误平台/缺失/篡改/重复/越界与已有工程覆盖均有拒绝测试。
 - [ ] 验证空 npm cache + 阻网 + `--ignore-scripts` 的安装、首次展开/Reference；必要的元数据和 lock 支持必须随 kit 提供。
 - [ ] 验证 V1→V2→V1、活动 V1 缓存保留、磁盘失败、Windows 占用、只读状态/Schema 不兼容和用户配置保留。
 - 文件：新增 `scripts/build-offline-kit.mjs`、交付安装器模板、`scripts/test-release-clean-room.mjs` 及新分发测试、`docs/delivery/unified-local-installation.md`。
@@ -98,7 +105,7 @@
 
 - [ ] CI 增加下表门禁，记录版本/平台/场景/摘要，不把 Reference 成功算作真实厂商认证。
 - [ ] Mac 与 Windows 10/11 实机通过新 local 安装路径的 CodeBuddy 核心验收；Linux 保持 Reference 回归，Intel Mac 另立认证记录。
-- [ ] 将新交付指南从“目标”切换到实际版本；保留 preview.2 指南供旧用户；同步 README、SDK/Runtime README、compatibility、handoff、architecture、foundation roadmap 与 managed Spec 状态。
+- [x] 新指南标为 preview.3 实现候选并列出限制；旧 preview.2 指南保留，README/SDK/Runtime/compatibility/handoff/architecture/roadmap/managed Spec 同步，不冒充正式发布。
 - 文件：`.github/workflows/*`、release test scripts、上述文档；若 P1 同时合入则联合验证 RuntimeTarget 连接/关闭及旧 transport。
 - 前置：T3–T6；真实 Mac/Windows 机器与各自 BYOK；Remote 真服务认证不作为本地安装发布的依赖。
 - 验收：`pnpm check`、release build/check/Reference、受控 CodeBuddy gate、离线/回滚/lifecycle gate 全部满足目标声明；所有证据对应同一冻结 release。

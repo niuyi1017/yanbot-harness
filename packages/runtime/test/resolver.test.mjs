@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdir, mkdtemp, open, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -215,3 +215,26 @@ test('an occupied cache parent fails without changing an older cache or the bloc
   assert.equal(await readFile(blocked, 'utf8'), 'keep occupied file');
   assert.deepEqual(await resolvePlatformDirectory(f.options), old);
 });
+
+test(
+  'read-only installed platform contents resolve without any installation-directory writes',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const f = await fixture(t);
+    const entries = await readdir(f.directory, { recursive: true, withFileTypes: true });
+    const files = entries.filter((entry) => entry.isFile()).map((entry) => path.join(entry.parentPath, entry.name));
+    const directories = [
+      f.directory,
+      ...entries.filter((entry) => entry.isDirectory()).map((entry) => path.join(entry.parentPath, entry.name)),
+    ];
+    for (const file of files) await chmod(file, 0o400);
+    for (const directory of directories) await chmod(directory, 0o500);
+    try {
+      const runtime = await resolvePlatformDirectory(f.options);
+      assert.equal(await readFile(runtime.entryPath, 'utf8'), 'process.exit(0);\n');
+    } finally {
+      for (const directory of directories) await chmod(directory, 0o700);
+      for (const file of files) await chmod(file, 0o600);
+    }
+  },
+);

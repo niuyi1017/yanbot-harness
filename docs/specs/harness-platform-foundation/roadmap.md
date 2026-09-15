@@ -122,7 +122,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ### P1D `[~]` 统一本地安装与 Runtime 平台包
 
-**状态**：preview.3 连续实施中。T1 三平台原始 kit/lock 安装通过，Mac/Linux archive 通过，Windows shim 差异持续修正。T2/T3 本机实际签名候选、resolver/local、SDK deadline/IPC 通过；T6 本机 npm/pnpm 真实包的四种 Reference 场景、SDK-only 和 19 个 tgz 空缓存离线安装通过。T4 基础生命周期/私有状态已有实现，完整 containment、跨版本回滚、OS 阻网、生产身份与实机认证仍为未完成门禁。新增包未真实发布。
+**状态**：preview.3 连续实施中，未全部完成。三平台原始 kit/lock、完整归档、签名平台候选、resolver 与 npm/pnpm local 四场景/SDK-only 通过；Mac/Linux 19 tgz 空缓存、OS 阻外网安装/Reference 通过。SDK 30 项与 resolver 14 项本机通过，含 watchdog、权限、缓存回退/锁恢复、未知 schema 保留。Windows 离线入口/生命周期修正待最终 CI。独立 detached 故障探针已证实强 containment 缺口，禁止宣称整树回收保证；正式身份/许可、实机、完整业务回滚和磁盘/Windows 故障认证保持门禁。新增包未发布，P1 及后续产品阶段不在本 P1D 连续执行范围。
 
 **目标**：本地只安装 `@yanbot-harness/local` 即可无路径 managed 启动；Remote-only 只安装轻量 SDK；Runtime 继续独立模块/进程并支持独立分发。
 

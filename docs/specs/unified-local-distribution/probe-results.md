@@ -1,5 +1,7 @@
 # T1 本机机制探针记录
 
+> 下文保留各阶段发生时的历史记录。“未 push/未 CI/未实现”等表述只适用于当时。后续连续执行已完成三平台 fixture/原始锁与完整归档探针、实际签名平台候选和 npm/pnpm local 安装；Mac/Linux OS 阻网离线通过。当前状态以 [tasks](tasks.md) 和 [发布门禁](../../delivery/unified-release-gates.md) 为准，不能用本历史记录否定后续证据，也不能将开发测试根升级为生产认证。
+
 日期：2026-09-15。状态：**本机子集通过，T1 尚未完成，不构成新包发布认证**。
 
 按 spec-workflow，先提交用户已确认的 Spec（`1fd2e44`），再实现隔离探针。未修改产品 SDK/Runtime 代码、版本或 `preview.2` archives；未 push、publish 或触发远端 workflow。
