@@ -18,10 +18,10 @@ usage with natural process cleanup. Tool/permission/question scenarios remain un
 is disabled because the vendor discovery API leaves a CLI subprocess alive. Local Web, Electron, Admin, and cloud
 execution are not scaffolded yet.
 
-## Installation direction (proposed; not in preview.2)
+## Unified local installation (preview.3 development candidate)
 
 The next Local installation experience is specified in the
-[unified local distribution proposal](docs/specs/unified-local-distribution/design.md), approved but not implemented:
+[unified local distribution Spec](docs/specs/unified-local-distribution/design.md). The following packages are implemented as test-signed candidates, not published production releases:
 
 | Consumer                                      | Proposed entry                                | Boundary                                                                                                  |
 | --------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -33,17 +33,19 @@ The proposed Runtime platform packages contain the complete payload. An explicit
 installed bytes locally; it does not download executables. Node remains a prerequisite. macOS arm64 and Windows x64
 are mandatory initial targets; Linux x64 glibc retains Reference regression coverage.
 
-These new packages and automatic discovery are **not implemented or published**. `0.1.0-preview.2` continues to use
+Automatic discovery, signed cache expansion, managed IPC and explicit offline kits are implemented. macOS/Linux real
+npm/pnpm installation CI has passed; Windows and complete process-tree containment remain gates. No production
+Registry or signing identity is configured. `0.1.0-preview.2` continues to use
 SDK/CLI tarballs plus a separately unpacked Runtime and an explicit managed executable path. See the
-[future delivery outline](docs/delivery/unified-local-installation.md) and [implementation tasks](docs/specs/unified-local-distribution/tasks.md).
+[candidate installation guide](docs/delivery/unified-local-installation.md) and [implementation tasks](docs/specs/unified-local-distribution/tasks.md).
 
 ## Requirements
 
-- Node.js >=22.22.0 <23 (CI uses 22.22.0)
+- Node.js >=22.22.0 <23 (unified installation CI uses 22.23.1)
 - Corepack
 - pnpm 11.10.0
 
-The current development candidate is `0.1.0-preview.2`. Build its offline artifacts and a platform-named outer ZIP
+The current development candidate is `0.1.0-preview.3`; the existing `preview.2` archive is immutable. Build current portable artifacts and a platform-named outer ZIP
 with `pnpm release:build`, validate them with `pnpm release:check`, and run the repo-independent Reference acceptance
 with `pnpm release:test`. See the [SDK/CLI Local Preview quickstart](docs/delivery/sdk-cli-quickstart.md) for consumer
 installation and operation. Windows testers can use the detailed

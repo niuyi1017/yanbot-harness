@@ -14,6 +14,7 @@ import { Buffer } from 'node:buffer';
 import tar from 'tar-stream';
 
 import { npmInvocation } from './lib/release-platform.mjs';
+import { macOfflineNetworkGate } from './lib/offline-network-gate.mjs';
 
 const execute = promisify(execFile);
 assert(
@@ -293,6 +294,16 @@ try {
   );
   assert.equal(offline.reference.terminal, 'run.completed');
   cases.push({ name: 'empty-cache-offline-explicit-closure-reference', status: 'passed', evidence: offline });
+  if (process.platform === 'darwin') {
+    const evidence = await macOfflineNetworkGate({ kit, prefix: path.join(root, 'offline-os-blocked'), environment });
+    cases.push({ name: 'os-blocked-external-network-offline-reference', status: 'passed', evidence });
+  } else {
+    cases.push({
+      name: 'os-blocked-external-network-offline-reference',
+      status: 'not-certified',
+      reason: 'A platform-specific OS network isolation gate is still required.',
+    });
+  }
   report.status = 'passed';
 } catch (error) {
   report.status = 'failed';

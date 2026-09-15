@@ -1,4 +1,6 @@
 import { Buffer } from 'node:buffer';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 import {
   HARNESS_PROTOCOL_VERSION,
   HARNESS_RELEASE_VERSION,
@@ -30,7 +32,7 @@ export function createManagedControl() {
   const stop = () => {
     stopping = true;
     clearTimeout(helloTimer);
-    stopTimer ??= setTimeout(() => process.exit(1), 5000);
+    stopTimer ??= setTimeout(forceOwnedExit, 5000);
     if (!runtime) {
       accept();
       return;
@@ -47,7 +49,7 @@ export function createManagedControl() {
             pid: process.pid,
             instanceId: runtime!.instanceId,
           });
-        if (stopTimer) clearTimeout(stopTimer);
+        stopTimer?.unref();
         if (process.connected) process.disconnect();
       })
       .catch(() => {
@@ -118,4 +120,25 @@ export function createManagedControl() {
       if (process.connected) process.disconnect();
     },
   };
+}
+
+function forceOwnedExit(): never {
+  if (process.platform === 'win32') {
+    const root = process.env.SystemRoot;
+    if (root && path.isAbsolute(root)) {
+      // This process is still alive; never reuse a recorded PID after Runtime exit.
+      spawnSync(path.join(root, 'System32/taskkill.exe'), ['/PID', String(process.pid), '/T', '/F'], {
+        timeout: 2000,
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+    }
+  } else {
+    try {
+      process.kill(-process.pid, 'SIGKILL');
+    } catch {
+      /* Only our own group id; no group guessing. */
+    }
+  }
+  process.exit(1);
 }

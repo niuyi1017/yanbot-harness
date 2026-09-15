@@ -15,7 +15,7 @@ import {
 
 import { HarnessClient } from './client.js';
 import { readRuntimeDescriptor } from './daemon.js';
-import { protectManagedState } from './managed-permissions.js';
+import { protectManagedState, verifyManagedDescriptor } from './managed-permissions.js';
 import { HarnessSdkError } from './transport.js';
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
@@ -119,7 +119,7 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     outcome = observeChild(child);
     if (managed) control = parentControl(child, outcome, managed);
     const descriptor = await withSignal(
-      waitForDescriptor({ child, outcome, descriptorPath, environment, signal }),
+      waitForDescriptor({ child, outcome, descriptorPath, environment, signal, managed: Boolean(managed) }),
       signal,
     );
     instanceId = descriptor.instanceId;
@@ -225,6 +225,7 @@ async function checkNode(node: string, signal: AbortSignal): Promise<void> {
 }
 
 async function waitForDescriptor(options: {
+  managed: boolean;
   child: ChildProcess;
   outcome: Promise<ChildOutcome>;
   descriptorPath: string;
@@ -238,8 +239,10 @@ async function waitForDescriptor(options: {
   while (true) {
     options.signal.throwIfAborted();
     if (settled) throw childOutcomeError(settled);
-    if (await isFile(options.descriptorPath))
+    if (await isFile(options.descriptorPath)) {
+      if (options.managed) await verifyManagedDescriptor(options.descriptorPath, options.signal);
       return readRuntimeDescriptor({ descriptorPath: options.descriptorPath, environment: options.environment });
+    }
     await withSignal(delay(50), options.signal);
   }
 }

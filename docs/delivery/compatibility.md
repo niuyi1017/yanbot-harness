@@ -7,6 +7,11 @@ below with completed certification evidence.
 
 ## Release baseline
 
+This table preserves the frozen preview.2 evidence. The source tree now develops preview.3 local/runtime/platform
+packages: actual npm/pnpm installs and Reference interactions pass on macOS/Linux CI; Windows, complete containment,
+production trust/Registry and real vendor certification remain gates. macOS OS-blocked offline installation and current
+SDK → frozen preview.2 explicit Runtime Run/close have also passed locally. See the [candidate guide](unified-local-installation.md).
+
 | Component            | Version           |
 | -------------------- | ----------------- |
 | Contracts            | `0.1.0-preview.2` |
@@ -30,8 +35,8 @@ The SDK and CLI require a compatible Harness Runtime. They do not connect direct
 
 `preview.2` does not include `@yanbot-harness/local`, a Runtime meta/platform npm package, or automatic installed-package
 discovery. `startManagedRuntime()` requires `executablePath` or `YANBOT_HARNESS_RUNTIME_PATH`. Unified installation,
-signed payload expansion, parent-death cleanup, and offline dependency kits belong to a later Preview proposal, pending
-approval; see the repository's `docs/specs/unified-local-distribution/`. No new installation or platform certification is implied.
+signed payload expansion, parent-death cleanup, and offline dependency kits are implemented in the preview.3 candidate;
+see the repository's `docs/specs/unified-local-distribution/`. No production installation or expanded platform certification is implied.
 
 ## Certified environments
 

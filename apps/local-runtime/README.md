@@ -2,10 +2,12 @@
 
 Portable companion process for the Yanbot Harness SDK and CLI.
 
-This `preview.2` artifact is independently unpacked and launched. A later Preview proposal will also distribute the
-same Runtime implementation through `@yanbot-harness/runtime` and platform payload packages, normally installed by
-`@yanbot-harness/local`. Those packages and automatic discovery are not implemented yet; the Runtime remains a separate
-process in every proposed installation form. Node remains a prerequisite.
+Portable artifacts are independently unpacked and launched. The `preview.3` development candidate also packages the
+same implementation as signed platform payloads discovered through `@yanbot-harness/runtime`, normally installed by
+`@yanbot-harness/local`. Default production trust is intentionally empty; these are not published releases. The Runtime
+always remains a separate process and Node remains a prerequisite. IPC-managed mode handles parent disconnect and
+bounded shutdown; complete escaped-descendant/Runtime-force-kill containment is not certified. Portable Daemon mode
+retains its independent lifecycle. Existing frozen `preview.2` archives are not rebuilt by this change.
 
 ```bash
 ./bin/yanbot-harness-runtime --reference

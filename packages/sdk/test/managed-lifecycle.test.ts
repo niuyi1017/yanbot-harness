@@ -6,6 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 import { startManagedRuntime, HARNESS_RELEASE_VERSION, type ManagedRuntimeHandle } from '../src/index.js';
+import { verifyManagedDescriptor } from '../src/managed-permissions.js';
 
 const runtimeEntry = path.resolve(import.meta.dirname, '../../../apps/local-runtime/dist/main.js');
 const handles: ManagedRuntimeHandle[] = [];
@@ -120,3 +121,66 @@ writeFileSync(${JSON.stringify(childFile)}, String(child.pid));`,
   await handle.close();
   expect(await gone(pid)).toBe(true);
 }, 15000);
+
+it('unknown persistent state schema fails without migrating or deleting user configuration', async () => {
+  const state = await fixture();
+  const metadata = JSON.stringify({ schemaVersion: 999 });
+  await writeFile(path.join(state, 'store.json'), metadata);
+  await writeFile(path.join(state, 'user-config'), 'preserved');
+  await expect(
+    startManagedRuntime({ reference: true, runtimeResolver: resolved(), stateRoot: state }),
+  ).rejects.toMatchObject({ kind: 'runtime' });
+  expect(await readFile(path.join(state, 'store.json'), 'utf8')).toBe(metadata);
+  expect(await readFile(path.join(state, 'user-config'), 'utf8')).toBe('preserved');
+}, 15000);
+
+it('descriptor verification rejects excessive size before reading credentials', async () => {
+  const root = await fixture();
+  const file = path.join(root, 'runtime.json');
+  await writeFile(file, 'x'.repeat(65537), { mode: 0o600 });
+  await expect(verifyManagedDescriptor(file, AbortSignal.timeout(5000))).rejects.toMatchObject({
+    kind: 'authentication',
+  });
+});
+
+it('parent death still triggers the Runtime watchdog when a grandchild keeps the loop alive', async () => {
+  const root = await fixture();
+  const grandchildFile = path.join(root, 'grandchild.pid');
+  const entry = path.join(root, 'runtime-with-child.mjs');
+  await writeFile(
+    entry,
+    `import ${JSON.stringify(pathToFileURL(runtimeEntry).href)};
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+const child=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});
+writeFileSync(${JSON.stringify(grandchildFile)},String(child.pid));`,
+  );
+  const sdkEntry = pathToFileURL(path.resolve(import.meta.dirname, '../dist/index.js')).href;
+  const owner = spawn(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+import { startManagedRuntime } from ${JSON.stringify(sdkEntry)};
+const h=await startManagedRuntime({reference:true,runtimeResolver:async()=>(${JSON.stringify({ entryPath: entry, runtimeVersion: HARNESS_RELEASE_VERSION, protocolVersion: '1.0.0', managedProtocolVersion: 1 })})});
+process.stdout.write(JSON.stringify({pid:h.pid})+'\\n');setInterval(()=>{},1000);`,
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  processes.push(owner);
+  const ready = await Promise.race([
+    once(owner.stdout!, 'data'),
+    once(owner, 'exit').then(() => {
+      throw new Error('owner exited before readiness');
+    }),
+  ]);
+  const runtimePid = (JSON.parse(String(ready[0])) as { pid: number }).pid;
+  const childPid = Number(await readFile(grandchildFile, 'utf8'));
+  const exited = once(owner, 'exit');
+  owner.kill('SIGKILL');
+  await exited;
+  await new Promise((resolve) => setTimeout(resolve, 5500));
+  expect(await gone(runtimePid)).toBe(true);
+  expect(await gone(childPid)).toBe(true);
+}, 20000);

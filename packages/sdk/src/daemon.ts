@@ -1,4 +1,6 @@
-import { readFile, stat } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { Buffer } from 'node:buffer';
 import { homedir } from 'node:os';
 import { isIP } from 'node:net';
 import path from 'node:path';
@@ -30,7 +32,22 @@ export async function readRuntimeDescriptor(
   let info;
   let raw: string;
   try {
-    [info, raw] = await Promise.all([stat(file), readFile(file, 'utf8')]);
+    const handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    try {
+      info = await handle.stat();
+      if (!info.isFile() || info.size > 65536) throw new Error('Descriptor size or type is invalid.');
+      const bytes = Buffer.alloc(65537);
+      let length = 0;
+      while (length < bytes.length) {
+        const { bytesRead } = await handle.read(bytes, length, bytes.length - length, null);
+        if (bytesRead === 0) break;
+        length += bytesRead;
+      }
+      if (length > 65536) throw new Error('Descriptor size limit exceeded.');
+      raw = bytes.subarray(0, length).toString('utf8');
+    } finally {
+      await handle.close();
+    }
   } catch (error) {
     throw new HarnessSdkError('runtime', 'The local Runtime descriptor could not be read. Start the Runtime first.', {
       cause: error,

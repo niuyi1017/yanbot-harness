@@ -9,6 +9,47 @@ import { HarnessSdkError } from './transport.js';
 
 const execute = promisify(execFile);
 
+export async function verifyManagedDescriptor(file: string, signal: AbortSignal): Promise<void> {
+  try {
+    signal.throwIfAborted();
+    const info = await lstat(file);
+    if (!info.isFile() || info.size > 65536) throw new Error('invalid descriptor file');
+    if (process.platform !== 'win32') {
+      if (info.uid !== process.getuid!() || (info.mode & 0o077) !== 0) throw new Error('insecure descriptor');
+      return;
+    }
+    const systemRoot = process.env.SystemRoot;
+    if (!systemRoot || !path.isAbsolute(systemRoot)) throw new Error('SystemRoot missing');
+    const script = `$ErrorActionPreference='Stop'
+$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()
+$sid=$identity.User
+$acl=Get-Acl -LiteralPath '${path.resolve(file).replaceAll("'", "''")}'
+$owner=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+if($owner -ne $sid.Value -and $owner -ne $identity.Owner.Value){throw 'Unexpected descriptor owner'}
+$rules=$acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
+if($rules.Count -lt 1){throw 'Missing descriptor ACL'}
+foreach($rule in $rules){if($rule.IdentityReference.Value -ne $sid.Value -or $rule.AccessControlType -ne 'Allow'){throw 'Unexpected descriptor ACL'}}
+`;
+    await execute(
+      path.join(systemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-EncodedCommand',
+        Buffer.from(script, 'utf16le').toString('base64'),
+      ],
+      { signal, timeout: 5000, windowsHide: true, maxBuffer: 8192 },
+    );
+  } catch {
+    if (signal.aborted) throw signal.reason;
+    throw new HarnessSdkError(
+      'authentication',
+      'The managed descriptor must be a bounded regular file accessible only to its current owner.',
+    );
+  }
+}
+
 export async function protectManagedState(directory: string, signal: AbortSignal): Promise<void> {
   const absolute = path.resolve(directory);
   if (
@@ -46,9 +87,11 @@ export async function protectManagedState(directory: string, signal: AbortSignal
     const file = absolute.replaceAll("'", "''");
     const script = `$ErrorActionPreference='Stop'
 $p='${file}'
-$sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()
+$sid=$identity.User
 $acl=Get-Acl -LiteralPath $p
-if($acl.Owner -ne $sid.Translate([System.Security.Principal.NTAccount]).Value -and $acl.Owner -ne $sid.Value){throw 'Unexpected directory owner'}
+$owner=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+if($owner -ne $sid.Value -and $owner -ne $identity.Owner.Value){throw 'Unexpected directory owner'}
 $new=New-Object System.Security.AccessControl.DirectorySecurity
 $new.SetOwner($sid)
 $new.SetAccessRuleProtection($true,$false)
@@ -56,6 +99,7 @@ $rule=New-Object System.Security.AccessControl.FileSystemAccessRule($sid,'FullCo
 $new.AddAccessRule($rule)
 Set-Acl -LiteralPath $p -AclObject $new
 $actual=Get-Acl -LiteralPath $p
+if($actual.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value){throw 'Owner normalization failed'}
 $rules=$actual.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])
 if(!$actual.AreAccessRulesProtected -or $rules.Count -ne 1 -or $rules[0].IdentityReference.Value -ne $sid.Value -or $rules[0].AccessControlType -ne 'Allow'){throw 'Unexpected ACL'}
 `;

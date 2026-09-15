@@ -27,6 +27,12 @@
 
 ## 外部发布门禁
 
+Windows ACL 实施补充：elevated token 创建文件的默认 owner 不一定等于 User SID；[WindowsIdentity.Owner](https://learn.microsoft.com/en-us/dotnet/api/system.security.principal.windowsidentity.owner) 返回该 token 的默认 owner SID。专用目录只接受当前 User/Token Owner，随后强制 owner 为 User 且 DACL 仅 User；descriptor 接受这两个受当前 token 控制的 owner，但有效 DACL 仍只能授予当前 User，不能增加 Administrators/Everyone 访问规则。不使用固定英文组名或管理员 SID 全局豁免。
+
+T4 有界关闭补强：Runtime 正常 close 完成后不再取消最后的退出 watchdog，而是 unref，让空事件循环自然退出；若不合作的子进程/handle 仍保活，watchdog 在 5 秒触发。POSIX 只尝试当前 Runtime 自身作为组长的独立进程组；Windows 在 Runtime 自身仍活着时调用固定系统 taskkill 回收自身树，不在它退出后通过旧 PID 猜测回收。此补强不解决 Runtime 被 SIGKILL 或脱组后代的强 containment，相关发布保证仍阻断。
+
+2026-09-15 补充验证：macOS 使用仅作用于测试进程及其后代的 sandbox-exec profile，先确认对文档保留 IP 的外连返回 EPERM，再在同一 policy 下执行完整离线安装/Reference/close；仅允许 loopback，不更改用户全局防火墙。其他 OS 仍需各自证据。缓存升级测试使用显式测试签名的 preview.3/preview.4 小型 fixture，覆盖共存、打开旧文件、回退、锁持有者死亡与信任轮换，不冒充两个正式 release 的业务数据迁移认证。
+
 以下条件不阻止隔离探针，但未完成前不做真实发布：
 
 - 私有 Registry/镜像地址、scope/包名占用与读写权限。

@@ -1,7 +1,7 @@
 # Managed Local Runtime 任务
 
 2026-09-15 同步：任务 1–3 为已有显式路径 Preview 原语；任务 4 的统一安装细化到
-[`unified-local-distribution/tasks.md`](../unified-local-distribution/tasks.md)（已确认，未实现）。任务 5–8 保留高级 Runtime Manager 的后续范围。
+[`unified-local-distribution/tasks.md`](../unified-local-distribution/tasks.md)（preview.3 签名候选已实现，认证/发布门禁未全部完成）。任务 5–8 保留高级 Runtime Manager 的后续范围。
 
 ## 1. SDK-owned Runtime 核心原语
 
