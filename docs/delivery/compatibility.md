@@ -8,8 +8,9 @@ below with completed certification evidence.
 ## Release baseline
 
 This table preserves the frozen preview.2 evidence. The source tree now develops preview.3 local/runtime/platform
-packages: actual npm/pnpm installs and Reference interactions pass on macOS/Linux CI; Windows, complete containment,
-production trust/Registry and real vendor certification remain gates. macOS OS-blocked offline installation and current
+packages: actual npm/pnpm installs and Reference interactions pass on macOS, Linux and Windows Server 2022 CI. Complete
+containment, production trust/Registry, Windows desktop and real vendor certification remain gates. macOS/Linux
+OS-blocked offline installation and current
 SDK → frozen preview.2 explicit Runtime Run/close have also passed locally. See the [candidate guide](unified-local-installation.md).
 
 | Component            | Version           |

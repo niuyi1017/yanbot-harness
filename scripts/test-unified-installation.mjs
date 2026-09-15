@@ -35,7 +35,8 @@ assert(platform.testSigning, 'This test only accepts ephemeral signed fixtures.'
 assert.equal(common.version, platform.version);
 assert.equal(common.sourceCommit, platform.sourceCommit);
 assert.equal(common.sourceLockSha256, platform.sourceLockSha256);
-const root = await mkdtemp(path.join(tmpdir(), 'harness-installed-matrix-'));
+// Exercise URL decoding and shell-free invocation throughout real installs, cache expansion and the offline kit.
+const root = await mkdtemp(path.join(tmpdir(), 'harness-installed-路径 space & #-'));
 const target = process.platform + '-' + process.arch;
 const trustedKeys = JSON.parse(await readFile(path.join(platformRoot, 'test-trust.json'), 'utf8'));
 const artifacts = [

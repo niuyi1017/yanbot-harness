@@ -33,8 +33,9 @@ The proposed Runtime platform packages contain the complete payload. An explicit
 installed bytes locally; it does not download executables. Node remains a prerequisite. macOS arm64 and Windows x64
 are mandatory initial targets; Linux x64 glibc retains Reference regression coverage.
 
-Automatic discovery, signed cache expansion, managed IPC and explicit offline kits are implemented. macOS/Linux real
-npm/pnpm installation CI has passed; Windows and complete process-tree containment remain gates. No production
+Automatic discovery, signed cache expansion, managed IPC and explicit offline kits are implemented. Real npm/pnpm
+installation and portable Reference CI pass on macOS arm64, Linux x64 and Windows Server 2022 x64. Complete process-tree
+containment, Windows desktop/vendor certification and production release remain gates. No production
 Registry or signing identity is configured. `0.1.0-preview.2` continues to use
 SDK/CLI tarballs plus a separately unpacked Runtime and an explicit managed executable path. See the
 [candidate installation guide](docs/delivery/unified-local-installation.md) and [implementation tasks](docs/specs/unified-local-distribution/tasks.md).

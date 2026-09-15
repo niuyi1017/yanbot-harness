@@ -4,7 +4,7 @@
 
 ## 已验证路径
 
-本机 macOS arm64 以及 CI macOS/Linux 已通过实际 npm/pnpm 包安装、pnpm 严格隔离布局、SDK-only 不下载 Runtime、平台 optional 缺失/401 诊断。local 的 Reference 文本、权限、提问、取消均通过。Windows 仍在权限/安装链路收口。
+本机 macOS arm64 以及 CI macOS/Windows Server 2022/Linux 已通过实际 npm/pnpm 包安装、pnpm 严格隔离布局、SDK-only 不下载 Runtime、平台 optional 缺失/401、Runtime-only 与 CLI-only。local 的 Reference 文本、权限、提问、取消及空缓存离线均通过。证据见 [verification-evidence](../specs/unified-local-distribution/verification-evidence.json)，不替代 Windows 10/11 实机认证。
 
 离线候选包含 18 个公共/第三方闭包 tgz 加 1 个目标平台 tgz；空 npm cache、npm 10.9.8、offline/ignore-scripts 安装后完成 Reference Run/close。macOS 26.4.1 另使用 OS sandbox 阻断外网（预检 EPERM，仅保留 loopback）重复完成安装和 Reference；同一测试接入 Mac CI。其他 OS 的网络隔离不据此认证。
 
@@ -64,6 +64,8 @@ node install-local.mjs --prefix ./new-consumer --trusted-key-file /trusted/chann
 ## 发布前仍需完成
 
 完整顺序、密钥轮换与人工批准边界见 [正式发布门禁](unified-release-gates.md)。小型签名 fixture 的缓存 V1→V2→V1、持有旧版本文件、锁持有者崩溃恢复、阻塞路径保留及未知状态 schema 拒绝已加入测试；不替代两个真实冻结 release 的完整业务回滚认证。新 SDK 对冻结 preview.2 显式 Runtime 的 Reference Run/close 已在本机通过，旧 ZIP 摘要不变。
+
+Linux 隔离 tmpfs 的实际 ENOSPC 与 Windows FileShare.None 独占缓存文件故障已实测通过：失败拒绝使用/不覆盖旧缓存，释放后恢复。macOS/Linux 阻网门禁通过；Windows OS 级阻网仍待单独认证。
 
 - 正式 Registry/scope/镜像 ACL、安装与发布 token 分权、不可变版本与全平台可取性。
 - 正式可信发布公钥、轮换/撤销、原生组件签名要求和厂商资产再分发审核。

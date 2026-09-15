@@ -1,6 +1,6 @@
 # 统一本地分发开发步骤
 
-状态：**连续实施中，尚未全部完成**。T1 三平台机制/归档通过；T2/T3 三平台签名候选、resolver 与 npm/pnpm local 安装通过；Mac/Linux OS 阻网离线通过。Windows 离线入口/生命周期修正待最终 CI；T4 强 containment 已证实缺口，T5–T7 正式发布/实机及完整故障回滚仍有门禁。2026-09-15。
+状态：**实现候选已交付，计划未全部完成，正式发布阻断**。T1–T3 三平台机制/归档/签名候选、实际 npm/pnpm/离线与 portable 回归通过；T4 基础生命周期/权限、T6 缓存回退/锁恢复/真实 ENOSPC/Windows 独占故障通过；Mac/Linux OS 阻网通过。强 containment 已证实缺口，T5–T7 正式身份/许可/实机、Windows 阻网及两个正式版本业务回滚仍有门禁。证据见 [verification-evidence.json](verification-evidence.json)。2026-09-15。
 本文件是 P1D 分发工作流的实施清单；整体进度以 [roadmap](../harness-platform-foundation/roadmap.md) 为准。
 `preview.2` 的已有实现/证据不是下列新任务的完成证据。
 
@@ -37,7 +37,7 @@
 - [x] 本机首个平台候选：frozen deploy→相对 shim→归一化→SBOM/清单→临时 Ed25519 签名→npm tgz→校验/缓存→新 IPC Reference health/close 通过。证据见 implementation-evidence-t2t3.json；dirty 工作树与测试签名只算开发候选，不是冻结 release。
 - [x] 新公共包版本、contracts 与 Runtime/CLI 版本入口校验；旧 preview.2 archive 未重建。完整 pnpm check 通过，45 个原归档/审计测试继续共用同一 codec。
 
-- [ ] 复用 Runtime 源生成完整 payload，打包成包含 manifest/signature/SBOM 的平台 npm tgz，继续生成 portable archive。
+- [x] 完整 Runtime payload、manifest/signature/SBOM 平台 npm tgz 与 portable archive 均已构建/验证；三平台 portable Reference CI 通过。
 - [x] 公共包/平台包校验统一 release descriptor、源提交/lock；不发布内部 Adapter/Core 包。
 - [x] common tgz 在 CI 只构建一次，三平台消费同一摘要；文件允许集、路径/凭据和依赖边界检查已接通。
 - 文件：`scripts/build-runtime-bundle.mjs`、`build-client-packages.mjs`、`assemble-release.mjs`、`check-release-artifacts.mjs`、`check-common-package-hashes.mjs`、`scripts/lib/*`、Runtime 版本入口、CI；新增平台包模板目录。
@@ -46,14 +46,15 @@
 
 ## T3. Resolver、本地 facade 与兼容 API
 
-- [x] runtime/local 与 SDK 注入已实现；本机 resolver 14 项、SDK 30 项、local 3 项通过；Windows 依其实际权限/父死亡语义单独记录。
+- [x] runtime/local 与 SDK 注入已实现；Runtime 包 16 项（本机 15 通过、Windows 专用项跳过；其独占测试已远端通过）、SDK 30 项、local 3 项；权限/父死亡依真实平台语义记录。
 - [x] 签名/版本/target/material/fileList/payload 校验、私有摘要缓存、内核锁、最小默认环境；统一启动 deadline 覆盖迟到 resolver 与无响应 health。正式根保持空，不自动信任制品内公钥。
 - [x] 三平台实际 npm/pnpm 新 local 包安装、四种 Reference 场景、SDK-only 与缺包/401 已通过；完整故障/升级认证仍未完成。
 
 - [x] `packages/runtime` 固定映射、manifest export、验签/摘要、受限展开、原子缓存、锁与独立启动器。
 - [x] SDK 可选 resolver/Node 注入与统一 deadline；保留旧路径/env/options/handle，错误分类增量兼容。
 - [x] `packages/local` 重导出 SDK、装配 resolver/最小环境，无 import 时启动副作用。
-- [ ] 完成严格 pnpm 布局、只读 node_modules、空格/中文/特殊字符路径、Rosetta、错误 manifest、缓存损坏和目录逃逸用例。
+- [x] 严格 pnpm 布局、缓存空格/中文/特殊字符路径、错误 manifest、缓存损坏和目录逃逸用例通过；POSIX 只读平台内容不写安装目录单测通过。
+- [ ] 整套真实安装矩阵现统一使用中文/空格/`&`/`#` 根路径，等待本次 CI；Rosetta 实机拒绝及 Windows 只读安装目录 ACL 场景尚未认证。
 - 文件：`packages/{local,runtime}/src` 与 test/manifests、`packages/sdk/src/{managed-runtime,index,transport}.ts`、SDK tests、`pnpm-workspace.yaml`、根 lockfile、boundary checker、示例。
 - 前置：T1、T2 的 artifact contract；生产签名身份尚缺时只做测试签名，不开放默认未签包。
 - 验收：`pnpm --filter @yanbot-harness/sdk test:unit`、新 local/runtime 单测、`pnpm check`；新 facade Reference 可启动；SDK-only 依赖图无任何 Runtime；显式路径优先且失败无 fallback。
@@ -69,7 +70,7 @@
 
 - [ ] 新 Runtime 增加 versioned private IPC，父断开触发正常取消/关闭；SDK graceful close 后有界强制回收整个 owned tree。
 - [ ] 覆盖 POSIX 进程组、Windows owned tree、PID 复用风险、Runtime 失去响应和厂商孙进程；必要时先补 containment/watchdog 设计，再实现相关 helper。
-- [ ] 实现 Windows state/descriptor/cache ACL 校验，临时状态/持久状态/缓存 ownership 分离，以及清理失败保留诊断。
+- [x] Windows state/descriptor/cache ACL、状态/缓存 ownership 分离和失败保留实现并通过三平台基础回归；父强杀可能保留旧 descriptor，不能误认为它仍是可连接服务。
 - [x] 新协议与旧显式路径分开；当前 SDK 对冻结 preview.2 Runtime 的 Reference Run/close 本机通过；后续 target 必须复用现有 handle。
 - 文件：`apps/local-runtime/src/{main,server,managed-control}.ts`、SDK managed runtime、平台 lifecycle/ACL 模块、Fake Vendor fixtures、release lifecycle 测试。
 - 前置：T3；新 control contract 不修改 descriptor schema 1。与 P2 Sidecar 复用进程树基础能力时保持单一 ownership。
@@ -93,7 +94,8 @@
 - [x] 本机 npm/pnpm local Reference 文本/权限/提问/取消、SDK-only 无 Runtime 下载、optional 缺失与平台 401 诊断；空 npm cache 的 offline/ignore-scripts 安装与 Reference Run/close 通过。7 组真实包用例见 implementation-evidence-t6.json。
 - [x] 离线完整性/拒绝覆盖、CLI 路径别名与 Windows shim 独立测试现为 9 项，连同归档/审计共 54 项；真实包 CI 共用一次构建的 common tgz。
 - [x] 小型缓存 fixture V1→V2→V1、打开旧文件、锁超时/持有者死亡、占用路径保留和未知 state schema 拒绝已覆盖；Mac/Linux OS 阻外网安装通过。
-- [ ] 两个正式冻结 release 的完整业务回滚、实际 ENOSPC、Windows 文件占用/阻网仍待认证；生产身份/企业 Registry 不因 fixture 通过解除。
+- [x] Linux 独立 tmpfs 实际 ENOSPC、部分文件清理/旧缓存保留，以及 Windows FileShare.None 占用后拒绝、释放恢复/字节保留已在 CI 通过。
+- [ ] 两个正式冻结 release 的完整业务回滚和 Windows OS 阻网仍待认证；生产身份/企业 Registry 不因 fixture 通过解除。
 
 - [x] 已生成平台闭包 tgz、签名清单、显式安装器与 consumer；错误平台/缺失/篡改/重复/越界与已有工程覆盖均有拒绝测试。
 - [ ] 验证空 npm cache + 阻网 + `--ignore-scripts` 的安装、首次展开/Reference；必要的元数据和 lock 支持必须随 kit 提供。

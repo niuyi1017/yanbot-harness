@@ -154,7 +154,7 @@ Local Runtime 不能通过修改监听地址直接充当 Remote Runtime；Remote
 
 - 已实现：Local Runtime + CodeBuddy SDK Adapter，以及 Reference Adapter 驱动的 SDK/CLI 路径。
 - 已设计未实现：Remote Runtime 控制平面、Worker、远端工作区和双模式认证。
-- 已实现候选：local/meta/platform 包、自动 resolver、签名与私有缓存、IPC managed、显式离线 kit；Mac/Linux 实际 npm/pnpm 安装通过。父 IPC 断开正常回收已有测试，Runtime 强杀/脱组后代的完整 containment、Windows 收口和正式发布仍未完成。
+- 已实现候选：local/meta/platform 包、自动 resolver、签名与私有缓存、IPC managed、显式离线 kit；Mac/Linux/Windows Server 2022 实际 npm/pnpm 安装与 portable Reference 通过。父 IPC 断开正常回收已有测试；Runtime 强杀/脱组后代的完整 containment、Windows 10/11 实机/OS 阻网和正式发布仍未完成。
 - 已有Schema未实现运行时：Sidecar JSON-RPC/JSONL 协议。
 - 未认证：任何真实 CLI 厂商 Adapter；开始前必须针对选定CLI精确版本做能力探针。
 - Windows Local 仍按交付兼容矩阵记录真实机器认证状态。

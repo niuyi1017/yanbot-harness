@@ -1,0 +1,475 @@
+{
+  "schemaVersion": 1,
+  "releaseStatus": "development-candidate-not-production",
+  "latestImplementationRegression": {
+    "sourceCommit": "859a8d023d88419945868da8e56c7251cc2bcba6",
+    "installationRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34968682828",
+    "installationConclusion": "success on all three CI targets",
+    "mechanismsRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34968682984",
+    "mechanismsConclusion": "success on all three CI targets",
+    "note": "Independent probe still blocks strong containment; test-signed candidates are not a frozen production release."
+  },
+  "installationRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34967314959",
+  "portableRun": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34967315127",
+  "targets": [
+    {
+      "target": "darwin-arm64",
+      "sourceCommit": "5633d358a5d57b879ee1ba836001956e3cc1225a",
+      "sourceLockSha256": "7cd17e611e1934fbd97ee6fdbaef27c4481f1509db47cf76f1ad9d404acbeb25",
+      "version": "0.1.0-preview.3",
+      "testSigning": true,
+      "status": "passed",
+      "cases": [
+        {
+          "name": "npm-local-reference-interactions-cancel",
+          "status": "passed",
+          "scenarios": 4
+        },
+        {
+          "name": "npm-sdk-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "pnpm-local-reference-interactions-cancel",
+          "status": "passed",
+          "scenarios": 4
+        },
+        {
+          "name": "pnpm-sdk-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "runtime-only-independent-reference-daemon",
+          "status": "passed"
+        },
+        {
+          "name": "cli-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "missing-optional-diagnostic",
+          "status": "passed"
+        },
+        {
+          "name": "platform-401-not-a-successful-runtime",
+          "status": "passed"
+        },
+        {
+          "name": "empty-cache-offline-explicit-closure-reference",
+          "status": "passed",
+          "evidence": {
+            "schemaVersion": 1,
+            "status": "passed",
+            "version": "0.1.0-preview.3",
+            "target": "darwin-arm64",
+            "testSigning": true,
+            "emptyNpmCache": true,
+            "offline": true,
+            "ignoreScripts": true,
+            "reference": {
+              "startup": true,
+              "health": true,
+              "terminal": "run.completed",
+              "close": true
+            },
+            "packageCount": 19
+          }
+        },
+        {
+          "name": "os-blocked-external-network-offline-reference",
+          "status": "passed",
+          "evidence": {
+            "status": "passed",
+            "platform": "darwin",
+            "kernel": "24.6.0",
+            "externalConnect": "EPERM",
+            "loopbackAllowed": true,
+            "installation": {
+              "schemaVersion": 1,
+              "status": "passed",
+              "version": "0.1.0-preview.3",
+              "target": "darwin-arm64",
+              "testSigning": true,
+              "emptyNpmCache": true,
+              "offline": true,
+              "ignoreScripts": true,
+              "reference": {
+                "startup": true,
+                "health": true,
+                "terminal": "run.completed",
+                "close": true
+              },
+              "packageCount": 19
+            }
+          }
+        }
+      ],
+      "platformArtifact": {
+        "file": "yanbot-harness-runtime-darwin-arm64-0.1.0-preview.3.tgz",
+        "size": 53717609,
+        "sha256": "06f02f0cfa14899b5e671d6a7865af71b03248dc3bc4de373af565cf0483948c"
+      }
+    },
+    {
+      "target": "linux-x64",
+      "sourceCommit": "5633d358a5d57b879ee1ba836001956e3cc1225a",
+      "sourceLockSha256": "7cd17e611e1934fbd97ee6fdbaef27c4481f1509db47cf76f1ad9d404acbeb25",
+      "version": "0.1.0-preview.3",
+      "testSigning": true,
+      "status": "passed",
+      "cases": [
+        {
+          "name": "npm-local-reference-interactions-cancel",
+          "status": "passed",
+          "scenarios": 4
+        },
+        {
+          "name": "npm-sdk-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "pnpm-local-reference-interactions-cancel",
+          "status": "passed",
+          "scenarios": 4
+        },
+        {
+          "name": "pnpm-sdk-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "runtime-only-independent-reference-daemon",
+          "status": "passed"
+        },
+        {
+          "name": "cli-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "missing-optional-diagnostic",
+          "status": "passed"
+        },
+        {
+          "name": "platform-401-not-a-successful-runtime",
+          "status": "passed"
+        },
+        {
+          "name": "empty-cache-offline-explicit-closure-reference",
+          "status": "passed",
+          "evidence": {
+            "schemaVersion": 1,
+            "status": "passed",
+            "version": "0.1.0-preview.3",
+            "target": "linux-x64",
+            "testSigning": true,
+            "emptyNpmCache": true,
+            "offline": true,
+            "ignoreScripts": true,
+            "reference": {
+              "startup": true,
+              "health": true,
+              "terminal": "run.completed",
+              "close": true
+            },
+            "packageCount": 19
+          }
+        },
+        {
+          "name": "os-blocked-external-network-offline-reference",
+          "status": "passed",
+          "evidence": {
+            "status": "passed",
+            "platform": "linux",
+            "externalConnect": "ENETUNREACH",
+            "loopbackAllowed": true,
+            "privilegesDropped": true,
+            "installation": {
+              "schemaVersion": 1,
+              "status": "passed",
+              "version": "0.1.0-preview.3",
+              "target": "linux-x64",
+              "testSigning": true,
+              "emptyNpmCache": true,
+              "offline": true,
+              "ignoreScripts": true,
+              "reference": {
+                "startup": true,
+                "health": true,
+                "terminal": "run.completed",
+                "close": true
+              },
+              "packageCount": 19
+            }
+          }
+        }
+      ],
+      "platformArtifact": {
+        "file": "yanbot-harness-runtime-linux-x64-0.1.0-preview.3.tgz",
+        "size": 53717611,
+        "sha256": "8908560b2de573fddd8ab4e4bcf7185241a4c90a564aa77f07b9ea070dbb1f89"
+      }
+    },
+    {
+      "target": "win32-x64",
+      "sourceCommit": "5633d358a5d57b879ee1ba836001956e3cc1225a",
+      "sourceLockSha256": "7cd17e611e1934fbd97ee6fdbaef27c4481f1509db47cf76f1ad9d404acbeb25",
+      "version": "0.1.0-preview.3",
+      "testSigning": true,
+      "status": "passed",
+      "cases": [
+        {
+          "name": "npm-local-reference-interactions-cancel",
+          "status": "passed",
+          "scenarios": 4
+        },
+        {
+          "name": "npm-sdk-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "pnpm-local-reference-interactions-cancel",
+          "status": "passed",
+          "scenarios": 4
+        },
+        {
+          "name": "pnpm-sdk-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "runtime-only-independent-reference-daemon",
+          "status": "passed"
+        },
+        {
+          "name": "cli-only-no-runtime-download",
+          "status": "passed"
+        },
+        {
+          "name": "missing-optional-diagnostic",
+          "status": "passed"
+        },
+        {
+          "name": "platform-401-not-a-successful-runtime",
+          "status": "passed"
+        },
+        {
+          "name": "empty-cache-offline-explicit-closure-reference",
+          "status": "passed",
+          "evidence": {
+            "schemaVersion": 1,
+            "status": "passed",
+            "version": "0.1.0-preview.3",
+            "target": "win32-x64",
+            "testSigning": true,
+            "emptyNpmCache": true,
+            "offline": true,
+            "ignoreScripts": true,
+            "reference": {
+              "startup": true,
+              "health": true,
+              "terminal": "run.completed",
+              "close": true
+            },
+            "packageCount": 19
+          }
+        },
+        {
+          "name": "os-blocked-external-network-offline-reference",
+          "status": "not-certified",
+          "reason": "A platform-specific OS network isolation gate is still required."
+        }
+      ],
+      "platformArtifact": {
+        "file": "yanbot-harness-runtime-win32-x64-0.1.0-preview.3.tgz",
+        "size": 53712397,
+        "sha256": "91bea97193922c8aa2fc313311501c9f149eab62372c9587af78b7066f9a6b57"
+      }
+    }
+  ],
+  "commonArtifacts": [
+    {
+      "name": "@yanbot-harness/contracts",
+      "version": "0.1.0-preview.3",
+      "file": "yanbot-harness-contracts-0.1.0-preview.3.tgz",
+      "size": 8033,
+      "sha256": "876bdb9f86c1e21bba37ba5371cb33a16321bb6f32c0867f334c32fdfd9e97f1"
+    },
+    {
+      "name": "@yanbot-harness/sdk",
+      "version": "0.1.0-preview.3",
+      "file": "yanbot-harness-sdk-0.1.0-preview.3.tgz",
+      "size": 13015,
+      "sha256": "0b80f5c9bc3af0fac16c0bf1e53832a5b9e5dae0d86463b3c4687908ce2c56f1"
+    },
+    {
+      "name": "@yanbot-harness/runtime",
+      "version": "0.1.0-preview.3",
+      "file": "yanbot-harness-runtime-0.1.0-preview.3.tgz",
+      "size": 12491,
+      "sha256": "d4e63154447434843b72beeeffa69ed1195d4ffa403710549b9ba109b0fd1dbf"
+    },
+    {
+      "name": "@yanbot-harness/local",
+      "version": "0.1.0-preview.3",
+      "file": "yanbot-harness-local-0.1.0-preview.3.tgz",
+      "size": 1686,
+      "sha256": "1c96e0f1ec67d25f6a4ac63723075ef5643417a0c7910b72b6cbcf389df33dd2"
+    },
+    {
+      "name": "@yanbot-harness/cli",
+      "version": "0.1.0-preview.3",
+      "file": "yanbot-harness-cli-0.1.0-preview.3.tgz",
+      "size": 7289,
+      "sha256": "2e4bd9ab52ea41b0b42aa1241806b2ea4136cb0c1b9d03cb529f24b9ad4b61ca"
+    },
+    {
+      "name": "b4a",
+      "version": "1.9.0",
+      "file": "b4a-1.9.0.tgz",
+      "size": 10827,
+      "sha256": "de59f0361ea08bda72cc7730515534294a5a8cec3b77a10f1ea1461966b5a9c5"
+    },
+    {
+      "name": "bare-events",
+      "version": "2.9.2",
+      "file": "bare-events-2.9.2.tgz",
+      "size": 9868,
+      "sha256": "930075c896d610fe4f48f8178a33ffdca94263951ad5a9b9590fbf00c30594ae"
+    },
+    {
+      "name": "bare-fs",
+      "version": "4.8.1",
+      "file": "bare-fs-4.8.1.tgz",
+      "size": 355272,
+      "sha256": "ca00c0a6fd37f5c7f5f6ce932009ed3285401de9060b4b9426ba3bf7c2bae960"
+    },
+    {
+      "name": "bare-path",
+      "version": "3.1.2",
+      "file": "bare-path-3.1.2.tgz",
+      "size": 138452,
+      "sha256": "cd4006032ecc1522a3cfe95d6f922b7defc112c4c07c12310b84dbbab140af52"
+    },
+    {
+      "name": "bare-stream",
+      "version": "2.13.4",
+      "file": "bare-stream-2.13.4.tgz",
+      "size": 13459,
+      "sha256": "fb4e89b12e635f55d767708a319b68d64c679997d7ed7db45c4e79c54f1f40d1"
+    },
+    {
+      "name": "bare-url",
+      "version": "2.5.4",
+      "file": "bare-url-2.5.4.tgz",
+      "size": 1529187,
+      "sha256": "dea46545fe28d88c16ce876f499ce88a7e22cb344d8bddd3abadfd5b0c7212d6"
+    },
+    {
+      "name": "events-universal",
+      "version": "1.0.1",
+      "file": "events-universal-1.0.1.tgz",
+      "size": 4639,
+      "sha256": "651bddef1551a02e132b3d442f478eb0a0399e66e8eb2413bd9c155e2a254710"
+    },
+    {
+      "name": "fast-fifo",
+      "version": "1.3.2",
+      "file": "fast-fifo-1.3.2.tgz",
+      "size": 2290,
+      "sha256": "d49dc8e31d92f91403623a9a059ea034332732adead69ed3fe5cd4f25e2d4ac4"
+    },
+    {
+      "name": "streamx",
+      "version": "2.28.1",
+      "file": "streamx-2.28.1.tgz",
+      "size": 15026,
+      "sha256": "ab59da7c5f2febeaea28e06ae3101e89f4bcdddc9c7c959158381a2adb484745"
+    },
+    {
+      "name": "tar-stream",
+      "version": "3.2.1",
+      "file": "tar-stream-3.2.1.tgz",
+      "size": 10381,
+      "sha256": "18c04426fdb3b784ee81b33e2b8b1eea51af659cd232e9018533bb7be04226bb"
+    },
+    {
+      "name": "teex",
+      "version": "1.0.1",
+      "file": "teex-1.0.1.tgz",
+      "size": 2176,
+      "sha256": "de3e6b943b1eb4c4737da39f73cebcf89920d4678d314c42319663fd667d995f"
+    },
+    {
+      "name": "text-decoder",
+      "version": "1.2.7",
+      "file": "text-decoder-1.2.7.tgz",
+      "size": 6262,
+      "sha256": "c7251631253a39ccca8359c40774145ee2fb9db4c7fb8da3ca54a5cd10b3bf61"
+    },
+    {
+      "name": "zod",
+      "version": "4.4.3",
+      "file": "zod-4.4.3.tgz",
+      "size": 759588,
+      "sha256": "ee38f17f533fd500610685a483ae2f413c26f4eb33a51684314563c8d60f279c"
+    }
+  ],
+  "linuxDiskFailure": {
+    "sourceCommit": "a44b2d98a383a857f4c91ed701d7e4cc1be707f5",
+    "run": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34968146813",
+    "evidence": {
+      "status": "passed",
+      "platform": "linux",
+      "externalConnect": "ENETUNREACH",
+      "loopbackAllowed": true,
+      "privilegesDropped": true,
+      "installation": {
+        "schemaVersion": 1,
+        "status": "passed",
+        "version": "0.1.0-preview.3",
+        "target": "linux-x64",
+        "testSigning": true,
+        "emptyNpmCache": true,
+        "offline": true,
+        "ignoreScripts": true,
+        "reference": {
+          "startup": true,
+          "health": true,
+          "terminal": "run.completed",
+          "close": true
+        },
+        "packageCount": 19
+      },
+      "diskFailure": {
+        "status": "passed",
+        "actualDiskError": "ENOSPC",
+        "oldCachePreserved": true,
+        "partialFilesRemoved": true
+      }
+    }
+  },
+  "containment": {
+    "schemaVersion": 1,
+    "version": "0.1.0-preview.3",
+    "target": "darwin-arm64",
+    "scenario": "detached-descendant-after-managed-close",
+    "status": "blocked",
+    "cleanup": "authenticated-owned-fixture-shutdown",
+    "detachedDescendantSurvives": true
+  },
+  "legacyPreview2": {
+    "unchangedZipSha256": "109ae675089927f7244ce4a0754b5604414e937cd213e48e0f857e5cc4e8c1b0",
+    "currentSdkExplicitRuntimeReference": "passed locally on darwin-arm64; run.completed and close"
+  },
+  "windowsFileOccupancy": {
+    "sourceCommit": "a44b2d98a383a857f4c91ed701d7e4cc1be707f5",
+    "run": "https://github.com/niuyi1017/yanbot-harness/actions/runs/34968146843",
+    "status": "passed",
+    "mechanism": "FileShare.None; use rejected; release restores unchanged cache"
+  },
+  "remaining": [
+    "Strong containment decision and implementation",
+    "Production signing/Registry/scope/redistribution approval",
+    "Windows 10/11 and real vendor certification",
+    "Windows OS-level outbound blocking",
+    "Two frozen releases with complete business-state upgrade/rollback"
+  ]
+}

@@ -30,7 +30,7 @@
 
 - 任意脱组后代、Runtime 自身被强杀后整树回收的强 containment。当前 IPC、watchdog、POSIX 组与 Windows taskkill 不能替代 Windows Job Object 或同等经认证的宿主隔离边界。
 - `pnpm probe:managed-containment` 为独立否定门禁：2026-09-15 macOS arm64 实测 detached 孙进程在 managed close 成功后仍存活，命令 exit 1/status blocked。探针通过随机认证的仅本机控制端点回收自己的 fixture，不通过旧 PID 猜测杀进程；默认 30 秒自退出兜底。这是已证实的缺口，不是“还没测试”。
-- 全目标 OS 级阻外网（Mac 已有重复通过的 sandbox 测试；其他目标未认证）。
-- 两个真实冻结版本的完整消费者/业务状态升级回滚，以及实际 ENOSPC、Windows 文件占用故障。小型版本缓存 fixture、只读/占用路径和未知 schema 拒绝只覆盖部分机制。
+- Windows OS 级阻外网（Mac sandbox、Linux network namespace 已通过）。
+- 两个真实冻结版本的完整消费者/业务状态升级回滚。小型版本缓存 fixture、未知 schema、Linux 实际 ENOSPC 与 Windows FileShare.None 占用/恢复已通过，但不等于正式业务迁移认证。
 
 上述工程项保持未完成，不归类为已经被外部权限豁免。发布范围若要缩减，必须用户明确批准，不由代理默认修改验收承诺。

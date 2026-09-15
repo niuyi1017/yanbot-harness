@@ -198,6 +198,7 @@ consumer/local wrapper → SDK managed manager
 2. **保留纯 Node 受控内测候选**：只承诺已认证的正常/普通子进程行为，明确禁止把它标为任意后代整树保证；正式发布仍阻断。若把此限制作为最终交付范围，属于缩减原验收要求，须用户明确确认，代理不能自行裁剪。
 
 不采用：扫描全机 PID 后杀进程（存在重用与误伤）、无限延长 timeout、将 ACK 当作整树退出、关闭 Windows 现有 Job 保护来让单测通过，或给 macOS 自动安装需要提权的常驻组件。缺失强隔离设计不阻塞其余签名/离线/缓存/兼容测试，但阻塞该项正式发布声明。
+
 - 强制终止失败时不先删仍使用中的状态/lease。返回 `CLEANUP_FAILED`，保留安全诊断和后续显式恢复入口。
 - 自动临时 `stateRoot` 可在确认 owned 实例退出后删除；显式 `stateRoot` 仅删除匹配 instanceId 的 descriptor，保存 Session。掉电留下的临时目录由后续显式 doctor/cleanup 按所有权记录处理；不靠 module import 注册全局清扫器。
 
