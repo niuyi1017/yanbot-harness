@@ -1,5 +1,10 @@
 # SDK/CLI Preview Compatibility
 
+The canonical target process and credential boundaries are defined in
+[`docs/architecture/system-architecture.md`](../architecture/system-architecture.md). This document intentionally
+lists current release evidence only; a component shown in the target architecture is not supported until it appears
+below with completed certification evidence.
+
 ## Release baseline
 
 | Component            | Version           |

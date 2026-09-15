@@ -14,36 +14,17 @@
 
 ## 2. 总体架构
 
-```text
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│ CLI          │  │ Local Web    │  │ Electron     │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                  │                 │
-       └────────── @yanbot-harness/sdk ─────┘
-                          │
-                contracts / event stream
-                          │
-          ┌───────────────┴────────────────┐
-          │ local mode                    │ cloud mode
-  ┌───────▼────────┐            ┌─────────▼──────────┐
-  │ Local Runtime  │            │ Cloud Control Plane│◄── Admin Web
-  │ loopback       │            │ auth/session/quota │
-  └───────┬────────┘            └─────────┬──────────┘
-          │                               │ Redis queue
-          │                     ┌─────────▼──────────┐
-          │                     │ Cloud Worker      │
-          │                     │ sandbox runtime   │
-          │                     └─────────┬──────────┘
-          └──────────── adapter-api ──────┘
-                          │
-         ┌────────────────┼────────────────┐
-         │                │                │
-  CodeBuddy Adapter  Future Adapter  Sidecar Adapter
-         │                │                │
-  CodeBuddy SDK      DeepSeek/Pi等    JSON-RPC/stdio
+![Yanbot Harness 双 Runtime 与双厂商接入架构](../../architecture/assets/yanbot-harness-runtime-adapter-architecture.png)
 
-Cloud Control Plane ── MongoDB / Redis / Ali OSS / new-api
-```
+该图是本项目关于进程、协议、凭据和数据边界的统一架构基线；可编辑版本和逐项定义见
+[`docs/architecture/system-architecture.md`](../../architecture/system-architecture.md)。后续模块设计不得改变以下关系：
+
+- 产品 SDK/平台 CLI 只通过 Harness Client Protocol 连接 Runtime，不直接调用厂商 SDK 或厂商 CLI。
+- Local Runtime 是本机独立进程；Remote API 负责控制平面，Remote Worker/Sandbox 负责实际执行。
+- Harness Core、Contracts 和 Adapter API 是 Runtime/Worker 内的公共代码与规范，不是第三个独立 Runtime 进程。
+- SDK Adapter 与厂商 SDK 默认在 Runtime/Worker 进程内运行，不需要 Wrapper。
+- CLI 型厂商由 Sidecar Supervisor 拉起独立 Vendor Wrapper，再由 Wrapper 托管厂商 CLI 子进程。
+- Runtime 访问令牌与厂商 Key 是两类凭据；厂商 Key 不进入产品 SDK、平台 CLI、Web/Electron、事件或普通日志。
 
 ### 2.1 双 Runtime 兼容基线
 

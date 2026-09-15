@@ -1,5 +1,9 @@
 # Local / Remote Runtime 双形态兼容设计
 
+总体进程、协议、凭据和Adapter装载边界以
+[`docs/architecture/system-architecture.md`](../../architecture/system-architecture.md) 为准；本 Spec 只细化 Local/Remote
+协议兼容与迁移，不重新定义厂商接入层。
+
 ## 1. 设计结论
 
 平台采用“一套客户端协议，两类执行后端”。Local 与 Remote 不共享部署安全边界，但共享资源语义和 SDK/CLI
@@ -110,7 +114,7 @@ SDK/CLI、队列正文、Session Volume 或事件。刷新令牌和设备凭据�
 
 ## 8. Adapter 装载形态与 Runtime 部署形态
 
-Local Runtime 和 Cloud Worker 都只通过 `adapter-api` 调用 CodeBuddy Adapter。Adapter 不负责用户登录、租户、队列、
+Local Runtime 和 Remote Worker 都只通过 `adapter-api` 调用 CodeBuddy Adapter。Adapter 不负责用户登录、租户、队列、
 上传或 HTTP 路由，也不感知客户端是 Windows 还是 macOS。CodeBuddy Key 的交付方式不同：Local 由测试方在 Runtime
 配置中提供；Remote 由平台服务端保管并按 Run 短期注入。两端不得把 Key 交给 SDK 或 CLI。
 

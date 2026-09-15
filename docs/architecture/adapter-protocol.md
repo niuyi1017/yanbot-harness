@@ -4,6 +4,10 @@ This document is the implementation guide for the vendor-neutral contracts defin
 `@yanbot-harness/contracts` and the lifecycle exposed by `@yanbot-harness/adapter-api`. The Zod schemas remain the
 executable source of truth.
 
+The process, Runtime, credential, and deployment boundaries are defined by
+[`system-architecture.md`](./system-architecture.md). This document refines the Adapter boundary only and must not
+introduce a client-to-vendor or Remote-API-to-vendor shortcut.
+
 ## Boundary
 
 An adapter translates one harness implementation into the common run and event model. Public packages and callers

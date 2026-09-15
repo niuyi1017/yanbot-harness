@@ -1,5 +1,9 @@
 # 第三方 CLI Harness Adapter 设计
 
+总体进程、协议、凭据和双 Runtime 边界以
+[`docs/architecture/system-architecture.md`](../../architecture/system-architecture.md) 为准；本 Spec 只细化 CLI Sidecar
+进程监管和厂商翻译实现。
+
 ## 1. 设计结论
 
 CLI型Harness采用“两级适配”：通用Sidecar进程协议解决Runtime与Adapter的隔离，厂商专用Wrapper解决具体CLI的
@@ -19,6 +23,8 @@ Vendor CLI（例如某个已锁定版本的 Claude Code CLI）
 
 这使上层同时获得两个正交维度：Runtime可在Local或Remote，Adapter可由厂商SDK或厂商CLI实现。四种组合共享同一
 Session/Run/Event协议。
+
+![Yanbot Harness 双 Runtime 与双厂商接入架构](../../architecture/assets/yanbot-harness-runtime-adapter-architecture.png)
 
 ## 2. 模块划分
 

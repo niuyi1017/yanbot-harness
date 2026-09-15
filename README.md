@@ -3,6 +3,11 @@
 Yanbot Harness is a business-neutral agent runtime built around a stable adapter protocol. CodeBuddy is the first
 production adapter; future harnesses can integrate without changing the public SDK or clients.
 
+The target architecture has two independent dimensions: Local/Remote Runtime deployment and SDK/CLI vendor Adapter
+integration. See the [canonical system architecture](docs/architecture/system-architecture.md) and its
+[copyable PNG diagram](docs/architecture/assets/yanbot-harness-runtime-adapter-architecture.png). The target diagram
+does not replace the implementation status below.
+
 The foundation, M2 Local Runtime, and M3 TypeScript SDK/CLI are complete for offline development. Contracts, adapter
 SPI, managed runs, local persistence, authentication, workspace grants, configuration, extension discovery,
 loopback lifecycle, HTTP/SSE, the public SDK, and CLI process boundary are covered by Reference Adapter black-box
@@ -121,12 +126,14 @@ Reference Adapter tests still pass, while real CodeBuddy model calls remain unav
 - `packages/adapter-kit`: adapter authoring helpers and conformance checks.
 - `packages/adapter-reference`: deterministic, offline reference implementation.
 - `packages/adapter-codebuddy`: CodeBuddy 0.3.254 translation and the only package allowed to import its vendor SDK.
-- `packages/adapter-sidecar`: protocol schemas only during the foundation phase.
+- `packages/adapter-sidecar`: currently protocol schemas only; the target Sidecar Client/Supervisor and CLI vendor
+  wrappers are specified but not implemented.
 - `packages/testing`: deterministic clocks/IDs and the black-box Local Runtime test client.
 - `packages/sdk`: stable TypeScript client for the public HTTP/SSE protocol and protected daemon discovery.
 - `apps/local-runtime`: loopback-only HTTP/SSE service, local state, authentication, workspace grants, and run
   supervision.
 - `apps/cli`: terminal client built exclusively on `packages/sdk`.
 
-See [the foundation specification](docs/specs/foundation-bootstrap/design.md) for the current implementation contract.
+See [the foundation specification](docs/specs/foundation-bootstrap/design.md) for the current implementation contract,
+and [the platform foundation design](docs/specs/harness-platform-foundation/design.md) for the full target product.
 Adapter authors should also read [Adapter Protocol 1.0](docs/architecture/adapter-protocol.md).
