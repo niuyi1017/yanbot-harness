@@ -32,6 +32,16 @@ VM 启动/停止与 host/guest 崩溃需真实启动资源验证；只有编译�
 
 ## 复用与拒绝方案
 
+### H4 通信与映射细化（实施前冻结）
+
+guest 使用同版本 Linux arm64 Node + 规范化 Runtime，构建期记录文件与动态库摘要，不在用户启动时下载。开发 guest 可由原生 arm64 CI 生成；正式再分发与系统库许可证独立审批。guest initramfs 上限 256 MiB（压缩），VM 内存 2 GiB，机制 fixture 仍保持 512 MiB。
+
+使用原始 HTTP/SSE 字节转发，避免另造业务 RPC：SDK 的认证 loopback proxy → 私有 Unix socket（新建 0700 目录）→ VZ vsock → guest loopback bridge → 现有 Runtime。Unix socket 仅本次实例可访问；一次性 bootstrap 只走私有 socket，向 guest agent 传明确允许的环境配置，回传 guest descriptor；不经过公开 loopback，也不进入 argv/console/log。公开 proxy 仅允许认证的 `/local/` 路由，禁止 bootstrap。字节流有限并发、背压、断开传播，Runtime 自身仍执行认证及 Session/Run/Event 协议。
+
+VM 路径映射采用显式预声明：调用方通过启动选项声明 workspace 目录及只读属性，之后仍须调用现有 grantWorkspace；未预声明的路径拒绝，不自动共享父目录。此模式不同于原生任意目录 grant，必须在 SDK 文档明确。固定映射 `/harness-shares/workspace-N`，边界层只翻译协议中的 workspace 字段，绝不全局替换用户文本或 SSE 内容。state 独占子目录单独共享，host descriptor/config 不在 guest share 内。默认不共享任何 workspace，不复制整个 HOME。凭据仅接受显式环境或经原有规则校验的文件内容；不透传宿主 process.env。网络默认关闭，真实厂商认证需显式启用 NAT 并单独验收。
+
+host 的 pid 是 VM 生命周期 owner；guest Runtime pid 只在私有 bootstrap 中核验，不写作 host descriptor pid。旧 Darwin 制品仍不能满足 requireContainment；只有含已核验 VM host/kernel/initrd 的新描述符才能进入 VM 路径。
+
 - 复用 `packages/sdk/src/managed-runtime.ts` 的统一 deadline/handle、`apps/local-runtime/src/managed-control.ts` 的业务关闭、runtime cache/signature codec 与 `scripts/probe-managed-containment.mjs` 的自有认证 fixture 清理。
 - 原 `terminateOwnedChild` 的 process group/taskkill 仍是旧路径兼容实现，不当作新宿主能力，也不额外新建一套 Session/Run 客户端。
 - 拒绝全机 PID 扫描/kill、扩大超时冒充回收、允许 breakaway 以迁就测试、继承 Job handle 到厂商进程、无资源时静默回退原生 host 运行。
