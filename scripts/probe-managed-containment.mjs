@@ -51,6 +51,7 @@ const report = {
 try {
   handle = await startManagedRuntime({
     reference: true,
+    requireContainment: Boolean(process.env.HARNESS_NATIVE_JOB_HOST),
     stateRoot,
     runtimeResolver: async () => ({
       entryPath: entry,

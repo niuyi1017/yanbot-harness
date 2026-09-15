@@ -16,6 +16,8 @@ helper stdout 为有界 JSONL，仅 `started {protocolVersion:1,hostPid,runtimeP
 
 SDK 仍返回同一 ManagedRuntimeHandle。resolver 增量返回经过签名缓存核验的 containment helper 描述；轻量 SDK 不猜测安装路径。正常 close 先发送现有 IPC shutdown，宽限期后关闭 helper stdin；若 helper 无清空证明，返回 CLEANUP_FAILED 并保留状态。helper 被强杀时 Job 最后句柄关闭是内核兜底，但缺少确认时不虚构正常 close 成功。
 
+调用方可显式设置 `requireContainment: true`；无已接通宿主（含旧显式路径或尚未接通 VM 的 Mac）必须在 spawn 前报 CONTAINMENT_UNAVAILABLE。未认证的候选默认兼容路径不通过该选项冒充强模式，正式默认切换仍需跨平台验收。
+
 ## macOS VM 宿主
 
 选择 Apple Virtualization.framework，不依赖全机 PID 追踪、不把 sandbox-exec 当进程生命周期容器，也不要求用户运行 Docker 后台服务。先实现独立 Swift host 的能力检查、严格启动配置、控制 EOF/stop 与强制 VM stop 生命周期。

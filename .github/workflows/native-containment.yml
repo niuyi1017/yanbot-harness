@@ -26,6 +26,9 @@ jobs:
       - run: node scripts/probe-managed-containment.mjs
         env:
           HARNESS_NATIVE_JOB_HOST: native-build/managed-job-host.exe
+      - run: pnpm --filter @yanbot-harness/sdk test:unit
+        env:
+          HARNESS_NATIVE_JOB_HOST: ${{ github.workspace }}/native-build/managed-job-host.exe
       - uses: actions/upload-artifact@v7
         if: always()
         with:

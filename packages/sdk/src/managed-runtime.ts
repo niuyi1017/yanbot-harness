@@ -43,6 +43,8 @@ export type StartManagedRuntimeOptions = {
   shutdownTimeoutMs?: number;
   runtimeResolver?: ManagedRuntimeResolver;
   nodeExecutablePath?: string;
+  /** Fail before spawn unless a verified containment host is supplied by the resolver. */
+  requireContainment?: boolean;
   fetch?: typeof fetch;
 };
 
@@ -102,6 +104,11 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
     }
     signal.throwIfAborted();
     const executablePath = path.resolve(selectedPath ?? managed!.entryPath);
+    if (options.requireContainment && !managed?.containment)
+      throw new HarnessSdkError(
+        'runtime',
+        'CONTAINMENT_UNAVAILABLE: this Runtime path has no certified containment host.',
+      );
     await validateExecutable(executablePath);
     const invocation = await invocationFor(executablePath, node);
     if (managed?.containment) {
