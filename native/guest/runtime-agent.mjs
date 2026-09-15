@@ -10,6 +10,7 @@ import { setTimeout, clearTimeout } from 'node:timers';
 let initialized = false;
 let descriptor;
 let runtime;
+let launchId;
 const allowed = new Set([
   'CODEBUDDY_API_KEY',
   'CODEBUDDY_INTERNET_ENVIRONMENT',
@@ -52,7 +53,7 @@ const server = createServer(async (incoming, outgoing) => {
         detached: true,
       });
       runtime.once('exit', () => process.exit(1)); // PID 1 stops the entire VM, including detached descendants.
-      const launchId = randomUUID();
+      launchId = randomUUID();
       const ready = await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error()), 15000);
         runtime.once('error', reject);
@@ -75,6 +76,13 @@ const server = createServer(async (incoming, outgoing) => {
       outgoing.end(
         JSON.stringify({ descriptor, runtimeVersion: ready.runtimeVersion, protocolVersion: ready.protocolVersion }),
       );
+      return;
+    }
+    if (descriptor && incoming.url === '/__harness/shutdown' && incoming.method === 'POST') {
+      if (runtime.connected)
+        runtime.send({ type: 'shutdown', managedProtocolVersion: 1, launchId, requestId: randomUUID() });
+      outgoing.writeHead(200, { 'content-type': 'application/json' });
+      outgoing.end('{}');
       return;
     }
     if (!descriptor || !incoming.url?.startsWith('/local/')) {
