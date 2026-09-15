@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, stat, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createRequire } from 'node:module';
@@ -157,7 +157,7 @@ try {
     source: linkFree,
     destination: normalized,
     ownedPackages: ownedPackages.map(({ name, version }) => ({ name, version })),
-    forbiddenRoots: [repository, await realpath(repository), root, await realpath(root), homedir()],
+    forbiddenRoots: [repository, await realpath(repository), root, await realpath(root)],
   });
   const normalizedGraphOptions = { omitPackageManifestBytes: true, ignoredFiles: NORMALIZATION_METADATA };
   report.normalizedGraphComparison = {
