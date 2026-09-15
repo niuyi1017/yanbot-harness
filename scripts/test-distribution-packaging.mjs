@@ -20,8 +20,20 @@ const targets = ['darwin-arm64', 'win32-x64', 'linux-x64'];
 const target = `${process.platform}-${process.arch}`;
 assert(targets.includes(target), `Unsupported probe host: ${target}`);
 const args = process.argv.slice(2).filter((item) => item !== '--');
-assert(args.length === 0 || (args.length === 2 && args[0] === '--output-dir'), 'Use --output-dir DIRECTORY');
-const outputParent = args.length ? path.resolve(args[1]) : tmpdir();
+const options = new Map();
+for (let index = 0; index < args.length; index += 2) {
+  assert(
+    ['--output-dir', '--export-kit', '--import-kit'].includes(args[index]) &&
+      args[index + 1] &&
+      !options.has(args[index]),
+    'Use --output-dir DIRECTORY, --export-kit DIRECTORY or --import-kit DIRECTORY',
+  );
+  options.set(args[index], path.resolve(args[index + 1]));
+}
+assert(!(options.has('--export-kit') && options.has('--import-kit')), 'Export and import are mutually exclusive.');
+const exportKit = options.get('--export-kit');
+const importKit = options.get('--import-kit');
+const outputParent = options.get('--output-dir') ?? tmpdir();
 await mkdir(outputParent, { recursive: true });
 const root = await mkdtemp(path.join(outputParent, 'harness-distribution-probe-'));
 const packages = new Map();
@@ -30,6 +42,7 @@ const cases = [];
 let deniedPackage;
 let denyEverything = false;
 const payload = gzipSync(Buffer.from('T1 opaque payload preservation fixture; not an executable Runtime.\n'));
+let expectedPayloadSha256 = sha256(payload);
 const pnpmEntry = process.env.npm_execpath;
 assert(pnpmEntry && /pnpm/iu.test(pnpmEntry), 'Run this probe via pnpm probe:distribution.');
 const report = {
@@ -44,7 +57,7 @@ const report = {
     'Synthetic packages only; no production Runtime, signature, lifecycle, or vendor certification.',
     'Only the actual host is exercised; other platform packages contain metadata fixtures.',
     'Offline network evidence covers package-manager offline mode and a deny-all loopback registry, not OS firewall enforcement.',
-    'Cross-host lockfile transfer and real Registry authentication require separate acceptance.',
+    'Cross-host evidence requires sourceTarget and actual target to differ; real Registry authentication remains separate acceptance.',
   ],
 };
 
@@ -93,7 +106,10 @@ const server = createServer((request, response) => {
     }),
   );
 });
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+await new Promise((resolve, reject) => {
+  server.once('error', reject);
+  server.listen(exportKit || importKit ? 48731 : 0, '127.0.0.1', resolve);
+});
 const registry = `http://127.0.0.1:${server.address().port}`;
 
 try {
@@ -101,7 +117,9 @@ try {
   report.pnpm = (await runPnpm(['--version'], root)).stdout.trim();
   assert.equal(report.npm, '10.9.8', 'Probe requires npm 10.9.8; record/review any version change.');
   assert.equal(report.pnpm, '11.10.0', 'Probe requires pnpm 11.10.0.');
-  await buildFixtures();
+  if (exportKit) await mkdir(exportKit); // Never overwrite an existing kit.
+  if (importKit) await importFixtures();
+  else await buildFixtures();
   report.artifacts = [...packages.values()].map(({ manifest, bytes, entries }) => ({
     name: manifest.name,
     version,
@@ -128,7 +146,7 @@ try {
       await install(manager, consumer);
       const resolved = await readConsumer(consumer);
       assert.equal(resolved.target, target);
-      assert.equal(resolved.payloadSha256, sha256(payload));
+      assert.equal(resolved.payloadSha256, expectedPayloadSha256);
       assert.equal(resolved.sdkIdentity, 'shared-sdk-probe');
       const downloaded = requests
         .slice(start)
@@ -164,7 +182,7 @@ try {
         consumer,
       );
       assert.equal(JSON.parse(result.stdout).sdkIdentity, 'shared-sdk-probe');
-      assert(!requests.slice(start).some((request) => request.name.includes('/runtime')));
+      assert(!requests.slice(start).some((request) => request.name.includes('runtime')));
     });
 
     await test(`${manager}-omit-optional-gives-actionable-missing-package`, async () => {
@@ -204,8 +222,39 @@ try {
       if (manager === 'npm') await runNpm(['ci', '--ignore-scripts', '--no-audit', '--no-fund'], second);
       else await install(manager, second, ['--frozen-lockfile']);
       assert.equal((await readConsumer(second)).target, target);
+      if (exportKit) {
+        await mkdir(path.join(exportKit, 'locks', manager), { recursive: true });
+        await cp(path.join(first, lock), path.join(exportKit, 'locks', manager, lock));
+      }
       return { scope: 'same host, fresh node_modules and package-manager cache/store' };
     });
+    if (importKit)
+      await test(`${manager}-imported-lockfile-unchanged-reinstall`, async () => {
+        const consumer = await newConsumer(`${manager}-imported-lock`, `${scope}/local`);
+        const lock = manager === 'npm' ? 'package-lock.json' : 'pnpm-lock.yaml';
+        const bytes = await readFile(path.join(importKit, 'locks', manager, lock));
+        assert.equal(sha256(bytes), report.transfer.locks[manager]);
+        await writeFile(path.join(consumer, lock), bytes);
+        const start = requests.length;
+        if (manager === 'npm') await runNpm(['ci', '--ignore-scripts', '--no-audit', '--no-fund'], consumer);
+        else await install(manager, consumer, ['--frozen-lockfile']);
+        assert.equal(sha256(await readFile(path.join(consumer, lock))), sha256(bytes), 'Imported lock changed.');
+        assert.equal((await readConsumer(consumer)).target, target);
+        const downloaded = requests
+          .slice(start)
+          .filter((request) => request.name.startsWith('tarballs/'))
+          .map((request) => request.name);
+        assert(downloaded.some((name) => name.includes(`runtime-${target}-`)));
+        for (const other of targets.filter((item) => item !== target))
+          assert(!downloaded.some((name) => name.includes(`runtime-${other}-`)));
+        return {
+          sourceTarget: report.transfer.sourceTarget,
+          actualTarget: target,
+          crossHost: report.transfer.sourceTarget !== target,
+          lockSha256: sha256(bytes),
+          downloaded,
+        };
+      });
   }
 
   await test('npm-empty-cache-offline-explicit-tarball-closure', async () => {
@@ -264,6 +313,7 @@ try {
     assert.equal(await exists(path.join(root, 'HOOK_EXECUTED')), false);
   });
   report.status = cases.every((item) => item.status === 'passed') ? 'passed' : 'failed';
+  if (exportKit && report.status === 'passed') await exportFixtures();
 } catch (error) {
   report.status = 'failed';
   report.fatal = safeMessage(error);
@@ -281,6 +331,79 @@ try {
     }),
   );
   if (report.status !== 'passed') process.exitCode = 1;
+}
+
+async function exportFixtures() {
+  const artifacts = [];
+  for (const item of packages.values()) {
+    await cp(item.archive, path.join(exportKit, item.filename));
+    artifacts.push({
+      manifest: item.manifest,
+      filename: item.filename,
+      entries: item.entries,
+      sha256: sha256(item.bytes),
+    });
+  }
+  const locks = {};
+  for (const manager of ['npm', 'pnpm']) {
+    const lock = manager === 'npm' ? 'package-lock.json' : 'pnpm-lock.yaml';
+    locks[manager] = sha256(await readFile(path.join(exportKit, 'locks', manager, lock)));
+  }
+  const manifest = {
+    schemaVersion: 1,
+    sourceTarget: target,
+    payloadSha256: expectedPayloadSha256,
+    registry,
+    scriptSha256: report.scriptSha256,
+    npm: report.npm,
+    pnpm: report.pnpm,
+    locks,
+    artifacts,
+  };
+  await json(path.join(exportKit, 'kit.json'), manifest);
+  report.transfer = {
+    mode: 'export',
+    sourceTarget: target,
+    registry,
+    locks,
+    kitSha256: sha256(await readFile(path.join(exportKit, 'kit.json'))),
+  };
+}
+
+async function importFixtures() {
+  const bytes = await readFile(path.join(importKit, 'kit.json'));
+  const kit = JSON.parse(bytes);
+  assert.equal(kit.schemaVersion, 1);
+  assert.equal(kit.registry, registry, 'Lockfile Registry origin must stay byte-identical.');
+  assert.equal(kit.scriptSha256, report.scriptSha256, 'Probe implementation must match the producer.');
+  assert.equal(kit.npm, report.npm);
+  assert.equal(kit.pnpm, report.pnpm);
+  assert(targets.includes(kit.sourceTarget));
+  assert.match(kit.payloadSha256, /^[a-f0-9]{64}$/u);
+  expectedPayloadSha256 = kit.payloadSha256; // Producer bytes are authoritative; do not recompress on another OS/zlib.
+  const expected = new Set(
+    ['pack-layout', 'contracts', 'sdk', 'runtime', 'local', ...targets.map((item) => `runtime-${item}`)].map(
+      (item) => `${scope}/${item}`,
+    ),
+  );
+  for (const item of kit.artifacts) {
+    assert(expected.delete(item.manifest.name), 'Unexpected or duplicate fixture.');
+    assert.equal(item.manifest.version, version);
+    assert.match(item.filename, /^harness-install-probe-[a-z0-9.-]+\.tgz$/u);
+    const archive = path.join(importKit, item.filename);
+    const artifactBytes = await readFile(archive);
+    assert.equal(sha256(artifactBytes), item.sha256, 'Imported tarball was changed.');
+    packages.set(item.manifest.name, { ...item, archive, bytes: artifactBytes });
+  }
+  assert.equal(expected.size, 0, 'Incomplete fixture kit.');
+  report.transfer = {
+    mode: 'import',
+    sourceTarget: kit.sourceTarget,
+    actualTarget: target,
+    registry,
+    locks: kit.locks,
+    kitSha256: sha256(bytes),
+  };
 }
 
 async function buildFixtures() {

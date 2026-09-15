@@ -9,7 +9,35 @@ permissions:
   contents: read
 
 jobs:
+  transfer-fixtures:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.1
+      - run: npm install --global npm@10.9.8 --ignore-scripts --no-audit --no-fund
+      - run: pnpm probe:distribution --export-kit "${{ runner.temp }}/transfer-kit" --output-dir "${{ runner.temp }}/distribution-probes"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: distribution-transfer-fixtures
+          path: ${{ runner.temp }}/transfer-kit
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: distribution-probe-producer
+          path: ${{ runner.temp }}/distribution-probes/*/report.json
+          if-no-files-found: warn
+          retention-days: 14
   packaging:
+    needs: transfer-fixtures
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +62,12 @@ jobs:
           node-version: 22.23.1
       - run: npm install --global npm@10.9.8 --ignore-scripts --no-audit --no-fund
       - run: pnpm install --frozen-lockfile
-      - run: pnpm probe:distribution --output-dir "${{ runner.temp }}/distribution-probes"
+      - run: pnpm test:probes
+      - uses: actions/download-artifact@v8
+        with:
+          name: distribution-transfer-fixtures
+          path: ${{ runner.temp }}/transfer-kit
+      - run: pnpm probe:distribution --import-kit "${{ runner.temp }}/transfer-kit" --output-dir "${{ runner.temp }}/distribution-probes"
       - run: pnpm probe:runtime-deploy --output-dir "${{ runner.temp }}/distribution-probes"
       - uses: actions/upload-artifact@v7
         if: always()

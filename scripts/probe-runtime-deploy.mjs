@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { startManagedRuntime } from '../packages/sdk/dist/index.js';
+import { auditDeployedPackages } from './lib/deploy-probe-audit.mjs';
 
 const executeFile = promisify(execFile);
 const repository = path.resolve(import.meta.dirname, '..');
@@ -19,6 +20,8 @@ const outputParent = args.length ? path.resolve(args[1]) : tmpdir();
 await mkdir(outputParent, { recursive: true });
 const root = await mkdtemp(path.join(outputParent, 'harness-runtime-deploy-probe-'));
 const deployed = path.join(root, 'deploy');
+const hoisted = path.join(root, 'hoisted');
+const linkFree = path.join(root, 'link-free');
 const relocated = path.join(root, 'relocated 中文 space &');
 const lockBefore = await readFile(path.join(repository, 'pnpm-lock.yaml'));
 const runtimePackage = JSON.parse(await readFile(path.join(repository, 'apps/local-runtime/package.json'), 'utf8'));
@@ -26,6 +29,7 @@ const report = {
   schemaVersion: 1,
   kind: 'runtime-deploy-mechanism-probe',
   scriptSha256: hash(await readFile(import.meta.filename)),
+  auditScriptSha256: hash(await readFile(path.join(import.meta.dirname, 'lib/deploy-probe-audit.mjs'))),
   target: `${process.platform}-${process.arch}`,
   node: process.version,
   lockSha256: hash(lockBefore),
@@ -33,7 +37,8 @@ const report = {
     'Offline deployment uses the existing frozen-lock pnpm store; this is not an empty-cache install.',
     'Raw deploy includes local file references and package-manager metadata; it is not a distributable payload.',
     'Reference startup/run/close only; vendor executable availability is an inventory, not permission or real-vendor certification.',
-    'Relocation retains internal symlinks; link-free payload assembly and extraction limits remain T1/T2 work.',
+    'Link-free candidate retains raw deploy metadata; sanitization, signatures and extraction limits remain required.',
+    'Graph equality deduplicates identical package/asset/edge records; physical duplication is reported and module singleton identity is not certified.',
   ],
 };
 try {
@@ -67,10 +72,58 @@ try {
   for (const name of ['typescript', 'vitest', '@yanbot-harness/testing']) {
     assert(!report.original.packages.some((item) => item.name === name), `Unexpected development package: ${name}`);
   }
-  await cp(deployed, relocated, { recursive: true, verbatimSymlinks: true });
+  await executeFile(
+    process.execPath,
+    [
+      pnpmEntry,
+      '--filter',
+      '@yanbot-harness/local-runtime',
+      'deploy',
+      '--prod',
+      '--offline',
+      '--frozen-lockfile',
+      '--ignore-scripts',
+      '--config.node-linker=hoisted',
+      hoisted,
+    ],
+    {
+      cwd: repository,
+      timeout: 60_000,
+      maxBuffer: 4 * 1024 * 1024,
+      windowsHide: true,
+    },
+  );
+  assert.equal(
+    hash(await readFile(path.join(repository, 'pnpm-lock.yaml'))),
+    report.lockSha256,
+    'Hoisted deploy changed root lock.',
+  );
+  report.hoisted = await inventory(hoisted);
+  const originalGraph = await auditDeployedPackages(deployed);
+  const hoistedGraph = await auditDeployedPackages(hoisted);
+  report.graphComparison = { original: originalGraph, hoisted: hoistedGraph };
+  assert.equal(
+    hoistedGraph.graphSha256,
+    originalGraph.graphSha256,
+    'Hoisting changed package assets or resolved dependency graph.',
+  );
+  report.binShims = await materializeBinLinks(hoisted, linkFree);
+  report.linkFree = await inventory(linkFree);
+  assert.equal(report.linkFree.links, 0, 'Candidate still contains links.');
+  await cp(linkFree, relocated, { recursive: true, verbatimSymlinks: true });
   report.relocated = await inventory(relocated);
   assert.equal(report.relocated.externalLinks.length, 0, 'Relocation still points into original staging.');
-  assert.equal(report.relocated.fileTreeSha256, report.original.fileTreeSha256);
+  assert.equal(report.relocated.fileTreeSha256, report.linkFree.fileTreeSha256);
+  assert.equal((await auditDeployedPackages(relocated)).graphSha256, originalGraph.graphSha256);
+  if (process.platform !== 'win32') {
+    for (const shim of report.binShims) {
+      const arguments_ = path.basename(shim.path) === 'which' ? ['node'] : ['--help'];
+      await executeFile('/bin/sh', [path.join(relocated, shim.path), ...arguments_], {
+        env: { PATH: process.env.PATH, NODE_BINARY: process.execPath },
+        timeout: 5000,
+      });
+    }
+  }
   const runtime = await startManagedRuntime({
     executablePath: path.join(relocated, 'dist/main.js'),
     reference: true,
@@ -115,6 +168,40 @@ try {
 } finally {
   await writeFile(path.join(root, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ status: report.status, report: path.join(root, 'report.json') }));
+}
+
+async function materializeBinLinks(source, destination) {
+  const links = [];
+  const canonicalSource = await realpath(source);
+  await cp(source, destination, {
+    recursive: true,
+    filter: async (file) => {
+      if (!(await lstat(file)).isSymbolicLink()) return true;
+      const relative = path.relative(source, file);
+      assert.equal(path.basename(path.dirname(file)), '.bin', 'Only package-manager bin links may become shims.');
+      assert.notEqual(process.platform, 'win32', 'Windows symlink conversion requires its own tested shim.');
+      const resolved = await realpath(file);
+      const within = path.relative(canonicalSource, resolved);
+      assert(
+        within !== '..' && !within.startsWith(`..${path.sep}`) && !path.isAbsolute(within),
+        'External bin target.',
+      );
+      assert.match((await readFile(resolved, 'utf8')).split('\n')[0], /^#!\/usr\/bin\/env node\r?$/u);
+      const target = await readlink(file);
+      assert(!path.isAbsolute(target));
+      assert.match(target, /^[a-zA-Z0-9_./@+-]+$/u);
+      links.push({ path: relative, target });
+      return false;
+    },
+  });
+  for (const link of links) {
+    await writeFile(
+      path.join(destination, link.path),
+      `#!/bin/sh\nset -eu\nexec "\${NODE_BINARY:-node}" "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/${link.target}" "$@"\n`,
+      { mode: 0o755 },
+    );
+  }
+  return links;
 }
 
 async function inventory(directory) {

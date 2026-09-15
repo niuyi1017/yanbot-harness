@@ -1,6 +1,6 @@
 # SDK 与 Local Runtime 统一安装设计
 
-状态：**方案已确认，尚未实现**。基线：2026-09-15 / `0247627`。
+状态：**方案已确认，T1 探针进行中，T2–T7 产品实现未开始**。基线：2026-09-15 / `0247627`。
 总体进程和凭据边界遵循 [system architecture](../../architecture/system-architecture.md)；当前交付能力仍以 [compatibility](../../delivery/compatibility.md) 为准。
 
 ## 1. 评审结论与当前证据
@@ -70,6 +70,12 @@ LICENSE / THIRD_PARTY_NOTICES / sbom.json
 内部依赖来自确定的锁定集合，构建结果检查 peer/optional 依赖和运行资源齐全。具体实现先验证以 frozen workspace lock 生成 deploy staging 的可行性；若需继续使用隔离 npm install，则从锁定集合生成独立构建 lock 并 `npm ci`，禁止沿用当前无 lock 的传递范围解析。只在一次 release 构建固定 payload，后续各渠道复制相同字节。
 
 T1 本机已验证 pnpm 11.10.0 的 `deploy --prod --offline --frozen-lockfile --ignore-scripts`，搬迁后 Reference 可运行，根 lock 未变化。但 raw deploy 仍包含内部链接、`file:` 本机构建路径以及 pnpm 元数据；**仅作装配输入，禁止直接签名发布**。正式构建需完成链接解引用、发布元数据归一化和路径/资产/许可证扫描，之后再确定展开限值。完整发现见 [probe-results](probe-results.md)。
+
+T1 后续探针优先验证包管理器的 hoisted deploy 能否从同一 frozen lock 生成无链接目录，避免自制依赖扁平化器破坏多版本/peer 解析；失败时保留证据再选装配策略。跨宿主 fixture 采用 Mac 构建一次、上传原始 tgz 与 npm/pnpm lock，其他 runner 下载后原样消费；隔离 Registry 固定 loopback 端口，避免为迁移测试改写 lock URL。记录源/目标宿主、原始 lock/hash 与实际下载平台，端口占用直接失败，不静默重定位。探针 kit 不是正式离线交付产品。
+
+若 hoisted 只剩 Node CLI 的 `.bin` 符号链接，探针用相对路径 POSIX exec shim 保留原文件的运行目录语义，而不是把 CLI 内容复制到 `.bin` 后破坏相对 import。非 `.bin` 链接、非 Node shebang 和越界目标直接拒绝；Windows 已有普通 cmd/shim 文件原样保留、仍须实测。装配前后逐包比较资源摘要与 dependencies/optional/peer 的实际解析图，避免“Reference 能运行”掩盖厂商资产丢失。此候选目录依旧保留 raw deploy 元数据，不冒充可发布制品。
+
+本机 hoisted 探针发现 `content-type@1.0.5` 从一个物理副本变成两个，资源与解析边一致。比较时区分物理副本清单与按 name/version/资源/解析边去重的语义清单，两者均留摘要和数量；允许完全相同的重复副本，不忽略任何版本、资源或解析边变化。这不证明 Node 模块缓存/单例身份等价，厂商/业务回归仍是门禁。
 
 Runtime npm 包不携带 Node；普通 Node 宿主使用受支持的 Node 22。平台并非纯 JS 就可以通用：厂商辅助程序、原生模块、文件权限及生命周期都需要目标环境构建和验收。
 

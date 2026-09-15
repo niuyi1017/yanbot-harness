@@ -22,8 +22,10 @@
 - [ ] 用最小测试包验证同一公共 tgz 跨平台安装、Mac 产生的 lockfile 在 Windows 重装、空缓存离线 kit、平台缺包/Registry 拒绝诊断。
 - [ ] 冻结 manifest、resolver 类型、解包库精确版本、大小限值、缓存权限与生命周期 control protocol；不可行之处先修 Spec。
 - 本机证据：npm/pnpm 安装机制 16/16 通过；frozen-lock 离线 deploy、搬迁后 Reference Run/close 通过。尚不能勾选完整跨平台验收项，详见 [probe-results](probe-results.md)。
-- 待续：共享 tgz 与 Mac→Windows lockfile 转移；link-free payload 装配/资源与许可核查；manifest/解包/control 具体契约。三平台 CI 入口已编写，未触发远端执行。
-- 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`.github/workflows/distribution-probes.yml`、本目录探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
+- [x] T1b 本机验证同一 kit/tgz/原始 lock 的 export→import（18/18），并连接 Mac producer→三平台 consumer CI；本机只算 Mac→Mac，跨系统结果未取得。
+- [x] T1b 验证 hoisted deploy 与仅 `.bin` Node 链接的相对 exec shim，得到零链接候选目录；比对逐包资源/实际依赖上下文、搬迁后 Reference 与 CLI shim。新增审计单测覆盖资源/版本/peer 错接、重复副本和越界链接。
+- 待续：执行 Mac→Windows/Linux CI 与实机门禁；发布元数据归一化、厂商许可；manifest/解包/control 具体契约。候选目录仍含本机 metadata，不是正式 payload。
+- 文件：`scripts/test-distribution-packaging.mjs`、`scripts/probe-runtime-deploy.mjs`、`scripts/lib/deploy-probe-audit.mjs`、`scripts/test-deploy-probe-audit.mjs`、`.github/workflows/distribution-probes.yml`、本目录探针记录；fixtures/完整 deploy 隔离生成，不提交产品制品。
 - 前置：T0 的产品方案确认；真实 Registry 缺失可使用本地测试 Registry，签名使用标明的测试密钥。
 - 验收：Mac/Windows 空目录探针输出安装依赖图、实际下载包和 hash；明确不支持的组合；不可把本机一种布局通过当作跨平台通过。
 
