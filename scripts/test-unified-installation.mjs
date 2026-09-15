@@ -16,6 +16,10 @@ import tar from 'tar-stream';
 import { npmInvocation } from './lib/release-platform.mjs';
 
 const execute = promisify(execFile);
+assert(
+  process.env.npm_execpath && /pnpm/iu.test(process.env.npm_execpath),
+  'Run this matrix through pnpm test:unified-installation or pnpm test:unified-ci.',
+);
 const args = process.argv.slice(2).filter((arg) => arg !== '--');
 assert(
   args.length === 4 && args[0] === '--common' && args[2] === '--platform',

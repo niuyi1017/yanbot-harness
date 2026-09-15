@@ -21,6 +21,7 @@
     "build:unified-common": "node scripts/build-unified-common.mjs",
     "build:offline-kit": "node scripts/build-offline-kit.mjs",
     "test:unified-installation": "node scripts/test-unified-installation.mjs",
+    "test:unified-ci": "node scripts/run-unified-ci.mjs",
     "release:assemble": "node scripts/assemble-release.mjs",
     "release:build": "node scripts/build-release.mjs",
     "release:check": "node scripts/check-release-artifacts.mjs",

@@ -65,7 +65,7 @@ jobs:
           name: unified-common-packages
           path: ${{ runner.temp }}/common
       - run: pnpm build:platform-runtime --test-signing --skip-build --output-dir "${{ runner.temp }}/platform"
-      - run: node scripts/run-unified-ci.mjs "${{ runner.temp }}/common" "${{ runner.temp }}/platform" "${{ runner.temp }}/unified-result.json"
+      - run: pnpm test:unified-ci "${{ runner.temp }}/common" "${{ runner.temp }}/platform" "${{ runner.temp }}/unified-result.json"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

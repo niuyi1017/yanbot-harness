@@ -105,14 +105,14 @@ test('Windows shims use only validated relative Node targets and reject unknown 
   ]) {
     const directory = path.join(root, 'node_modules', name);
     await mkdir(path.dirname(path.join(directory, entry)), { recursive: true });
-    await writeFile(path.join(directory, 'package.json'), JSON.stringify({ name, bin: { [name]: entry } }));
+    await writeFile(path.join(directory, 'package.json'), JSON.stringify({ name, bin: { [name]: './' + entry } }));
     await writeFile(path.join(directory, entry), '#!/usr/bin/env node\n');
-    for (const suffix of ['', '.cmd', '.ps1'])
+    for (const suffix of ['', '.CMD', '.ps1'])
       await writeFile(path.join(bins, name + suffix), 'old absolute build path');
   }
   const result = await normalizeWindowsBinShims(root);
   assert.equal(result.length, 6);
-  assert((await readFile(path.join(bins, 'uuidv7.cmd'), 'utf8')).includes('%~dp0..'));
+  assert((await readFile(path.join(bins, 'uuidv7.CMD'), 'utf8')).includes('%~dp0..'));
   assert((await readFile(path.join(bins, 'which.ps1'), 'utf8')).includes('$PSScriptRoot/../which/bin/which'));
   for (const item of result) assert(!(await readFile(path.join(root, item.path), 'utf8')).includes('old absolute'));
   await writeFile(path.join(bins, 'unknown.cmd'), 'do not remove');

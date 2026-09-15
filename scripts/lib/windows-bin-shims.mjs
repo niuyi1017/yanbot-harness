@@ -17,7 +17,9 @@ export async function normalizeWindowsBinShims(root) {
     ['which', 'bin/which'],
   ]) {
     const pkg = JSON.parse(await readFile(path.join(root, 'node_modules', name, 'package.json'), 'utf8'));
-    assert.equal(typeof pkg.bin === 'string' ? pkg.bin : pkg.bin[name], entry);
+    const declared = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin[name];
+    assert.equal(typeof declared, 'string');
+    assert.equal(declared.replace(/^\.\//u, ''), entry);
     assert.match(
       (await readFile(path.join(root, 'node_modules', name, entry), 'utf8')).split('\n')[0],
       /^#!\/usr\/bin\/env node\r?$/u,
