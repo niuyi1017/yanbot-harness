@@ -95,14 +95,17 @@ function powershellScript(name, program, operation) {
     return (
       `$ErrorActionPreference='Stop';${identity}` +
       `if(Get-NetFirewallRule -Name $name -ErrorAction SilentlyContinue){throw 'Rule already exists'}` +
-      `;New-NetFirewallRule -PolicyStore ActiveStore -Name $name -DisplayName $name -Direction Outbound ` +
+      `;$created=$false;try{New-NetFirewallRule -PolicyStore ActiveStore -Name $name -DisplayName $name -Direction Outbound ` +
       `-Action Block -Enabled True -Profile Any -Program $program -RemoteAddress Internet | Out-Null` +
+      `;$created=$true` +
       `;$rule=Get-NetFirewallRule -PolicyStore ActiveStore -Name $name -ErrorAction Stop` +
       `;$filter=$rule | Get-NetFirewallApplicationFilter` +
       `;$address=$rule | Get-NetFirewallAddressFilter` +
       `;if($rule.Direction -ne 'Outbound' -or $rule.Action -ne 'Block' -or $rule.Enabled -ne 'True' ` +
       `-or $filter.Program -ne $program -or $address.RemoteAddress -notcontains 'Internet'){throw 'Rule mismatch'}` +
-      `;[Console]::Out.Write('{"status":"created"}')`
+      `;[Console]::Out.Write('{"status":"created"}')` +
+      `}catch{if($created){Get-NetFirewallRule -PolicyStore ActiveStore -Name $name -ErrorAction SilentlyContinue | ` +
+      `Where-Object {($_ | Get-NetFirewallApplicationFilter).Program -eq $program} | Remove-NetFirewallRule};throw}`
     );
   if (operation === 'remove')
     return (
@@ -153,6 +156,10 @@ export async function windowsOfflineNetworkGate({ kit, prefix, environment }) {
       ],
       { detached: true, stdio: 'ignore', windowsHide: true },
     );
+    await new Promise((resolve, reject) => {
+      watchdog.once('spawn', resolve);
+      watchdog.once('error', reject);
+    });
     watchdog.unref();
     const child = await execute(
       process.execPath,
