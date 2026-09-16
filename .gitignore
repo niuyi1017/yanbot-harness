@@ -11,5 +11,6 @@ release/
 release-runtime/
 release-work/
 native-build/
+delivery-output/
 .idea/
 .vscode/
