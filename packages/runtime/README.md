@@ -7,3 +7,7 @@ Production trust roots are intentionally empty pending release authorization. `t
 The standalone meta-package launcher forwards only approved OS/proxy/CA configuration and credential-file references.
 It drops Registry tokens, inline vendor keys and Node/dynamic-loader injection variables. Use `CODEBUDDY_API_KEY_FILE`;
 advanced hosts that intentionally choose another environment can resolve the installed entry and own its process lifecycle.
+
+On macOS, strong containment is selected only by the managed SDK/local resolver when the signed platform manifest contains
+`macos-vm-v1`. The standalone launcher and CLI `--managed-runtime PATH` remain native compatibility paths and do not claim
+VM containment. Callers requiring the strong guarantee must use managed resolution with `requireContainment: true`.

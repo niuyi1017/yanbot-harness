@@ -122,7 +122,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ### P1D `[~]` 统一本地安装与 Runtime 平台包
 
-**状态**：preview.3 实现候选已交付，未全部完成。三平台原始 kit/lock、完整归档、签名平台候选、npm/pnpm local 四场景、SDK-only/runtime-only/CLI-only、19 tgz 空缓存离线与 portable Reference 通过；Mac/Linux OS 阻外网通过。SDK 30 项、Runtime 16 项按平台执行，含 watchdog、权限、缓存回退/锁恢复、未知 schema 保留；Linux 实际 ENOSPC 和 Windows 独占文件占用/恢复通过。独立 detached 故障探针已证实强 containment 缺口，隔离宿主范围待确认；正式身份/许可、实机、Windows OS 阻网及两个正式冻结版本的完整业务回滚仍为门禁。证据见 [verification-evidence](../unified-local-distribution/verification-evidence.json)。新增包未发布，P1 及后续产品阶段不在本 P1D 连续执行范围。
+**状态**：preview.3 工程候选已交付，未获正式发布授权。三平台签名候选、npm/pnpm、SDK-only/runtime-only/CLI-only、19 tgz 空缓存离线与 portable Reference 通过；Mac/Linux/Windows OS 阻外网通过。Windows Job 与 Mac VM 强 containment 产品路径已完成机制、SDK 父强杀、并发隔离、真实 HTTP/SSE 和测试签名包回归；冻结 preview.2 → VM candidate → preview.2 的 Reference 业务状态往返通过。旧兼容路径 detached 否定证据仍有效，不冒充强模式。剩余门禁为正式身份/Registry/许可、真实厂商、Windows 10/11 实机及两个生产签名冻结版本认证。证据见 [verification-evidence](../unified-local-distribution/verification-evidence.json) 与 [managed containment evidence](../managed-containment-host/implementation-evidence-h3h4.json)。新增包未发布。
 
 **目标**：本地只安装 `@yanbot-harness/local` 即可无路径 managed 启动；Remote-only 只安装轻量 SDK；Runtime 继续独立模块/进程并支持独立分发。
 

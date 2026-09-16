@@ -96,13 +96,13 @@
 - [x] 本机实际公共闭包 18 包 + 平台包，签名 kit 与显式 fresh-consumer 安装器；验签后快照 tgz，保留相对 file 锁依赖。原有项目拒绝覆盖。
 - [x] 本机 npm/pnpm local Reference 文本/权限/提问/取消、SDK-only 无 Runtime 下载、optional 缺失与平台 401 诊断；空 npm cache 的 offline/ignore-scripts 安装与 Reference Run/close 通过。7 组真实包用例见 implementation-evidence-t6.json。
 - [x] 离线完整性/拒绝覆盖、CLI 路径别名与 Windows shim 独立测试现为 9 项，连同归档/审计共 54 项；真实包 CI 共用一次构建的 common tgz。
-- [x] 小型缓存 fixture V1→V2→V1、打开旧文件、锁超时/持有者死亡、占用路径保留和未知 state schema 拒绝已覆盖；Mac/Linux OS 阻外网安装通过。
+- [x] 小型缓存 fixture V1→V2→V1、打开旧文件、锁超时/持有者死亡、占用路径保留和未知 state schema 拒绝已覆盖；Mac/Linux/Windows OS 阻外网安装通过。
 - [x] Linux 独立 tmpfs 实际 ENOSPC、部分文件清理/旧缓存保留，以及 Windows FileShare.None 占用后拒绝、释放恢复/字节保留已在 CI 通过。
-- [ ] 两个正式冻结 release 的完整业务回滚和 Windows OS 阻网仍待认证；生产身份/企业 Registry 不因 fixture 通过解除。
+- [ ] 冻结 preview.2 → 测试签名 VM preview.3 → preview.2 的完整 Reference Session/Run/Event 状态往返已通过；两个生产签名冻结 release 与真实厂商业务回滚仍待认证，生产身份/企业 Registry 不因候选通过解除。
 
 - [x] 已生成平台闭包 tgz、签名清单、显式安装器与 consumer；错误平台/缺失/篡改/重复/越界与已有工程覆盖均有拒绝测试。
-- [ ] 验证空 npm cache + 阻网 + `--ignore-scripts` 的安装、首次展开/Reference；必要的元数据和 lock 支持必须随 kit 提供。
-- [ ] 验证 V1→V2→V1、活动 V1 缓存保留、磁盘失败、Windows 占用、只读状态/Schema 不兼容和用户配置保留。
+- [x] 验证空 npm cache + 三平台 OS 阻网 + `--ignore-scripts` 的安装、首次展开/Reference；必要的元数据和 lock 均随 kit 提供。
+- [x] 验证开发候选 V1→V2→V1、活动 V1 缓存保留、磁盘失败、Windows 占用、只读状态/Schema 不兼容和用户配置保留；正式版本认证仍由上一条门禁约束。
 - 文件：新增 `scripts/build-offline-kit.mjs`、交付安装器模板、`scripts/test-release-clean-room.mjs` 及新分发测试、`docs/delivery/unified-local-installation.md`。
 - 前置：T2–T5；测试使用测试签名，正式 kit 需正式信任根。
 - 验收：clean-room 网络请求为零、依赖闭包可追溯、未安装 pnpm 的消费者可用；回滚保留 workspace/BYOK，坏包不覆盖旧包。

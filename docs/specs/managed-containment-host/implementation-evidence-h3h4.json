@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-16",
+  "sourceCommit": "e453b132642018636721261a51cf595dfbd4a778",
+  "productionCertified": false,
+  "macosVMMechanism": {
+    "status": "passed",
+    "hostTarget": "darwin-arm64",
+    "guestTarget": "linux-arm64",
+    "nativeHostSha256": "1e5e5289fd14f2635fc8b0c42cdc90b68ee30c94d0bbe23b2feb1dfde9acb9ad",
+    "report": "harness-vm-tests-8Qc0sc/vm-test-results.json",
+    "scenarios": [
+      "stop",
+      "eof",
+      "invalid-control",
+      "host-sigkill",
+      "parent-sigkill",
+      "persistent-state-lease",
+      "guest-kernel-panic",
+      "invalid-configuration-or-digest"
+    ]
+  },
+  "guest": {
+    "productionTrusted": false,
+    "sourceKernelSha256": "f270bfa4324e37f0a28662909b0450c802c8279143f353cbc7fe250cdfb733a8",
+    "normalizedKernelSha256": "377d3480f52e7407bf635ea8a3322b7eb0b3c59eb051e977fb465bef706757b1",
+    "sourceInitrdSha256": "508de7f561b94aac0b569611574502e4528eb21230318badac9626b7f1791bf4",
+    "initrdSha256": "1e918031003ecb09baab07bacb276ae784d782bf8f17436c7a276dfee3789940",
+    "guestAgentSha256": "0b109fd151cc20292067ccb6e6a91ebf2e9c3239532aaae9f020699e0d9e1e79",
+    "networkDefault": false
+  },
+  "macosVMProduct": {
+    "status": "passed",
+    "report": "harness-vm-runtime-tsCbUV/vm-runtime-results.json",
+    "scenarios": [
+      "text-with-three-complete-event-replays",
+      "question-with-three-complete-event-replays",
+      "cancel-with-three-complete-event-replays",
+      "persistent-reopen-and-same-root-refusal",
+      "sdk-parent-sigkill",
+      "concurrent-vm-isolation"
+    ],
+    "sdkUnit": { "passed": 38, "skipped": 3, "failed": 0 }
+  },
+  "signedMacPackage": {
+    "status": "passed",
+    "testSigning": true,
+    "publishAuthorized": false,
+    "artifact": "yanbot-harness-runtime-darwin-arm64-0.1.0-preview.3.tgz",
+    "size": 172451094,
+    "sha256": "f1725a5aa80d928d20833c41a50d48cffb3dba9f2d1e9aa7dfa98145400f1d54",
+    "installationCases": 10,
+    "osBlockedExternalNetwork": "EPERM",
+    "packageCount": 19
+  },
+  "businessRollback": {
+    "status": "passed",
+    "scope": "frozen preview.2 and test-signed VM preview.3 Reference candidate",
+    "oldSourceCommit": "1055355fe62690625013113fe09ea509876b1c3f",
+    "oldZipSha256": "109ae675089927f7244ce4a0754b5604414e937cd213e48e0f857e5cc4e8c1b0",
+    "phases": ["old-before-upgrade", "vm-candidate", "old-after-rollback"],
+    "preservedSessionsBeforeEachNewWrite": [0, 1, 2],
+    "completeRunAndEventReplay": true,
+    "inputArtifactsUnchanged": true
+  },
+  "windowsOffline": {
+    "status": "passed",
+    "githubRun": 35089747716,
+    "target": "win32-x64",
+    "externalConnect": "EACCES",
+    "firewallScope": "current-node-program-internet-only",
+    "loopbackAllowed": true,
+    "offlineReferenceTerminal": "run.completed"
+  },
+  "remainingExternalGates": [
+    "production signing and trust-root approval",
+    "Registry and scope ownership",
+    "guest and vendor redistribution approval",
+    "real vendor BYOK certification",
+    "Windows 10 and Windows 11 hardware certification",
+    "two production-signed frozen releases rollback certification"
+  ]
+}
