@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "kind": "internal-test-delivery-verification",
+  "status": "passed",
+  "version": "0.1.0-preview.3",
+  "target": "darwin-arm64",
+  "sourceCommit": "2ed0ecdcbbbe8e978e4da7636b5639533a126e08",
+  "rootPackage": "@yanbot-harness/local",
+  "artifact": {
+    "file": "yanbot-harness-0.1.0-preview.3-darwin-arm64-internal-test.zip",
+    "size": 175357443,
+    "sha256": "ae4bc6a48eb3dba21c27deb0f6132def093eb890907bd563d56c53d371889d5e"
+  },
+  "contents": {
+    "packageCount": 19,
+    "singleOuterZip": true,
+    "signedOfflineKit": true,
+    "externalTestTrust": true,
+    "chineseReadme": true,
+    "topLevelInstaller": true
+  },
+  "verification": {
+    "fullRepositoryCheck": "passed",
+    "zipEntryPolicy": "passed",
+    "allFileChecksums": "passed",
+    "freshPathWithSpacesAndChinese": "passed",
+    "emptyNpmCache": true,
+    "offline": true,
+    "ignoreInstallScripts": true,
+    "finalDirectDependencies": ["@yanbot-harness/local"],
+    "packageLockDirectDependencies": ["@yanbot-harness/local"],
+    "npmDependencyTree": "passed",
+    "reference": {
+      "startup": true,
+      "health": true,
+      "terminal": "run.completed",
+      "close": true
+    }
+  },
+  "testSigning": true,
+  "productionAuthorized": false,
+  "limitations": [
+    "Apple Silicon Mac only.",
+    "Internal test trust only; no production signing identity or Registry publication.",
+    "Real-vendor BYOK, redistribution approval, Windows 10/11 and two production-signed release rollback remain external gates."
+  ]
+}
