@@ -14,7 +14,11 @@ import { Buffer } from 'node:buffer';
 import tar from 'tar-stream';
 
 import { npmInvocation } from './lib/release-platform.mjs';
-import { macOfflineNetworkGate, linuxOfflineNetworkGate } from './lib/offline-network-gate.mjs';
+import {
+  macOfflineNetworkGate,
+  linuxOfflineNetworkGate,
+  windowsOfflineNetworkGate,
+} from './lib/offline-network-gate.mjs';
 
 const execute = promisify(execFile);
 assert(
@@ -348,7 +352,14 @@ assert(result.stdout.length>0);
   );
   assert.equal(offline.reference.terminal, 'run.completed');
   cases.push({ name: 'empty-cache-offline-explicit-closure-reference', status: 'passed', evidence: offline });
-  if (process.platform === 'darwin') {
+  if (process.platform === 'win32' && process.env.GITHUB_ACTIONS === 'true') {
+    const evidence = await windowsOfflineNetworkGate({
+      kit,
+      prefix: path.join(root, 'offline-os-blocked'),
+      environment,
+    });
+    cases.push({ name: 'os-blocked-external-network-offline-reference', status: 'passed', evidence });
+  } else if (process.platform === 'darwin') {
     const evidence = await macOfflineNetworkGate({ kit, prefix: path.join(root, 'offline-os-blocked'), environment });
     cases.push({ name: 'os-blocked-external-network-offline-reference', status: 'passed', evidence });
   } else if (process.platform === 'linux' && process.env.GITHUB_ACTIONS === 'true') {

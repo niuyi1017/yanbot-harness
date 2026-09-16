@@ -48,6 +48,8 @@ host 的 pid 是 VM 生命周期 owner；guest Runtime pid 只在私有 bootstra
 
 同一限制同步到离线 kit：单 tgz 上限 256 MiB、总闭包 512 MiB。安装 smoke 在启动前显式声明自身新建工作区；不为测试绕过 workspace 边界。Mac OS 阻网 profile 仅额外允许受保护 `/private/tmp/hvm-UUID/http.sock` Unix 通道，外网拒绝基线继续验证；VM 默认无网络设备，不将 XPC 后端误认作继承 sandbox 的普通子进程。独立 Daemon/显式 Runtime 路径继续是 native 兼容模式，不宣称 VM containment。
 
+Windows 离线门禁仅允许在 `GITHUB_ACTIONS=true` 的一次性 Windows runner 上运行：为当前精确 Node 可执行文件创建随机命名、仅 ActiveStore 的 outbound Block 规则，远端范围使用 Windows Firewall 的 `Internet` 关键字，因此本机 loopback 安装/Runtime 通信保留。创建后必须由同一 Node 进程验证外网连接不能建立，再运行离线 kit。规则名称、程序路径、方向、动作、启用状态和 RemoteAddress 均回读核对；正常/异常路径在 `finally` 删除完全相同的随机规则，另有独立 PowerShell 有界延迟清理作为父进程崩溃兜底。禁止在非 CI、非 Windows、规则同名已存在或无法确认管理员能力时运行；不使用全机默认出站策略，也不阻断 runner/PowerShell/GitHub 服务进程。
+
 持久 stateRoot 复用固定的私有 `guest-state` 子目录；Swift host 在启动前对其父目录中的 `vm-lease` 普通文件持有独占 flock，锁不共享给 guest、不可被子进程继承，host 退出由内核释放，拒绝并发复用而不以 PID 扫描恢复。guest wrapper 发固定心跳；失联 5 秒停止 VM。内核参数使用 panic=0，重复 guest-ready 视为异常重启并停止；[Linux panic 参数](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html) 中负数代表立即重启，不能用负数模拟持续失活。
 
 flock 另写 active/stopped 标记：只有 VZ 已停止才标记 stopped。host SIGKILL 会保留 active，防止 OS 释放锁后旧 VM 后端尚未退出时新实例并发写状态；禁止凭 PID 消失自动清标记。父 SDK 退出但 host 正常收尾时，host 只移除固定位置、schema 已知且 pid 绑定自身的公开代理 descriptor，保证持久根可再次启动；畸形或不属于本 host 的文件保留。

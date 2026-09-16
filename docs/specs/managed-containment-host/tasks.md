@@ -9,6 +9,7 @@
 - [ ] H4：Mac guest 制品/路径与凭据映射、vsock 代理和 SDK 集成。前置 H3；验收 Reference Session/Run/Event/cancel、工作区限制、离线、强杀后代，未授权资源不加载。
 - [ ] H5：同一冻结版本的三平台回归、真实厂商、正式签名/镜像许可、文档与发布门禁同步。前置 H2/H4；无真实证据不勾选，不能以测试签名候选发布。
 - [ ] H4b：冻结 preview.2 完整消费者 → 实际签名 VM 候选 → 旧完整消费者，验证 Reference Session/Run/Event 持久状态和工作区保留；实施遵循 CH8，不替代 H5 的正式版本/厂商认证。
+- [ ] H4c：Windows disposable CI 对精确 Node 程序启用临时 outbound Internet block，回读规则、验证外连失败与 loopback 离线 Reference，并证明正常/失败清理；不得用于用户机器或改全机默认策略。
 
 允许跳过外部资源等待以继续无依赖项；不跳过失败的工程保证。此清单完成前，旧 containment 缺口与统一分发发布阻断保持有效。
 
