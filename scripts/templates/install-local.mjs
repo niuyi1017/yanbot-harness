@@ -169,6 +169,22 @@ export async function installOfflineKit({ kitDirectory, prefix, trustedKeys, cac
       '--save-exact',
       ...m.artifacts.map((item) => './.harness-packages/' + item.file),
     ]);
+    const localArtifact = m.artifacts.find((item) => item.name === '@yanbot-harness/local');
+    assert(localArtifact, 'Kit closure missing local root package.');
+    phase = 'npm-normalize-local-root';
+    await writeFile(
+      path.join(destination, 'package.json'),
+      canonical({
+        private: true,
+        type: 'module',
+        dependencies: {
+          '@yanbot-harness/local': 'file:.harness-packages/' + localArtifact.file,
+        },
+      }),
+    );
+    await runNpm(['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
+    phase = 'npm-validate-local-root';
+    await runNpm(['ls', '--all', '--offline', '--omit=dev']);
     phase = 'reference';
     await writeFile(path.join(destination, '.harness-release-trust.json'), canonical(trustedKeys), {
       flag: 'wx',
@@ -216,6 +232,7 @@ console.log(JSON.stringify({ status: 'passed', terminal: 'run.completed' }));
       version: m.version,
       target: m.target,
       testSigning: m.testSigning,
+      rootPackage: '@yanbot-harness/local',
       emptyNpmCache: true,
       offline: true,
       ignoreScripts: true,

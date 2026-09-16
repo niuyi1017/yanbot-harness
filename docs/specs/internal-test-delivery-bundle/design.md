@@ -31,7 +31,7 @@ yanbot-harness-<V>-darwin-arm64-internal-test/
    └─ packages/*.tgz
 ```
 
-顶层 `install.mjs` 只做路径归一化、默认安装目录选择和无 shell 的子进程调用；验签、闭包校验、离线 npm 安装与 Reference smoke 继续由已经测试的 `offline-kit/install-local.mjs` 负责。测试公钥位于签名 kit 外层，明确标为 internal-test；不能把 payload 内自带的 key 当作生产信任根。
+顶层 `install.mjs` 只做路径归一化、默认安装目录选择和无 shell 的子进程调用；验签、闭包校验、离线 npm 安装与 Reference smoke 继续由 `offline-kit/install-local.mjs` 负责。安装器先用全部本地 tgz 引导 npm 的离线解析，再在仍然离线的同一 cache 中把最终 `package.json` / lock 规范化为仅有 `@yanbot-harness/local` 一个直接依赖，并以 `npm ls` 验证其传递闭包。测试公钥位于签名 kit 外层，明确标为 internal-test；不能把 payload 内自带的 key 当作生产信任根。
 
 ## 3. 构建流程
 

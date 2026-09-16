@@ -351,6 +351,10 @@ assert(result.stdout.length>0);
     ).stdout,
   );
   assert.equal(offline.reference.terminal, 'run.completed');
+  assert.deepEqual(
+    Object.keys(JSON.parse(await readFile(path.join(root, 'offline-consumer/package.json'), 'utf8')).dependencies),
+    ['@yanbot-harness/local'],
+  );
   cases.push({ name: 'empty-cache-offline-explicit-closure-reference', status: 'passed', evidence: offline });
   if (process.platform === 'win32' && process.env.GITHUB_ACTIONS === 'true') {
     const evidence = await windowsOfflineNetworkGate({
