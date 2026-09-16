@@ -38,6 +38,8 @@ guest 使用同版本 Linux arm64 Node + 规范化 Runtime，构建期记录文�
 
 使用原始 HTTP/SSE 字节转发，避免另造业务 RPC：SDK 的认证 loopback proxy → 私有 Unix socket（新建 0700 目录）→ VZ vsock → guest loopback bridge → 现有 Runtime。Unix socket 仅本次实例可访问；一次性 bootstrap 只走私有 socket，向 guest agent 传明确允许的环境配置，回传 guest descriptor；不经过公开 loopback，也不进入 argv/console/log。公开 proxy 仅允许认证的 `/local/` 路由，禁止 bootstrap。字节流有限并发、背压、断开传播，Runtime 自身仍执行认证及 Session/Run/Event 协议。
 
+HTTP 代理每跳独立管理连接，不转发 Connection/Keep-Alive/Transfer-Encoding 及 Connection 点名的逐跳字段（[RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-7.6.1)）。guest 对 Runtime 禁止复用上游连接，避免 SSE 响应声明 keep-alive 与入站 close 语义冲突后复用旧连接；完整事件重放后的下一次业务请求必须纳入回归，不以终态 SSE 单独通过替代。
+
 VM 路径映射采用显式预声明：调用方通过启动选项声明 workspace 目录及只读属性，之后仍须调用现有 grantWorkspace；未预声明的路径拒绝，不自动共享父目录。此模式不同于原生任意目录 grant，必须在 SDK 文档明确。固定映射 `/harness-shares/workspace-N`，边界层只翻译协议中的 workspace 字段，绝不全局替换用户文本或 SSE 内容。state 独占子目录单独共享，host descriptor/config 不在 guest share 内。默认不共享任何 workspace，不复制整个 HOME。凭据仅接受显式环境或经原有规则校验的文件内容；不透传宿主 process.env。网络默认关闭，真实厂商认证需显式启用 NAT 并单独验收。
 
 host 的 pid 是 VM 生命周期 owner；guest Runtime pid 只在私有 bootstrap 中核验，不写作 host descriptor pid。旧 Darwin 制品仍不能满足 requireContainment；只有含已核验 VM host/kernel/initrd 的新描述符才能进入 VM 路径。

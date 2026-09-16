@@ -17,6 +17,22 @@ const allowed = new Set([
   'CODEBUDDY_BASE_URL',
   'YANBOT_HARNESS_REFERENCE_SCENARIO',
 ]);
+function forwardHeaders(input) {
+  const headers = { ...input };
+  const connectionFields = (input.connection ?? '').split(',').map((name) => name.trim().toLowerCase());
+  for (const name of [
+    'connection',
+    'keep-alive',
+    'proxy-connection',
+    'transfer-encoding',
+    'te',
+    'trailer',
+    'upgrade',
+    ...connectionFields,
+  ])
+    delete headers[name];
+  return headers;
+}
 const server = createServer(async (incoming, outgoing) => {
   try {
     if (incoming.url === '/__harness/bootstrap' && incoming.method === 'POST' && !initialized) {
@@ -92,11 +108,16 @@ const server = createServer(async (incoming, outgoing) => {
     }
     const target = new URL(incoming.url, descriptor.origin);
     if (target.origin !== descriptor.origin) throw new Error();
-    const proxy = request(target, { method: incoming.method, headers: incoming.headers }, (response) => {
-      outgoing.writeHead(response.statusCode, response.headers);
-      response.pipe(outgoing);
-      outgoing.once('close', () => response.destroy());
-    });
+    // Runtime SSE can advertise keep-alive after an inbound Connection: close. Never reuse that upstream socket.
+    const proxy = request(
+      target,
+      { method: incoming.method, headers: forwardHeaders(incoming.headers), agent: false },
+      (response) => {
+        outgoing.writeHead(response.statusCode, forwardHeaders(response.headers));
+        response.pipe(outgoing);
+        outgoing.once('close', () => response.destroy());
+      },
+    );
     proxy.once('error', () => outgoing.destroy());
     incoming.once('aborted', () => proxy.destroy());
     outgoing.once('close', () => proxy.destroy());

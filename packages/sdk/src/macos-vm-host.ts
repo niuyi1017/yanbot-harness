@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, mkdtemp, open, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { createServer, request, type IncomingMessage } from 'node:http';
+import { createServer, request, type IncomingMessage, type IncomingHttpHeaders } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -173,8 +173,7 @@ export async function startVMRuntime(
           }
           replacement = JSON.stringify({ ...grant, path: '/harness-shares/' + share.name });
         }
-        const headers = { ...incoming.headers, host: new URL(descriptor.origin).host };
-        delete headers.connection;
+        const headers = { ...vmForwardHeaders(incoming.headers), host: new URL(descriptor.origin).host };
         if (replacement !== undefined) {
           headers['content-length'] = String(Buffer.byteLength(replacement));
           delete headers['transfer-encoding'];
@@ -182,7 +181,7 @@ export async function startVMRuntime(
         const upstream = request(
           { socketPath: socket, path: incoming.url, method: incoming.method, headers, agent: false },
           (response) => {
-            outgoing.writeHead(response.statusCode ?? 502, response.headers);
+            outgoing.writeHead(response.statusCode ?? 502, vmForwardHeaders(response.headers));
             response.pipe(outgoing);
             outgoing.once('close', () => response.destroy());
           },
@@ -265,6 +264,23 @@ export async function startVMRuntime(
       'VM Runtime failed to start; verify guest artifacts and explicit resource mappings.',
     );
   }
+}
+
+export function vmForwardHeaders(input: IncomingHttpHeaders): IncomingHttpHeaders {
+  const headers = { ...input };
+  const connectionFields = (input.connection ?? '').split(',').map((name) => name.trim().toLowerCase());
+  for (const name of [
+    'connection',
+    'keep-alive',
+    'proxy-connection',
+    'transfer-encoding',
+    'te',
+    'trailer',
+    'upgrade',
+    ...connectionFields,
+  ])
+    delete headers[name];
+  return headers;
 }
 
 export async function workspaceShares(workspaces: NonNullable<VMOptions['workspaces']>) {

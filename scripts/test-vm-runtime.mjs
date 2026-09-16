@@ -105,6 +105,14 @@ for (const scenario of ['text', 'question', 'wait-for-cancel']) {
     }
     assert(events.includes(scenario === 'wait-for-cancel' ? 'run.cancelled' : 'run.completed'));
     if (scenario === 'question') assert(events.includes('interaction.resolved'));
+    for (let replay = 0; replay < 3; replay++) {
+      const replayed = [];
+      for await (const event of handle.client.events(run.run.runId, { signal: AbortSignal.timeout(20000) }))
+        replayed.push(event.type);
+      assert.deepEqual(replayed, events);
+      assert.equal((await handle.client.health()).status, 'ok');
+      assert((await handle.client.listSessions()).some((entry) => entry.sessionId === session.sessionId));
+    }
     await Promise.all([handle.close(), handle.close()]);
     assert.equal(await readFile(path.join(workspace, 'sentinel.txt'), 'utf8'), 'user-owned-marker');
     assert(!(await readdir(stateRoot)).includes('runtime.json'));

@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile, rm, chmod, symlink } from 'node:fs/promises'
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { vmEnvironment, workspaceShares } from '../src/macos-vm-host.js';
+import { vmEnvironment, workspaceShares, vmForwardHeaders } from '../src/macos-vm-host.js';
 
 const roots: string[] = [];
 async function temporary() {
@@ -14,6 +14,25 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 describe('VM resource boundary', () => {
+  it('keeps each HTTP hop independent without rewriting business headers or mutating input', () => {
+    const input = {
+      connection: 'keep-alive, X-Private-Hop',
+      'keep-alive': 'timeout=5',
+      'x-private-hop': 'remove',
+      'transfer-encoding': 'chunked',
+      trailer: 'X-Trailer',
+      upgrade: 'websocket',
+      authorization: 'Bearer test',
+      'content-type': 'text/event-stream',
+      'last-event-id': 'cursor',
+    };
+    expect(vmForwardHeaders(input)).toEqual({
+      authorization: 'Bearer test',
+      'content-type': 'text/event-stream',
+      'last-event-id': 'cursor',
+    });
+    expect(input.connection).toBe('keep-alive, X-Private-Hop');
+  });
   it('copies only the explicit allowlist, never ambient HOME, PATH, loaders or signing credentials', async () => {
     expect(
       await vmEnvironment({
