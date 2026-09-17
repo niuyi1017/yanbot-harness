@@ -2,14 +2,15 @@ import {
   HarnessClient,
   HARNESS_RELEASE_VERSION,
   HarnessSdkError,
-  startManagedRuntime,
   type HarnessErrorCode,
-  type LocalSession,
+  type Session,
 } from '@yanbot-harness/sdk';
+import { isIP } from 'node:net';
 
 import { CliUsageError, parseArguments, type CliCommand } from './arguments.js';
 import { promptForInteraction } from './interactions.js';
 import { EventRenderer, type CliIo, writeAdapters, writeJson, writeModels, writeRun, writeSessions } from './output.js';
+import { loadCliProfile, type CliProfile } from './profiles.js';
 
 export const CLI_VERSION = HARNESS_RELEASE_VERSION;
 export const CLI_EXIT = {
@@ -44,8 +45,7 @@ export async function runCli(
     }
     const connection = await connect(command, options.environment, options.fetch);
     try {
-      await connection.client.health();
-      return await execute(command, connection.client, io);
+      return await execute(command, connection.client, connection.executionMode, io);
     } finally {
       await connection.close();
     }
@@ -60,41 +60,103 @@ async function connect(
   command: Exclude<CliCommand, { name: 'help' | 'version' }>,
   environment: Readonly<Record<string, string | undefined>> = process.env,
   fetchImplementation?: typeof fetch,
-): Promise<{ client: HarnessClient; close(): Promise<void> }> {
+): Promise<{ client: HarnessClient; executionMode: 'local' | 'remote'; close(): Promise<void> }> {
   if (command.runtimeOrigin) {
+    assertLegacyLoopbackOrigin(command.runtimeOrigin);
     const accessToken = environment.YANBOT_HARNESS_ACCESS_TOKEN;
     if (!accessToken)
       throw new CliFailure(CLI_EXIT.authentication, 'YANBOT_HARNESS_ACCESS_TOKEN is required with --runtime.');
-    return {
-      client: new HarnessClient({
-        origin: command.runtimeOrigin,
-        accessToken,
+    const client = new HarnessClient({
+      origin: command.runtimeOrigin,
+      accessToken,
+      ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
+    });
+    await client.health();
+    return { client, executionMode: 'local', close: async () => undefined };
+  }
+  const profile = command.profileName
+    ? await loadCliProfile(command.profileName, {
+        ...(command.profileFile === undefined ? {} : { profileFile: command.profileFile }),
+        environment,
+      })
+    : explicitProfile(command);
+  if (profile.mode === 'remote') {
+    const client = await HarnessClient.connect({
+      mode: 'remote',
+      origin: profile.origin,
+      tokenProvider: environmentTokenProvider(environment, profile.tokenEnvironment),
+      ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
+    });
+    return { client, executionMode: 'remote', close: async () => undefined };
+  }
+  if (profile.mode === 'local-managed') {
+    const runtime = await HarnessClient.connect({
+      mode: 'local-managed',
+      options: {
+        ...(profile.executablePath === undefined ? {} : { executablePath: profile.executablePath }),
+        environment,
         ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
-      }),
-      close: async () => undefined,
+      },
+    });
+    return { client: runtime.client, executionMode: 'local', close: () => runtime.close() };
+  }
+  const client = await HarnessClient.connect({
+    mode: 'local-daemon',
+    ...(profile.descriptorPath === undefined ? {} : { descriptorPath: profile.descriptorPath }),
+    environment,
+    ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
+  });
+  return { client, executionMode: 'local', close: async () => undefined };
+}
+
+function explicitProfile(command: Exclude<CliCommand, { name: 'help' | 'version' }>): CliProfile {
+  if (command.remoteOrigin) {
+    return {
+      mode: 'remote',
+      origin: command.remoteOrigin,
+      tokenEnvironment: 'YANBOT_HARNESS_ACCESS_TOKEN',
     };
   }
   if (command.managedRuntimePath) {
-    const runtime = await startManagedRuntime({
-      executablePath: command.managedRuntimePath,
-      environment,
-      ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
-    });
-    return { client: runtime.client, close: () => runtime.close() };
+    return { mode: 'local-managed', executablePath: command.managedRuntimePath };
   }
   return {
-    client: await HarnessClient.fromDaemon({
-      ...(command.descriptorPath === undefined ? {} : { descriptorPath: command.descriptorPath }),
-      environment,
-      ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
-    }),
-    close: async () => undefined,
+    mode: 'local-daemon',
+    ...(command.descriptorPath === undefined ? {} : { descriptorPath: command.descriptorPath }),
   };
+}
+
+function environmentTokenProvider(environment: Readonly<Record<string, string | undefined>>, variable: string) {
+  return async () => {
+    const accessToken = environment[variable];
+    if (!accessToken) {
+      throw new HarnessSdkError('authentication', `Remote Runtime credential ${variable} is not available.`);
+    }
+    return { accessToken };
+  };
+}
+
+function assertLegacyLoopbackOrigin(origin: string): void {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch (error) {
+    throw new CliUsageError('--runtime requires a valid loopback HTTP URL.', { cause: error });
+  }
+  const hostname = url.hostname.replace(/^\[|\]$/gu, '');
+  const version = isIP(hostname);
+  if (
+    url.protocol !== 'http:' ||
+    (hostname !== 'localhost' && hostname !== '::1' && !(version === 4 && hostname.startsWith('127.')))
+  ) {
+    throw new CliUsageError('--runtime is a legacy Local option and requires a loopback HTTP URL; use --remote.');
+  }
 }
 
 async function execute(
   command: Exclude<CliCommand, { name: 'help' | 'version' }>,
   client: HarnessClient,
+  executionMode: 'local' | 'remote',
   io: CliIo,
 ): Promise<number> {
   switch (command.name) {
@@ -114,6 +176,11 @@ async function execute(
       writeRun(io, await client.cancelRun(command.runId, command.reason), command.json);
       return CLI_EXIT.success;
     case 'run':
+      if (executionMode === 'remote') {
+        throw new CliUsageError(
+          'Remote run requires Git or uploaded workspace preparation, which is not available in this Preview.',
+        );
+      }
       return executeRun(command, client, io);
   }
 }
@@ -123,7 +190,7 @@ async function executeRun(
   client: HarnessClient,
   io: CliIo,
 ): Promise<number> {
-  let session: LocalSession;
+  let session: Session;
   if (command.sessionId) {
     session = await client.getSession(command.sessionId);
     if (command.adapterId && command.adapterId !== session.adapterId) {
@@ -208,11 +275,17 @@ Usage:
   yanbot-harness cancel <run-id> [--reason TEXT] [--json]
 
 Connection:
-  --runtime URL       Use URL with YANBOT_HARNESS_ACCESS_TOKEN.
+  --remote HTTPS_URL  Use a Remote Runtime with YANBOT_HARNESS_ACCESS_TOKEN.
+  --profile NAME      Load a versioned Local/Remote target profile.
+  --profile-file PATH Use this profile file with --profile.
   --descriptor PATH  Use a protected local Runtime descriptor.
   --managed-runtime PATH
                       Start and own an installed Runtime for this command.
+  --runtime URL       Legacy loopback /local endpoint with YANBOT_HARNESS_ACCESS_TOKEN.
   Otherwise YANBOT_HARNESS_RUNTIME_DESCRIPTOR or ~/.yanbot-harness/runtime.json is used.
+
+Remote run remains disabled until Git/upload workspace preparation is available.
+Access tokens are never accepted as command-line arguments or stored in profile files.
 
 Output:
   --json              Emit newline-delimited JSON for run events.

@@ -24,5 +24,16 @@ describe('CLI arguments', () => {
     expect(() =>
       parseArguments(['adapters', '--managed-runtime', '/runtime', '--descriptor', '/descriptor']),
     ).toThrowError(/mutually exclusive/u);
+    expect(parseArguments(['sessions', '--remote', 'https://runtime.example.test'])).toMatchObject({
+      remoteOrigin: 'https://runtime.example.test',
+    });
+    expect(parseArguments(['sessions', '--profile', 'staging', '--profile-file', '/profiles.json'])).toMatchObject({
+      profileName: 'staging',
+      profileFile: '/profiles.json',
+    });
+    expect(() => parseArguments(['sessions', '--profile-file', '/profiles.json'])).toThrowError(/requires --profile/u);
+    expect(() =>
+      parseArguments(['sessions', '--profile', 'staging', '--remote', 'https://runtime.example.test']),
+    ).toThrowError(/mutually exclusive/u);
   });
 });

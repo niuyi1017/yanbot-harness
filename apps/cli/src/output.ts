@@ -1,4 +1,4 @@
-import type { AdapterEvent, AdapterSummary, LocalRun, LocalSession, ModelDescriptor } from '@yanbot-harness/sdk';
+import type { AdapterEvent, AdapterSummary, ModelDescriptor, Run, Session } from '@yanbot-harness/sdk';
 
 export type CliIo = {
   stdout: Pick<NodeJS.WritableStream, 'write'>;
@@ -20,12 +20,12 @@ export function writeModels(io: CliIo, models: readonly ModelDescriptor[], json:
   for (const model of models) io.stdout.write(`${model.ref.modelId}\t${model.name}\n`);
 }
 
-export function writeSessions(io: CliIo, sessions: readonly LocalSession[], json: boolean): void {
+export function writeSessions(io: CliIo, sessions: readonly Session[], json: boolean): void {
   if (json) return writeJson(io, sessions);
   for (const session of sessions) io.stdout.write(`${session.sessionId}\t${session.status}\t${session.adapterId}\n`);
 }
 
-export function writeRun(io: CliIo, run: LocalRun, json: boolean): void {
+export function writeRun(io: CliIo, run: Run, json: boolean): void {
   if (json) return writeJson(io, run);
   io.stdout.write(`${run.runId}\t${run.status}\t${run.adapterId}\n`);
 }
