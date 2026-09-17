@@ -17,8 +17,8 @@
 - D7：SHA-256 清单必须覆盖 ZIP 内除自身外的所有普通文件；构建及验证都必须拒绝符号链接、越界路径、重复路径和未登记文件。
 - D8：必须在全新、包含空格及中文的临时目录中解压并从空 npm cache 完成安装和 Reference smoke；现有目标目录不得被覆盖。
 - D9：交付说明必须按目标平台明确标识 Apple Silicon Mac 或 Windows x64，要求 Node 22、使用测试信任根且不可作为正式生产发布；其他系统/CPU 需要各自平台制品。
-- D10：生成的大体积 ZIP 属于本地交付产物，不进入 Git；生成器、测试、Spec 和交付模板进入 Git 并推送 `zb-dev`。
-- D11：Windows ZIP 必须由 `windows-2022` runner 基于同一提交的 common 与 `win32-x64` platform 构建，并在该 runner 的中文/空格路径、空 npm cache、离线安装条件下通过 `@yanbot-harness/local` Reference smoke；通过后作为 Actions artifact 下载到本地交付目录。
+- D10：生成的大体积 ZIP 属于交付制品，不进入 Git；可保存在本地或由受控的临时 artifact 下载源提供。生成器、测试、Spec 和交付模板进入 Git 并推送 `zb-dev`。
+- D11：Windows ZIP 必须由 `windows-2022` runner 基于同一提交的 common 与 `win32-x64` platform 构建，并在该 runner 的中文/空格路径、空 npm cache、离线安装条件下通过 `@yanbot-harness/local` Reference smoke；通过后作为 Actions artifact 提供下载，交付说明记录下载地址、有效期、内层 ZIP 摘要与验证证据，不要求在本地保留副本。
 
 ## 非目标
 

@@ -57,6 +57,8 @@ yanbot-harness-<V>-<TARGET>-internal-test/
 
 Windows 最终包由 `unified-local-installation.yml` 的 `windows-2022` job 在既有 unified common/platform 验证后生成；同一 job 运行候选验证脚本，并只在成功后上传 ZIP 与验证报告。这样避免在 macOS 上拼装未经 Windows 实际执行的制品。
 
+内测交付采用 GitHub Actions artifact 作为临时下载源：交付说明固定到已通过门禁的 run 和 artifact ID，并记录 Actions 外层 artifact 摘要、内层交付 ZIP 摘要、源提交及过期时间。下载者先解开 Actions 外层 ZIP，再把其中的 `*-internal-test.zip` 作为唯一交付包；本地不重复保存 Windows 大体积制品。
+
 ## 5. 安全与发布边界
 
 - ZIP 只含测试公钥，不含任何私钥；签名身份明确为 `offline-kit-test-only`。

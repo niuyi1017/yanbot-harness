@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "kind": "internal-test-delivery-verification-evidence",
+  "status": "passed",
+  "version": "0.1.0-preview.3",
+  "target": "win32-x64",
+  "sourceCommit": "19585c6ead7b8dc75222d65e98b9fb4da2f3448b",
+  "rootPackage": "@yanbot-harness/local",
+  "workflow": {
+    "runId": 35176486385,
+    "runUrl": "https://github.com/niuyi1017/yanbot-harness/actions/runs/35176486385",
+    "jobId": 105059396011,
+    "runner": "windows-2022",
+    "conclusion": "success"
+  },
+  "actionsArtifact": {
+    "id": 10479605117,
+    "name": "internal-test-delivery-win32-x64",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/35176486385/artifacts/10479605117",
+    "size": 56771241,
+    "sha256": "96f55447a572c8993e531faae4cb0fc5596765f9f79f13573d5e04fc449e0916",
+    "expiresAt": "2026-10-17T03:07:50Z"
+  },
+  "deliveryArchive": {
+    "file": "yanbot-harness-0.1.0-preview.3-win32-x64-internal-test.zip",
+    "size": 56759852,
+    "sha256": "b391e2ab948cbcb00a18a7723a126a9d9b18c302d9a3fc8380ab9b379b7cc906"
+  },
+  "verification": {
+    "zipEntryPolicy": "passed",
+    "allFileChecksums": "passed",
+    "freshPathWithSpacesAndChinese": "passed",
+    "emptyNpmCache": true,
+    "offline": true,
+    "ignoreInstallScripts": true,
+    "finalDirectDependencies": [
+      "@yanbot-harness/local"
+    ],
+    "reference": {
+      "startup": true,
+      "health": true,
+      "terminal": "run.completed",
+      "close": true
+    }
+  },
+  "testSigning": true,
+  "productionAuthorized": false,
+  "localArtifactRetained": false
+}
