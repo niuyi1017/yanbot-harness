@@ -23,6 +23,7 @@
     "build:unified-common": "node scripts/build-unified-common.mjs",
     "build:offline-kit": "node scripts/build-offline-kit.mjs",
     "build:internal-delivery": "node scripts/build-internal-delivery.mjs",
+    "verify:internal-delivery": "node scripts/verify-internal-delivery.mjs",
     "test:unified-installation": "node scripts/test-unified-installation.mjs",
     "test:internal-delivery": "node --test scripts/test-internal-delivery.mjs",
     "test:unified-ci": "node scripts/run-unified-ci.mjs",

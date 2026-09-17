@@ -68,6 +68,16 @@ jobs:
           path: ${{ runner.temp }}/common
       - run: pnpm build:platform-runtime --test-signing --skip-build --output-dir "${{ runner.temp }}/platform"
       - run: pnpm test:unified-ci "${{ runner.temp }}/common" "${{ runner.temp }}/platform" "${{ runner.temp }}/unified-result.json"
+      - name: Build and verify Windows internal delivery
+        if: matrix.target == 'win32-x64'
+        shell: pwsh
+        run: |
+          $common = (Get-ChildItem "${{ runner.temp }}/common" -Filter common-manifest.json -Recurse).DirectoryName
+          $platform = (Get-ChildItem "${{ runner.temp }}/platform" -Filter build-report.json -Recurse).DirectoryName
+          $delivery = "${{ runner.temp }}/internal-delivery"
+          pnpm build:internal-delivery --common $common --platform $platform --output-dir $delivery
+          $archive = (Get-ChildItem $delivery -Filter *.zip).FullName
+          pnpm verify:internal-delivery --archive $archive --output "${{ runner.temp }}/internal-delivery-verification.json"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -88,3 +98,12 @@ jobs:
             ${{ runner.temp }}/unified-result.json
           if-no-files-found: warn
           retention-days: 7
+      - uses: actions/upload-artifact@v7
+        if: matrix.target == 'win32-x64'
+        with:
+          name: internal-test-delivery-win32-x64
+          path: |
+            ${{ runner.temp }}/internal-delivery/*.zip
+            ${{ runner.temp }}/internal-delivery-verification.json
+          if-no-files-found: error
+          retention-days: 30

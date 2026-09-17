@@ -26,9 +26,29 @@ const outputRoot = path.resolve(args[5]);
 const common = JSON.parse(await readFile(path.join(commonRoot, 'common-manifest.json'), 'utf8'));
 const platform = JSON.parse(await readFile(path.join(platformRoot, 'build-report.json'), 'utf8'));
 assert.equal(platform.status, 'passed');
-assert.equal(platform.target.os, 'darwin');
-assert.equal(platform.target.cpu, 'arm64');
-assert.equal(platform.target.libc, null);
+const target = platform.target.os + '-' + platform.target.cpu;
+const targetDetails = {
+  'darwin-arm64': {
+    os: 'darwin',
+    cpu: 'arm64',
+    libc: null,
+    title: 'Apple Silicon Mac',
+    unsupported: 'Windows、Linux 和 Intel Mac',
+  },
+  'win32-x64': {
+    os: 'win32',
+    cpu: 'x64',
+    libc: null,
+    title: 'Windows x64',
+    unsupported: 'macOS、Linux 和 Windows arm64',
+  },
+}[target];
+assert(targetDetails, 'Internal delivery target is not supported.');
+assert.deepEqual(platform.target, {
+  os: targetDetails.os,
+  cpu: targetDetails.cpu,
+  libc: targetDetails.libc,
+});
 assert.equal(platform.testSigning, true, 'Internal delivery requires an explicitly test-signed platform input.');
 assert.equal(platform.publishAuthorized, false, 'Internal delivery cannot use a production-authorized input.');
 assert.equal(common.version, platform.version);
@@ -38,7 +58,7 @@ assert(/^[a-f0-9]{40}$/u.test(common.sourceCommit));
 assert(/^[a-f0-9]{64}$/u.test(common.sourceLockSha256));
 
 await mkdir(outputRoot, { recursive: true });
-const name = `yanbot-harness-${common.version}-darwin-arm64-internal-test`;
+const name = `yanbot-harness-${common.version}-${target}-internal-test`;
 const archive = path.join(outputRoot, name + '.zip');
 try {
   await lstat(archive);
@@ -74,14 +94,14 @@ try {
   const kitManifest = JSON.parse(await readFile(kitManifestFile, 'utf8'));
   assert.equal(kitManifest.version, common.version);
   assert.equal(kitManifest.sourceCommit, common.sourceCommit);
-  assert.equal(kitManifest.target, 'darwin-arm64');
+  assert.equal(kitManifest.target, target);
   assert.equal(kitManifest.testSigning, true);
   assert(kitManifest.artifacts.some((item) => item.name === '@yanbot-harness/local'));
   const manifest = {
     schemaVersion: 1,
     kind: 'yanbot-harness-internal-test-delivery',
     version: common.version,
-    target: 'darwin-arm64',
+    target,
     sourceCommit: common.sourceCommit,
     sourceLockSha256: common.sourceLockSha256,
     rootPackage: '@yanbot-harness/local',
@@ -95,18 +115,19 @@ try {
     },
   };
   await writeFile(path.join(root, 'delivery-manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' });
-  const readme = `# Yanbot Harness ${common.version} Apple Silicon Mac 内测包
+  const readme = `# Yanbot Harness ${common.version} ${targetDetails.title} 内测包
 
-这是一个测试签名、完全离线的内部候选，不是正式生产发布。它只支持 macOS arm64（Apple Silicon），要求 Node >=22.22.0 <23 和 npm 10.9.8。
+这是一个测试签名、完全离线的内部候选，不是正式生产发布。它只支持 ${targetDetails.title}（${target}），要求 Node >=22.22.0 <23 和 npm 10.9.8。
 
 ## 安装
 
 在本目录打开终端，执行：
 
 \`\`\`bash
-shasum -a 256 -c SHA256SUMS
 node install.mjs
 \`\`\`
+
+顶层安装器会先核对 \`SHA256SUMS\` 覆盖的全部交付文件，再进入签名离线 kit 的安装与验签流程。
 
 默认安装到当前目录下的 \`yanbot-harness-local-consumer\`；也可指定一个尚不存在的目录：
 
@@ -122,7 +143,7 @@ node install.mjs --prefix "/绝对路径/新的测试目录"
 import { startManagedRuntime } from '@yanbot-harness/local';
 \`\`\`
 
-ZIP 内的多个 tgz 是 \`@yanbot-harness/local\` 的离线依赖闭包，不是需要分别交付或手工安装的产品包。请勿把 \`internal-test-trust.json\` 当作生产信任根，也不要将本候选用于生产环境。Windows、Linux 和 Intel Mac 需要各自重新构建的平台交付物。
+ZIP 内的多个 tgz 是 \`@yanbot-harness/local\` 的离线依赖闭包，不是需要分别交付或手工安装的产品包。请勿把 \`internal-test-trust.json\` 当作生产信任根，也不要将本候选用于生产环境。${targetDetails.unsupported} 需要各自重新构建的平台交付物。
 
 源提交：\`${common.sourceCommit}\`
 `;
@@ -138,7 +159,7 @@ ZIP 内的多个 tgz 是 \`@yanbot-harness/local\` 的离线依赖闭包，不�
       archive,
       name,
       version: common.version,
-      target: 'darwin-arm64',
+      target,
       sourceCommit: common.sourceCommit,
       rootPackage: '@yanbot-harness/local',
       packageCount: kitManifest.artifacts.length,
