@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const HARNESS_PROTOCOL_VERSION = '1.0.0' as const;
+export const HARNESS_PROTOCOL_MAJOR = 1 as const;
 export const HARNESS_RELEASE_VERSION = '0.1.0-preview.3' as const;
 export { managedControlMessageSchema, type ManagedControlMessage } from './managed-control.js';
 
@@ -305,18 +306,18 @@ export const adapterEventSchema = z.discriminatedUnion('type', [
   runCancelledEventSchema,
 ]);
 
-export const localSessionStatusSchema = z.enum(['idle', 'running', 'failed']);
-export const localRunStatusSchema = z.enum(['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted']);
+export const sessionStatusSchema = z.enum(['idle', 'running', 'failed']);
+export const runStatusSchema = z.enum(['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted']);
 export const terminalEventTypeSchema = z.enum(['run.completed', 'run.failed', 'run.cancelled']);
 
-export const localSessionSchema = z
+export const sessionSchema = z
   .object({
     protocolVersion: protocolVersionSchema,
     sessionId: uuidSchema,
     adapterId: adapterIdSchema,
     adapterSessionId: opaqueIdSchema.optional(),
     title: z.string().trim().min(1).max(256).optional(),
-    status: localSessionStatusSchema,
+    status: sessionStatusSchema,
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
     lastRunId: uuidSchema.optional(),
@@ -324,13 +325,13 @@ export const localSessionSchema = z
   })
   .strict();
 
-export const localRunSchema = z
+export const runSchema = z
   .object({
     protocolVersion: protocolVersionSchema,
     runId: uuidSchema,
     sessionId: uuidSchema,
     adapterId: adapterIdSchema,
-    status: localRunStatusSchema,
+    status: runStatusSchema,
     prompt: z.string().min(1).max(1_000_000),
     model: modelRefSchema.optional(),
     permissionPolicy: permissionPolicySchema,
@@ -344,7 +345,7 @@ export const localRunSchema = z
   })
   .strict();
 
-export const createLocalSessionRequestSchema = z
+export const createSessionRequestSchema = z
   .object({
     adapterId: adapterIdSchema,
     title: z.string().trim().min(1).max(256).optional(),
@@ -366,7 +367,7 @@ export const relativeWorkspacePathSchema = z
     'The workspace path cannot traverse outside the granted root.',
   );
 
-export const createLocalRunRequestSchema = z
+export const createRunRequestSchema = z
   .object({
     prompt: z.string().min(1).max(1_000_000),
     workspaceGrant: opaqueIdSchema,
@@ -402,7 +403,7 @@ export const eventCursorSchema = z
   })
   .strict();
 
-export const localApiErrorSchema = z
+export const apiErrorSchema = z
   .object({
     error: harnessErrorSchema,
     requestId: uuidSchema,
@@ -418,6 +419,121 @@ export const runtimeHealthSchema = z
   })
   .strict();
 
+export const runtimeExecutionModeSchema = z.enum(['local', 'remote']);
+export const runtimeAuthenticationSchema = z.enum(['local-descriptor', 'bearer']);
+export const workspaceSourceKindSchema = z.enum(['local-path-grant', 'git-ref', 'uploaded-snapshot']);
+export const localPathWorkspaceSourceSchema = z
+  .object({
+    kind: z.literal('local-path-grant'),
+    workspaceGrant: opaqueIdSchema,
+    relativeCwd: relativeWorkspacePathSchema.optional(),
+  })
+  .strict();
+export const gitRefWorkspaceSourceSchema = z
+  .object({
+    kind: z.literal('git-ref'),
+    repository: z.string().trim().min(1).max(2_048),
+    ref: z.string().trim().min(1).max(512),
+    credentialRef: opaqueIdSchema.optional(),
+  })
+  .strict();
+export const uploadedSnapshotWorkspaceSourceSchema = z
+  .object({
+    kind: z.literal('uploaded-snapshot'),
+    uploadId: opaqueIdSchema,
+    digest: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+  })
+  .strict();
+export const workspaceSourceSchema = z.discriminatedUnion('kind', [
+  localPathWorkspaceSourceSchema,
+  gitRefWorkspaceSourceSchema,
+  uploadedSnapshotWorkspaceSourceSchema,
+]);
+
+export const eventReplayCapabilitySchema = z
+  .object({
+    durability: z.enum(['process', 'durable']),
+    retentionSeconds: z.number().int().positive().optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.durability === 'durable' && value.retentionSeconds === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['retentionSeconds'],
+        message: 'Durable event replay must declare a retention period.',
+      });
+    }
+  });
+export const interactionCapabilitySchema = z
+  .object({
+    supported: z.boolean(),
+    maxWaitSeconds: z.number().int().positive().optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (!value.supported && value.maxWaitSeconds !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['maxWaitSeconds'],
+        message: 'Unsupported interactions cannot declare a wait limit.',
+      });
+    }
+  });
+export const runtimeCapabilitiesSchema = z
+  .object({
+    workspaceSources: z.array(workspaceSourceKindSchema).min(1),
+    eventReplay: eventReplayCapabilitySchema,
+    interactions: interactionCapabilitySchema,
+  })
+  .strict();
+const runtimeProfileBase = {
+  serviceVersion: semverSchema,
+  capabilities: runtimeCapabilitiesSchema,
+};
+export const localRuntimeProfileSchema = z
+  .object({
+    ...runtimeProfileBase,
+    executionMode: z.literal('local'),
+    authentication: z.literal('local-descriptor'),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.capabilities.workspaceSources.some((source) => source !== 'local-path-grant')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['capabilities', 'workspaceSources'],
+        message: 'Local Runtime only accepts local path grants.',
+      });
+    }
+  });
+export const remoteRuntimeProfileSchema = z
+  .object({
+    ...runtimeProfileBase,
+    executionMode: z.literal('remote'),
+    authentication: z.literal('bearer'),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.capabilities.workspaceSources.includes('local-path-grant')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['capabilities', 'workspaceSources'],
+        message: 'Remote Runtime cannot accept local path grants.',
+      });
+    }
+  });
+export const runtimeProfileSchema = z.union([localRuntimeProfileSchema, remoteRuntimeProfileSchema]);
+export const runtimeDiscoverySchema = z
+  .object({
+    service: z.string().trim().min(1).max(128),
+    protocolVersion: semverSchema,
+    status: z.literal('ok'),
+    startedAt: z.string().datetime({ offset: true }),
+    profile: runtimeProfileSchema,
+  })
+  .strict();
+
 export const effectiveConfigSummarySchema = z
   .object({
     scopes: z.array(z.union([configScopeSchema, z.literal('enforced')])),
@@ -427,12 +543,29 @@ export const effectiveConfigSummarySchema = z
   })
   .strict();
 
-export const createLocalRunResultSchema = z
+export const createRunResultSchema = z
   .object({
-    run: localRunSchema,
+    run: runSchema,
     reused: z.boolean(),
   })
   .strict();
+
+/** @deprecated Use sessionStatusSchema. Kept through at least 0.1.0-preview.5. */
+export const localSessionStatusSchema = sessionStatusSchema;
+/** @deprecated Use runStatusSchema. Kept through at least 0.1.0-preview.5. */
+export const localRunStatusSchema = runStatusSchema;
+/** @deprecated Use sessionSchema. Kept through at least 0.1.0-preview.5. */
+export const localSessionSchema = sessionSchema;
+/** @deprecated Use runSchema. Kept through at least 0.1.0-preview.5. */
+export const localRunSchema = runSchema;
+/** @deprecated Use createSessionRequestSchema. Kept through at least 0.1.0-preview.5. */
+export const createLocalSessionRequestSchema = createSessionRequestSchema;
+/** @deprecated Use createRunRequestSchema. Kept through at least 0.1.0-preview.5. */
+export const createLocalRunRequestSchema = createRunRequestSchema;
+/** @deprecated Use createRunResultSchema. Kept through at least 0.1.0-preview.5. */
+export const createLocalRunResultSchema = createRunResultSchema;
+/** @deprecated Use apiErrorSchema. Kept through at least 0.1.0-preview.5. */
+export const localApiErrorSchema = apiErrorSchema;
 
 export type AdapterEvent = z.infer<typeof adapterEventSchema>;
 export type AdapterManifest = z.infer<typeof adapterManifestSchema>;
@@ -450,22 +583,45 @@ export type HarnessError = z.infer<typeof harnessErrorSchema>;
 export type HarnessErrorCode = z.infer<typeof harnessErrorCodeSchema>;
 export type InteractionRequest = z.infer<typeof interactionRequestSchema>;
 export type InteractionResponse = z.infer<typeof interactionResponseSchema>;
-export type CreateLocalRunRequest = z.infer<typeof createLocalRunRequestSchema>;
-export type CreateLocalRunResult = z.infer<typeof createLocalRunResultSchema>;
-export type CreateLocalSessionRequest = z.infer<typeof createLocalSessionRequestSchema>;
+export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
+export type CreateRunResult = z.infer<typeof createRunResultSchema>;
+export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 export type CreateWorkspaceGrantRequest = z.infer<typeof createWorkspaceGrantRequestSchema>;
 export type EventCursor = z.infer<typeof eventCursorSchema>;
-export type LocalApiError = z.infer<typeof localApiErrorSchema>;
-export type LocalRun = z.infer<typeof localRunSchema>;
-export type LocalRunStatus = z.infer<typeof localRunStatusSchema>;
-export type LocalSession = z.infer<typeof localSessionSchema>;
-export type LocalSessionStatus = z.infer<typeof localSessionStatusSchema>;
+export type ApiError = z.infer<typeof apiErrorSchema>;
+export type Run = z.infer<typeof runSchema>;
+export type RunStatus = z.infer<typeof runStatusSchema>;
+export type Session = z.infer<typeof sessionSchema>;
+export type SessionStatus = z.infer<typeof sessionStatusSchema>;
 export type ModelDescriptor = z.infer<typeof modelDescriptorSchema>;
 export type ModelRef = z.infer<typeof modelRefSchema>;
 export type PermissionPolicy = z.infer<typeof permissionPolicySchema>;
 export type RunRequest = z.infer<typeof runRequestSchema>;
 export type RuntimeHealth = z.infer<typeof runtimeHealthSchema>;
+export type RuntimeAuthentication = z.infer<typeof runtimeAuthenticationSchema>;
+export type RuntimeCapabilities = z.infer<typeof runtimeCapabilitiesSchema>;
+export type RuntimeDiscovery = z.infer<typeof runtimeDiscoverySchema>;
+export type RuntimeExecutionMode = z.infer<typeof runtimeExecutionModeSchema>;
+export type RuntimeProfile = z.infer<typeof runtimeProfileSchema>;
 export type RuntimeKind = z.infer<typeof runtimeKindSchema>;
 export type TerminalEventType = z.infer<typeof terminalEventTypeSchema>;
 export type Usage = z.infer<typeof usageSchema>;
 export type WorkspaceGrant = z.infer<typeof workspaceGrantSchema>;
+export type WorkspaceSource = z.infer<typeof workspaceSourceSchema>;
+
+/** @deprecated Use CreateRunRequest. Kept through at least 0.1.0-preview.5. */
+export type CreateLocalRunRequest = CreateRunRequest;
+/** @deprecated Use CreateRunResult. Kept through at least 0.1.0-preview.5. */
+export type CreateLocalRunResult = CreateRunResult;
+/** @deprecated Use CreateSessionRequest. Kept through at least 0.1.0-preview.5. */
+export type CreateLocalSessionRequest = CreateSessionRequest;
+/** @deprecated Use ApiError. Kept through at least 0.1.0-preview.5. */
+export type LocalApiError = ApiError;
+/** @deprecated Use Run. Kept through at least 0.1.0-preview.5. */
+export type LocalRun = Run;
+/** @deprecated Use RunStatus. Kept through at least 0.1.0-preview.5. */
+export type LocalRunStatus = RunStatus;
+/** @deprecated Use Session. Kept through at least 0.1.0-preview.5. */
+export type LocalSession = Session;
+/** @deprecated Use SessionStatus. Kept through at least 0.1.0-preview.5. */
+export type LocalSessionStatus = SessionStatus;

@@ -9,10 +9,10 @@
 
 ## Phase 1：中立协议与迁移层
 
-- [ ] **P1.1 中立 contracts**：在 `packages/contracts/src/index.ts` 增加 Session/Run/Request/Result 中立
+- [x] **P1.1 中立 contracts**：在 `packages/contracts/src/index.ts` 增加 Session/Run/Request/Result 中立
       Schema 与类型；`Local*` 改为带 `@deprecated` 的同对象别名。依赖：Spec 提交。验收：contracts 单测、build、
       typecheck，Schema identity 与 JSON 往返均通过。
-- [ ] **P1.2 Runtime 描述 contracts**：定义 Runtime Profile、部署 capability、Workspace Source、认证模式和
+- [x] **P1.2 Runtime 描述 contracts**：定义 Runtime Profile、部署 capability、Workspace Source、认证模式和
       protocol discovery Schema。依赖：P1.1。验收：Local/Remote profile 往返、非法组合拒绝、未知 major 可被发现但
       不能被当前资源 Schema 接受。
 - [x] **P1.3 版本与兼容周期**：保持 Harness Protocol `1.0.0`；`/v1/*` 为规范路由；preview.4 与 preview.5

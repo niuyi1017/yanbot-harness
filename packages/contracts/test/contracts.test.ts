@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   HARNESS_PROTOCOL_VERSION,
+  apiErrorSchema,
   adapterEventSchema,
   adapterManifestSchema,
   adapterSummarySchema,
   createLocalRunRequestSchema,
   createLocalSessionRequestSchema,
+  createRunRequestSchema,
+  createRunResultSchema,
+  createSessionRequestSchema,
   eventCursorSchema,
   effectiveConfigSummarySchema,
   extensionSummarySchema,
@@ -14,9 +18,15 @@ import {
   localApiErrorSchema,
   localRunSchema,
   localSessionSchema,
-  runtimeHealthSchema,
+  remoteRuntimeProfileSchema,
   runRequestSchema,
+  runSchema,
+  runtimeDiscoverySchema,
+  runtimeHealthSchema,
+  runtimeProfileSchema,
+  sessionSchema,
   workspaceGrantSchema,
+  workspaceSourceSchema,
 } from '../src/index.js';
 
 const runId = '11111111-1111-4111-8111-111111111111';
@@ -107,6 +117,116 @@ describe('contracts', () => {
     for (const value of [session, run, grant, cursor, error]) {
       expect(JSON.parse(JSON.stringify(value))).toEqual(value);
     }
+  });
+
+  it('keeps Local schemas as identity aliases of the neutral contracts', () => {
+    expect(localSessionSchema).toBe(sessionSchema);
+    expect(localRunSchema).toBe(runSchema);
+    expect(createLocalSessionRequestSchema).toBe(createSessionRequestSchema);
+    expect(createLocalRunRequestSchema).toBe(createRunRequestSchema);
+    expect(localApiErrorSchema).toBe(apiErrorSchema);
+
+    const request = createRunRequestSchema.parse({
+      prompt: 'Inspect the repository',
+      workspaceGrant: 'grant-id.secret',
+    });
+    const run = runSchema.parse({
+      protocolVersion: HARNESS_PROTOCOL_VERSION,
+      runId,
+      sessionId,
+      adapterId: 'cn.yanbot.reference',
+      status: 'queued',
+      prompt: request.prompt,
+      permissionPolicy: request.permissionPolicy,
+      createdAt: '2026-09-17T08:00:00.000Z',
+    });
+
+    expect(createRunResultSchema.parse({ run, reused: false })).toEqual({ run, reused: false });
+  });
+
+  it('round-trips workspace sources and constrained Runtime profiles', () => {
+    const localSource = workspaceSourceSchema.parse({
+      kind: 'local-path-grant',
+      workspaceGrant: 'grant-id.secret',
+      relativeCwd: 'packages/contracts',
+    });
+    const remoteSource = workspaceSourceSchema.parse({
+      kind: 'uploaded-snapshot',
+      uploadId: 'upload-1',
+      digest: `sha256:${'a'.repeat(64)}`,
+    });
+    const localProfile = runtimeProfileSchema.parse({
+      executionMode: 'local',
+      serviceVersion: '0.1.0-preview.3',
+      authentication: 'local-descriptor',
+      capabilities: {
+        workspaceSources: ['local-path-grant'],
+        eventReplay: { durability: 'process' },
+        interactions: { supported: true, maxWaitSeconds: 300 },
+      },
+    });
+    const remoteProfile = remoteRuntimeProfileSchema.parse({
+      executionMode: 'remote',
+      serviceVersion: '0.1.0-preview.3',
+      authentication: 'bearer',
+      capabilities: {
+        workspaceSources: ['git-ref', 'uploaded-snapshot'],
+        eventReplay: { durability: 'durable', retentionSeconds: 86_400 },
+        interactions: { supported: true, maxWaitSeconds: 3_600 },
+      },
+    });
+
+    for (const value of [localSource, remoteSource, localProfile, remoteProfile]) {
+      expect(JSON.parse(JSON.stringify(value))).toEqual(value);
+    }
+    expect(() =>
+      runtimeProfileSchema.parse({
+        ...localProfile,
+        authentication: 'bearer',
+      }),
+    ).toThrow();
+    expect(() =>
+      remoteRuntimeProfileSchema.parse({
+        ...remoteProfile,
+        capabilities: { ...remoteProfile.capabilities, workspaceSources: ['local-path-grant'] },
+      }),
+    ).toThrow();
+  });
+
+  it('discovers an unknown protocol major without accepting it as a current resource version', () => {
+    const discovery = runtimeDiscoverySchema.parse({
+      service: 'future-runtime',
+      protocolVersion: '2.0.0',
+      status: 'ok',
+      startedAt: '2026-09-17T08:00:00.000Z',
+      profile: {
+        executionMode: 'remote',
+        serviceVersion: '0.2.0',
+        authentication: 'bearer',
+        capabilities: {
+          workspaceSources: ['uploaded-snapshot'],
+          eventReplay: { durability: 'durable', retentionSeconds: 86_400 },
+          interactions: { supported: false },
+        },
+      },
+    });
+
+    expect(discovery.protocolVersion).toBe('2.0.0');
+    expect(() => sessionSchema.parse({ protocolVersion: discovery.protocolVersion })).toThrow();
+  });
+
+  it('keeps public error codes stable at the API envelope boundary', () => {
+    const parsed = apiErrorSchema.parse({
+      error: { code: 'CAPABILITY_UNSUPPORTED', message: 'Workspace source is not supported.' },
+      requestId: '66666666-6666-4666-8666-666666666666',
+    });
+    expect(parsed.error.code).toBe('CAPABILITY_UNSUPPORTED');
+    expect(() =>
+      apiErrorSchema.parse({
+        error: { code: 'REMOTE_MAGIC_FAILED', message: 'unstable' },
+        requestId: parsed.requestId,
+      }),
+    ).toThrow();
   });
 
   it('applies safe defaults to local run creation', () => {
