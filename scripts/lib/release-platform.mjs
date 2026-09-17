@@ -78,16 +78,16 @@ export async function listZipArchiveEntries(archivePath) {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        '& { param($archive) $zip = [IO.Compression.ZipFile]::OpenRead($archive); try { $zip.Entries | ForEach-Object FullName } finally { $zip.Dispose() } }',
+        '& { param($archive) $zip = [IO.Compression.ZipFile]::OpenRead($archive); try { $zip.Entries | ForEach-Object { [Console]::Out.WriteLine($_.FullName) } } finally { $zip.Dispose() } }',
         archivePath,
       ],
       { maxBuffer: 8 * 1024 * 1024 },
     );
-    return stdout.trimEnd().split(/\r?\n/u);
+    return stdout.split(/\r?\n/u).filter((entry) => entry !== '');
   }
 
   const { stdout } = await executeFile('/usr/bin/unzip', ['-Z1', archivePath], { maxBuffer: 8 * 1024 * 1024 });
-  return stdout.trimEnd().split('\n');
+  return stdout.split('\n').filter((entry) => entry !== '');
 }
 
 export async function extractRuntimeArchive(archivePath, destinationDirectory) {
