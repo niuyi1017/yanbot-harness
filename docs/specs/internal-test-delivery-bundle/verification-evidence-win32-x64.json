@@ -33,9 +33,7 @@
     "emptyNpmCache": true,
     "offline": true,
     "ignoreInstallScripts": true,
-    "finalDirectDependencies": [
-      "@yanbot-harness/local"
-    ],
+    "finalDirectDependencies": ["@yanbot-harness/local"],
     "reference": {
       "startup": true,
       "health": true,
