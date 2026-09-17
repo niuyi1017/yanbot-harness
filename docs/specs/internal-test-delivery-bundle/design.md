@@ -5,12 +5,12 @@
 `@yanbot-harness/local` 是唯一面向同事的安装入口，但 npm 包仍保留既有职责边界：
 
 ```text
-一个外层交付文件：yanbot-harness-<V>-darwin-arm64-internal-test.zip
+一个外层交付文件：yanbot-harness-<V>-<TARGET>-internal-test.zip
 └─ 一个安装入口：node install.mjs
    └─ 离线安装根：@yanbot-harness/local@V
       ├─ @yanbot-harness/sdk@V
       └─ @yanbot-harness/runtime@V
-         └─ @yanbot-harness/runtime-darwin-arm64@V
+         └─ @yanbot-harness/runtime-<TARGET>@V
 ```
 
 “一个包”指使用者只拿一个 ZIP、只安装一个 local 入口，不表示把各 npm 包物理合并成单一 tgz。继续保留包边界可避免 SDK-only 路径下载 Runtime，也让 npm/pnpm 的平台选择和精确版本约束保持可审计。
@@ -18,7 +18,7 @@
 ## 2. ZIP 布局
 
 ```text
-yanbot-harness-<V>-darwin-arm64-internal-test/
+yanbot-harness-<V>-<TARGET>-internal-test/
 ├─ README.zh-CN.md
 ├─ install.mjs
 ├─ delivery-manifest.json
@@ -39,7 +39,7 @@ yanbot-harness-<V>-darwin-arm64-internal-test/
 
 1. 接收同一源提交生成的 common 与 platform 构建目录。
 2. 调用既有 `build-offline-kit.mjs`，复用签名 manifest 和依赖闭包装配。
-3. 校验目标为 `darwin-arm64`、测试签名为真、生产授权为假。
+3. 从已验证的 platform report 推导目标，并只允许 `darwin-arm64` 或 `win32-x64`；校验测试签名为真、生产授权为假。
 4. 将 kit 与外置信任文件复制到全新 staging，生成说明、入口及外层清单。
 5. 枚举所有普通文件并生成排序稳定的 `SHA256SUMS`；拒绝链接和非普通文件。
 6. 用既有 ZIP helper 归档到显式输出目录；输出 JSON 报告及 ZIP SHA-256。
@@ -53,7 +53,9 @@ yanbot-harness-<V>-darwin-arm64-internal-test/
 - fixture 测试验证清单、路径、链接、篡改、目标平台和现有目录拒绝。
 - 实际候选验证在含空格/中文的全新目录解压，核对 ZIP SHA、文件全集与每个 SHA-256，再以空 npm cache 执行 `node install.mjs --prefix <new-dir>`；成功标准为 installer 输出 `run.completed`。
 
-验证使用系统 ZIP 解压器，但在信任任何内容前检查 archive 列表的绝对路径、`..`、重复和顶层目录约束。实际安装仍由签名 kit 的严格验证保护。
+验证使用系统 ZIP 解压器，但在信任任何内容前检查 archive 列表的绝对路径、`..`、重复和顶层目录约束。实际安装仍由签名 kit 的严格验证保护。候选验证抽成可复用脚本，接收一个交付 ZIP，在当前平台完成校验、全新目录解压、一键离线安装及报告输出。
+
+Windows 最终包由 `unified-local-installation.yml` 的 `windows-2022` job 在既有 unified common/platform 验证后生成；同一 job 运行候选验证脚本，并只在成功后上传 ZIP 与验证报告。这样避免在 macOS 上拼装未经 Windows 实际执行的制品。
 
 ## 5. 安全与发布边界
 
@@ -69,3 +71,4 @@ yanbot-harness-<V>-darwin-arm64-internal-test/
 - **把所有依赖物理打进 local.tgz**：破坏已确认的包职责、SDK-only 轻量路径和平台 optional 选择。
 - **一个 ZIP 混装三平台**：显著增大体积且容易误用；每个平台应生成独立的单文件交付物。
 - **把测试信任根放进签名 kit 并自动信任**：会形成自认证，不保留信任边界。
+- **在 macOS 本地拼装 Windows ZIP 后直接交付**：无法证明顶层安装器、Windows 路径与该 ZIP 的真实离线安装行为；改由 Windows runner 原生构建和验收。
