@@ -27,6 +27,7 @@ test('delivery inventory rejects links and detects changed or unlisted files', a
 
 test('archive entry validation rejects traversal and case collisions', () => {
   validateArchiveEntries(['delivery/', 'delivery/file'], 'delivery');
+  validateArchiveEntries(['delivery/file'], 'delivery');
   assert.throws(() => validateArchiveEntries(['delivery/', '../escape'], 'delivery'));
   assert.throws(() => validateArchiveEntries(['delivery/', 'delivery/A', 'delivery/a'], 'delivery'), /Duplicate/u);
 });

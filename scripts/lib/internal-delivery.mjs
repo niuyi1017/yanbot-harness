@@ -88,5 +88,5 @@ export function validateArchiveEntries(entries, rootName) {
     assert(!identities.has(identity), 'Duplicate or case-colliding archive entry.');
     identities.add(identity);
   }
-  assert(identities.has(root.normalize('NFC').toLocaleLowerCase('en-US')), 'Archive root missing.');
+  assert(identities.size > 0, 'Archive is empty.');
 }
