@@ -66,7 +66,8 @@ export async function listZipArchiveEntries(archivePath) {
 export async function extractRuntimeArchive(archivePath, destinationDirectory) {
   if (archivePath.endsWith('.zip')) {
     if (process.platform === 'win32')
-      await executeFile('tar.exe', ['-xf', archivePath, '-C', destinationDirectory], {
+      await executeFile('tar.exe', ['-xf', archivePath], {
+        cwd: destinationDirectory,
         maxBuffer: 50 * 1024 * 1024,
       });
     else
