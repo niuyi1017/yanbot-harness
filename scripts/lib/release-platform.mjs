@@ -78,7 +78,7 @@ export async function listZipArchiveEntries(archivePath) {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        '& { param($archive) $zip = [IO.Compression.ZipFile]::OpenRead($archive); try { $zip.Entries | ForEach-Object { [Console]::Out.WriteLine($_.FullName) } } finally { $zip.Dispose() } }',
+        '& { param($archive) $zip = [IO.Compression.ZipFile]::OpenRead($archive); try { $zip.Entries | ForEach-Object { Write-Output $_.FullName } } finally { $zip.Dispose() } }',
         archivePath,
       ],
       { maxBuffer: 8 * 1024 * 1024 },
