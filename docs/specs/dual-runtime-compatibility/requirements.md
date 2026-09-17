@@ -87,7 +87,7 @@ Local Preview：公开 DTO 使用 `LocalSession`、`LocalRun`，HTTP 路由为 `
 
 ## 5. 当前实施边界
 
-本轮第一批实现仅覆盖以下可独立交付的兼容基座：
+本轮已完成第一批兼容基座：
 
 - `packages/contracts` 的中立 Session、Run、创建请求与结果 Schema；现有 `Local*` 导出变为弃用别名。
 - Runtime Profile、部署 capability、Workspace Source、认证模式和协议发现 Schema。
@@ -95,7 +95,17 @@ Local Preview：公开 DTO 使用 `LocalSession`、`LocalRun`，HTTP 路由为 `
 - Local Runtime 的 `/v1/*` 中立路由与 `/local/*` 兼容别名。
 - SDK 的显式 `RuntimeTarget`、health/profile 握手和版本阻断；不依赖 404 猜测 transport。
 
-本轮不实现或部署 Remote Runtime、Remote CLI 登录、远端工作区准备、队列、Worker 或沙箱。当前交付仍是
+下一批实现 CLI 连接层，但不提前声称 Remote 执行可用：
+
+- 增加 `--profile`/`--profile-file` 与显式 `--remote`，并继续保留 Local descriptor、managed Runtime 和受限的
+  Preview `--runtime` 兼容入口；所有目标选择参数互斥。
+- profile 只保存 target 元数据和凭据环境变量名称，不保存 access token；CLI 不提供 `--token`。
+- Remote profile 使用 SDK 的异步 token provider 和 `/v1/health` 握手；连接、认证或协议失败时不得回退到 Local。
+- Remote 可以复用不需要工作区输入的中立命令；在 Git/upload workspace preparation 落地前，`run` 必须在任何
+  Session、Grant 或 Run 请求发生前稳定拒绝，不能发送默认 cwd、`--workspace` 或其他本机路径。
+- CLI Local 规范入口改用中立 `/v1` transport；`--runtime` 只作为 loopback legacy `/local` 迁移入口。
+
+本轮不实现或部署 Remote Runtime、Remote CLI 交互式登录/刷新缓存、远端工作区准备、队列、Worker 或沙箱。当前交付仍是
 Local-only Preview；正式签名/信任根、Registry scope、再分发许可、真实 Windows 10/11 和真实厂商认证继续作为
 外部门禁单独跟踪，不阻塞上述兼容基座开发。完成 Remote 全链路之前，兼容矩阵必须保持
 “Required, not implemented”。

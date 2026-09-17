@@ -53,6 +53,45 @@ Runtime resolver，SDK 本身保持无 Runtime 依赖。上面的 target 类型�
 `startManagedRuntime` 的 resolver、就绪与关闭所有权，调用方可获取/释放 managed handle，不能只得到无清理入口的
 client。`connect(remote)` 不解析本地平台包，不启动本地进程。统一安装可独立开发，无需等待远端服务。
 
+### 2.1 CLI target 与 profile
+
+CLI 的规范选择面冻结为：
+
+- `--descriptor PATH`：`local-daemon`。
+- `--managed-runtime PATH`：`local-managed`。
+- `--remote HTTPS_URL`：`remote`，token 从 `YANBOT_HARNESS_ACCESS_TOKEN` 动态读取。
+- `--profile NAME [--profile-file PATH]`：从无密钥 profile 文件解析上述三种 target；profile 文件默认路径为
+  `YANBOT_HARNESS_PROFILE_FILE`，未设置时为 `~/.yanbot-harness/profiles.json`。
+- `--runtime URL`：仅保留为 Preview legacy `/local` 入口，URL 必须是 loopback，并使用
+  `YANBOT_HARNESS_ACCESS_TOKEN`；它不代表 Remote target。
+
+这些 target 参数彼此互斥；`--profile-file` 只能与 `--profile` 一起出现。profile 文件采用显式版本格式，不保存
+token、refresh token 或模型密钥：
+
+```json
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "local": { "mode": "local-daemon", "descriptorPath": "/path/runtime.json" },
+    "remote": {
+      "mode": "remote",
+      "origin": "https://harness.example.com",
+      "tokenEnvironment": "YANBOT_HARNESS_ACCESS_TOKEN"
+    }
+  }
+}
+```
+
+`tokenEnvironment` 只引用环境变量名，缺省为 `YANBOT_HARNESS_ACCESS_TOKEN`；变量值在 SDK 每次请求时由异步 provider
+读取，以允许外层进程刷新环境适配器。profile 缺失、Schema 非法、目标凭据缺失、Remote 非 HTTPS、握手形态不匹配
+或协议不兼容均直接失败，不能尝试其他 profile、descriptor 或 managed Runtime。交互式登录和系统凭据存储由后续认证
+子 Spec 定义，本批不把明文 token 文件包装成“登录缓存”。
+
+Remote 目标可先执行 `adapters`、`models`、`sessions`、`run-status` 和 `cancel` 等不构造本机工作区输入的公共命令。
+当前 `CreateRunRequest` 仍只接收 local path grant，因此 Remote `run` 在连接握手后、创建 Session 前返回稳定 usage
+错误；不得调用 `grantWorkspace`，也不得把隐式 cwd、`--workspace` 或 `--cwd` 发送到远端。待 Phase 4 的 git/upload
+preparation 接入公共请求后，再启用同名 `run` 命令，不新增 remote 专用命令。
+
 ## 3. 协议中立化与迁移
 
 当前 Harness Protocol `1.0.0` 的 `/local/*` 与 `Local*` 名称已经进入 Preview 包。中立资源不改变既有字段、
@@ -173,8 +212,9 @@ CodeBuddy 真实认证另跑环境门禁。发布矩阵分别记录 Local macOS�
   -> macOS/Windows Local + Remote 联合交付认证
 ```
 
-第一批提交边界为 contracts（含测试）→ Local `/v1` 路由（含 alias 测试）→ SDK RuntimeTarget/握手；不会越过到
-`apps/cloud-server`。CLI profile、Remote Reference 与后续阶段各自继续依照任务清单推进。
+第一批提交边界为 contracts（含测试）→ Local `/v1` 路由（含 alias 测试）→ SDK RuntimeTarget/握手。第二批为
+CLI target/profile → 安全失败测试 → 帮助与迁移文档；仍不会越过到 `apps/cloud-server`。Remote Reference 与后续
+阶段各自继续依照任务清单推进。
 
 ## 11. 拒绝方案
 

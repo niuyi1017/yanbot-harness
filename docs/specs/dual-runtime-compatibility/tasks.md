@@ -30,10 +30,16 @@
       constructor/fromDaemon/fromRuntime 兼容入口。依赖：P1。验收：类型检查与构造/刷新提供器测试。
 - [x] **P2.2 显式握手**：建立 `/v1/health` profile 握手、协议 major 阻断和明确 transport 选择，不使用业务
       404 猜测协议。依赖：P2.1。验收：local target 成功、remote target 无本地启动副作用、未知 major 明确失败。
-- [ ] 与 `unified-local-distribution` T3/T4 共用 resolver/managed handle contract；验证 local facade 与轻量 SDK 的依赖边界，Remote 连接零本地启动副作用。
-- [ ] CLI 增加 Local/Remote profile 与登录凭据查找，保持 `run`、`sessions`、`cancel` 等命令一致。
-- [ ] 禁止 token 命令行参数、静默 fallback 和远端本机路径请求。
-- [ ] 更新 SDK 示例、CLI 帮助、安装与迁移文档。
+- [ ] **P2.3 分发边界复核**：与 `unified-local-distribution` T3/T4 共用 resolver/managed handle contract；验证
+      local facade 与轻量 SDK 的依赖边界，Remote 连接零本地启动副作用。验收：定向依赖/生命周期测试。
+- [ ] **P2.4 CLI target/profile**：增加互斥 `--remote`、`--profile`、`--profile-file`，实现无密钥版本化 profile
+      loader 和环境变量 token provider；Local 规范入口使用 `/v1`，受限 `--runtime` 保持 loopback legacy 兼容。
+      依赖：P2.1-P2.3。验收：参数、profile Schema、凭据刷新、握手形态和现有 Local E2E 测试通过。
+- [ ] **P2.5 安全失败规则**：继续拒绝 `--token`；profile/认证/握手失败不静默 fallback；Remote `run` 在创建
+      Session/Grant/Run 前拒绝，不发送本机 cwd、`--workspace` 或 `--cwd`。依赖：P2.4。验收：请求捕获与零本地启动
+      副作用测试通过，错误退出码稳定。
+- [ ] **P2.6 文档与示例**：更新 SDK 示例、CLI 帮助、安装与迁移文档，明确 Remote 服务、交互式登录和远端
+      workspace preparation 尚未交付。依赖：P2.4-P2.5。验收：示例 typecheck、文档链接和 CLI help 快照通过。
 
 验收：同一 SDK 示例只替换 target 即可连接两种 Reference Runtime；CLI JSONL 与退出码保持一致。
 
