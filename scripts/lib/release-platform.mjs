@@ -25,16 +25,8 @@ export async function findRuntimeArchive(directory) {
 export async function createRuntimeArchive(sourceDirectory, archivePath) {
   if (archivePath.endsWith('.zip')) {
     await executeFile(
-      'powershell.exe',
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        '& { param($source, $destination) Compress-Archive -LiteralPath $source -DestinationPath $destination -Force }',
-        sourceDirectory,
-        archivePath,
-      ],
+      'tar.exe',
+      ['-a', '-cf', archivePath, '-C', path.dirname(sourceDirectory), path.basename(sourceDirectory)],
       { maxBuffer: 50 * 1024 * 1024 },
     );
     return;
@@ -48,16 +40,8 @@ export async function createRuntimeArchive(sourceDirectory, archivePath) {
 export async function createZipArchive(sourceDirectory, archivePath) {
   if (process.platform === 'win32') {
     await executeFile(
-      'powershell.exe',
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        '& { param($source, $destination) Compress-Archive -LiteralPath $source -DestinationPath $destination -Force }',
-        sourceDirectory,
-        archivePath,
-      ],
+      'tar.exe',
+      ['-a', '-cf', archivePath, '-C', path.dirname(sourceDirectory), path.basename(sourceDirectory)],
       { maxBuffer: 50 * 1024 * 1024 },
     );
     return;
@@ -71,18 +55,7 @@ export async function createZipArchive(sourceDirectory, archivePath) {
 
 export async function listZipArchiveEntries(archivePath) {
   if (process.platform === 'win32') {
-    const { stdout } = await executeFile(
-      'powershell.exe',
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        '& { param($archive) $zip = [IO.Compression.ZipFile]::OpenRead($archive); try { $zip.Entries | ForEach-Object { Write-Output $_.FullName } } finally { $zip.Dispose() } }',
-        archivePath,
-      ],
-      { maxBuffer: 8 * 1024 * 1024 },
-    );
+    const { stdout } = await executeFile('tar.exe', ['-tf', archivePath], { maxBuffer: 8 * 1024 * 1024 });
     return stdout.split(/\r?\n/u).filter((entry) => entry !== '');
   }
 
@@ -93,19 +66,9 @@ export async function listZipArchiveEntries(archivePath) {
 export async function extractRuntimeArchive(archivePath, destinationDirectory) {
   if (archivePath.endsWith('.zip')) {
     if (process.platform === 'win32')
-      await executeFile(
-        'powershell.exe',
-        [
-          '-NoLogo',
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          '& { param($source, $destination) Expand-Archive -LiteralPath $source -DestinationPath $destination -Force }',
-          archivePath,
-          destinationDirectory,
-        ],
-        { maxBuffer: 50 * 1024 * 1024 },
-      );
+      await executeFile('tar.exe', ['-xf', archivePath, '-C', destinationDirectory], {
+        maxBuffer: 50 * 1024 * 1024,
+      });
     else
       await executeFile('/usr/bin/unzip', ['-q', archivePath, '-d', destinationDirectory], {
         maxBuffer: 50 * 1024 * 1024,
