@@ -12,7 +12,7 @@ import {
   inventoryFiles,
   validateArchiveEntries,
 } from './lib/internal-delivery.mjs';
-import { createZipArchive } from './lib/release-platform.mjs';
+import { createZipArchive, listZipArchiveEntries } from './lib/release-platform.mjs';
 
 const execute = promisify(execFile);
 const args = process.argv.slice(2).filter((item) => item !== '--');
@@ -130,11 +130,7 @@ ZIP 内的多个 tgz 是 \`@yanbot-harness/local\` 的离线依赖闭包，不�
   const inventory = await inventoryFiles(root);
   await writeFile(path.join(root, CHECKSUM_FILE), formatChecksums(inventory), { flag: 'wx' });
   await createZipArchive(root, archive);
-  const listed = (
-    await execute('/usr/bin/unzip', ['-Z1', archive], { timeout: 30000, maxBuffer: 8 * 1024 * 1024 })
-  ).stdout
-    .trimEnd()
-    .split('\n');
+  const listed = await listZipArchiveEntries(archive);
   validateArchiveEntries(listed, name);
   console.log(
     JSON.stringify({

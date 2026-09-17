@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { promisify } from 'node:util';
 
 import { inventoryFiles, validateArchiveEntries, verifyChecksums } from './lib/internal-delivery.mjs';
+import { extractRuntimeArchive } from './lib/release-platform.mjs';
 
 const execute = promisify(execFile);
 
@@ -104,7 +105,7 @@ test('builder emits one darwin-arm64 ZIP with local as the root package', async 
   assert.equal(result.productionAuthorized, false);
   const extract = path.join(fixture, '含 空格 extract');
   await mkdir(extract);
-  await execute('/usr/bin/unzip', ['-q', result.archive, '-d', extract]);
+  await extractRuntimeArchive(result.archive, extract);
   const root = path.join(extract, result.name);
   await verifyChecksums(root);
   const manifest = JSON.parse(await readFile(path.join(root, 'delivery-manifest.json'), 'utf8'));

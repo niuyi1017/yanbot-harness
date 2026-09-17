@@ -69,21 +69,47 @@ export async function createZipArchive(sourceDirectory, archivePath) {
   });
 }
 
-export async function extractRuntimeArchive(archivePath, destinationDirectory) {
-  if (archivePath.endsWith('.zip')) {
-    await executeFile(
+export async function listZipArchiveEntries(archivePath) {
+  if (process.platform === 'win32') {
+    const { stdout } = await executeFile(
       'powershell.exe',
       [
         '-NoLogo',
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        '& { param($source, $destination) Expand-Archive -LiteralPath $source -DestinationPath $destination -Force }',
+        '& { param($archive) $zip = [IO.Compression.ZipFile]::OpenRead($archive); try { $zip.Entries | ForEach-Object FullName } finally { $zip.Dispose() } }',
         archivePath,
-        destinationDirectory,
       ],
-      { maxBuffer: 50 * 1024 * 1024 },
+      { maxBuffer: 8 * 1024 * 1024 },
     );
+    return stdout.trimEnd().split(/\r?\n/u);
+  }
+
+  const { stdout } = await executeFile('/usr/bin/unzip', ['-Z1', archivePath], { maxBuffer: 8 * 1024 * 1024 });
+  return stdout.trimEnd().split('\n');
+}
+
+export async function extractRuntimeArchive(archivePath, destinationDirectory) {
+  if (archivePath.endsWith('.zip')) {
+    if (process.platform === 'win32')
+      await executeFile(
+        'powershell.exe',
+        [
+          '-NoLogo',
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          '& { param($source, $destination) Expand-Archive -LiteralPath $source -DestinationPath $destination -Force }',
+          archivePath,
+          destinationDirectory,
+        ],
+        { maxBuffer: 50 * 1024 * 1024 },
+      );
+    else
+      await executeFile('/usr/bin/unzip', ['-q', archivePath, '-d', destinationDirectory], {
+        maxBuffer: 50 * 1024 * 1024,
+      });
     return;
   }
 
