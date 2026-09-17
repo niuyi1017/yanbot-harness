@@ -233,17 +233,47 @@ export class RunHandle {
 }
 
 async function connectTarget(target: LocalDaemonTarget | RemoteRuntimeTarget): Promise<HarnessClient> {
-  const connection =
-    target.mode === 'local-daemon'
-      ? await localDaemonConnection(target)
-      : {
-          origin: assertRemoteOrigin(target.origin),
-          accessTokenProvider: target.tokenProvider,
-          ...(target.fetch === undefined ? {} : { fetch: target.fetch }),
-        };
+  if (target.mode === 'local-daemon') {
+    const descriptor = await readRuntimeDescriptor(target);
+    return connectLocalRuntime(
+      { origin: descriptor.origin, accessToken: descriptor.accessToken },
+      {
+        ...(target.fetch === undefined ? {} : { fetch: target.fetch }),
+        ...(target.signal === undefined ? {} : { signal: target.signal }),
+      },
+    );
+  }
+  const connection = {
+    origin: assertRemoteOrigin(target.origin),
+    accessTokenProvider: target.tokenProvider,
+    ...(target.fetch === undefined ? {} : { fetch: target.fetch }),
+  };
+  return negotiateRuntime(connection, 'remote', target.signal);
+}
+
+export async function connectLocalRuntime(
+  handle: { origin: string; accessToken: string },
+  options: { fetch?: typeof fetch; signal?: AbortSignal } = {},
+): Promise<HarnessClient> {
+  return negotiateRuntime(
+    {
+      origin: handle.origin,
+      accessToken: handle.accessToken,
+      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    },
+    'local',
+    options.signal,
+  );
+}
+
+async function negotiateRuntime(
+  connection: ConstructorParameters<typeof HttpTransport>[0],
+  expectedMode: 'local' | 'remote',
+  signal?: AbortSignal,
+): Promise<HarnessClient> {
   const discoveryTransport = new HttpTransport(connection);
   const discovery = await discoveryTransport.json('GET', '/v1/health', runtimeDiscoverySchema, {
-    ...(target.signal === undefined ? {} : { signal: target.signal }),
+    ...(signal === undefined ? {} : { signal }),
   });
   const protocolMajor = Number.parseInt(discovery.protocolVersion.split('.')[0]!, 10);
   if (protocolMajor !== HARNESS_PROTOCOL_MAJOR) {
@@ -252,23 +282,13 @@ async function connectTarget(target: LocalDaemonTarget | RemoteRuntimeTarget): P
       `Harness Protocol ${discovery.protocolVersion} is incompatible with client major ${HARNESS_PROTOCOL_MAJOR}.`,
     );
   }
-  const expectedMode = target.mode === 'remote' ? 'remote' : 'local';
   if (discovery.profile.executionMode !== expectedMode) {
     throw new HarnessSdkError(
       'protocol',
-      `The ${target.mode} target reported ${discovery.profile.executionMode} execution mode.`,
+      `The ${expectedMode} target reported ${discovery.profile.executionMode} execution mode.`,
     );
   }
   return new HarnessClient({ ...connection, routePrefix: '/v1', runtime: discovery });
-}
-
-async function localDaemonConnection(target: LocalDaemonTarget) {
-  const descriptor = await readRuntimeDescriptor(target);
-  return {
-    origin: descriptor.origin,
-    accessToken: descriptor.accessToken,
-    ...(target.fetch === undefined ? {} : { fetch: target.fetch }),
-  };
 }
 
 function assertRemoteOrigin(origin: string): string {

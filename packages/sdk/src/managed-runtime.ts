@@ -13,7 +13,7 @@ import {
   type ManagedControlMessage,
 } from '@yanbot-harness/contracts';
 
-import { HarnessClient } from './client.js';
+import { connectLocalRuntime, type HarnessClient } from './client.js';
 import { readRuntimeDescriptor } from './daemon.js';
 import { protectManagedState, verifyManagedDescriptor } from './managed-permissions.js';
 import { HarnessSdkError } from './transport.js';
@@ -166,13 +166,10 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
         throw new HarnessSdkError('protocol', 'Managed readiness identity mismatch.');
     }
     const client = await withSignal(
-      HarnessClient.connect({
-        mode: 'local-daemon',
-        descriptorPath,
-        environment,
-        signal,
-        ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-      }),
+      connectLocalRuntime(
+        { origin: descriptor.origin, accessToken: descriptor.accessToken },
+        { signal, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) },
+      ),
       signal,
     );
     control?.assertHealthy();
