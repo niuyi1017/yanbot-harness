@@ -6,6 +6,7 @@ import {
 } from '@yanbot-harness/contracts';
 
 export type Schema<T> = { parse(value: unknown): T };
+export type TransportAccessTokenProvider = () => Promise<{ accessToken: string; expiresAt?: string }>;
 
 export class HarnessSdkError extends Error {
   readonly kind: 'authentication' | 'request' | 'runtime' | 'network' | 'protocol';
@@ -29,13 +30,24 @@ export class HarnessSdkError extends Error {
 
 export class HttpTransport {
   readonly #origin: string;
-  readonly #accessToken: string;
+  readonly #accessTokenProvider: TransportAccessTokenProvider;
   readonly #fetch: typeof fetch;
 
-  constructor(options: { origin: string; accessToken: string; fetch?: typeof fetch }) {
+  constructor(options: {
+    origin: string;
+    accessToken?: string;
+    accessTokenProvider?: TransportAccessTokenProvider;
+    fetch?: typeof fetch;
+  }) {
     this.#origin = normalizeOrigin(options.origin);
-    if (!options.accessToken) throw new HarnessSdkError('authentication', 'A Runtime access token is required.');
-    this.#accessToken = options.accessToken;
+    if (options.accessToken && options.accessTokenProvider) {
+      throw new HarnessSdkError('request', 'Use either a fixed Runtime token or a token provider, not both.');
+    }
+    if (options.accessTokenProvider) this.#accessTokenProvider = options.accessTokenProvider;
+    else {
+      if (!options.accessToken) throw new HarnessSdkError('authentication', 'A Runtime access token is required.');
+      this.#accessTokenProvider = async () => ({ accessToken: options.accessToken! });
+    }
     this.#fetch = options.fetch ?? fetch;
   }
 
@@ -82,17 +94,24 @@ export class HttpTransport {
     }
   }
 
-  events(runId: string, options: { afterEventId?: string; signal?: AbortSignal } = {}): AsyncIterable<AdapterEvent> {
-    return { [Symbol.asyncIterator]: () => this.eventIterator(runId, options) };
+  events(
+    pathname: string,
+    runId: string,
+    options: { afterEventId?: string; signal?: AbortSignal } = {},
+  ): AsyncIterable<AdapterEvent> {
+    return { [Symbol.asyncIterator]: () => this.eventIterator(pathname, runId, options) };
   }
 
   private async request(pathname: string, init: RequestInit): Promise<Response> {
     let response: Response;
     try {
+      const token = await this.#accessTokenProvider();
+      if (!token.accessToken)
+        throw new HarnessSdkError('authentication', 'The Runtime token provider returned no token.');
       response = await this.#fetch(new URL(pathname, `${this.#origin}/`), {
         ...init,
         headers: {
-          authorization: `Bearer ${this.#accessToken}`,
+          authorization: `Bearer ${token.accessToken}`,
           ...((init.headers as Record<string, string> | undefined) ?? {}),
           ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
         },
@@ -106,11 +125,12 @@ export class HttpTransport {
   }
 
   private async *eventIterator(
+    pathname: string,
     runId: string,
     options: { afterEventId?: string; signal?: AbortSignal },
   ): AsyncGenerator<AdapterEvent> {
     const query = options.afterEventId ? `?afterEventId=${encodeURIComponent(options.afterEventId)}` : '';
-    const response = await this.request(`/local/runs/${encodeURIComponent(runId)}/events${query}`, {
+    const response = await this.request(`${pathname}${query}`, {
       method: 'GET',
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });

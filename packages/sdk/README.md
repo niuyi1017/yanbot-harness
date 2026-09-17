@@ -23,9 +23,28 @@ for await (const event of run.events()) {
 }
 ```
 
-Use `HarnessClient.connect({ origin, accessToken })` for an explicit Runtime, `fromRuntime(handle)` for an embedded
-Runtime, or `fromDaemon()` for the protected local descriptor. Keep the last event ID and pass it as `afterEventId`
-when explicitly resuming SSE. Pass an `AbortSignal` to stop reading without creating a hidden retry.
+For new integrations, connect through an explicit target. This performs one `/v1/health` negotiation, rejects an
+incompatible protocol major, and fixes the transport to neutral `/v1/*` routes without probing business endpoints:
+
+```ts
+const local = await HarnessClient.connect({ mode: 'local-daemon' });
+console.log(local.profile().profile.capabilities);
+
+const remote = await HarnessClient.connect({
+  mode: 'remote',
+  origin: 'https://runtime.example.com',
+  tokenProvider: async () => loadShortLivedAccessToken(),
+});
+```
+
+Remote origins must use HTTPS. The token provider runs for every request so the host can refresh expiring credentials;
+the SDK never accepts a model/vendor key. `HarnessClient.connect({ mode: 'local-managed', options })` returns the same
+owned `ManagedRuntimeHandle` as `startManagedRuntime(options)`, including `close()`.
+
+The existing synchronous `HarnessClient.connect({ origin, accessToken })`, `fromRuntime(handle)`, and `fromDaemon()`
+entry points remain legacy `/local/*` clients through the documented Preview compatibility window. They do not guess
+or silently switch transports. Keep the last event ID and pass it as `afterEventId` when explicitly resuming SSE. Pass
+an `AbortSignal` to stop reading without creating a hidden retry.
 
 To explicitly own the lifecycle of an already installed Runtime executable, use `startManagedRuntime()`:
 

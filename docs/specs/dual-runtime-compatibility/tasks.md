@@ -19,16 +19,16 @@
       强制保留 `/local/*` 和 `Local*`，最早在有迁移证据的 `0.2.0` 移除。验收：requirements/design 明确记录。
 - [x] **P1.4 Local 中立路由**：在 `apps/local-runtime` 实现 `/v1/*`，同一 handler 同时挂载 `/local/*`，旧
       `/local/health` 保持最小响应。依赖：P1.2。验收：两套路由响应等价、认证边界一致、旧 health exact-match 通过。
-- [ ] **P1.5 边界测试**：覆盖 Schema 往返、旧客户端 JSON/路径兼容、稳定错误码、协议 major 阻断和禁止 404
+- [x] **P1.5 边界测试**：覆盖 Schema 往返、旧客户端 JSON/路径兼容、稳定错误码、协议 major 阻断和禁止 404
       transport 猜测。依赖：P1.1-P1.4。验收：contracts 与 local-runtime 定向测试通过。
 
 验收：旧 Local Preview 场景不回退；新客户端不再要求业务代码使用 `Local*`；协议 major 不兼容时明确阻断。
 
 ## Phase 2：SDK/CLI 双目标连接
 
-- [ ] **P2.1 SDK 目标模型**：在 `packages/sdk` 实现 `RuntimeTarget` 与异步 `AccessTokenProvider`，保留当前
+- [x] **P2.1 SDK 目标模型**：在 `packages/sdk` 实现 `RuntimeTarget` 与异步 `AccessTokenProvider`，保留当前
       constructor/fromDaemon/fromRuntime 兼容入口。依赖：P1。验收：类型检查与构造/刷新提供器测试。
-- [ ] **P2.2 显式握手**：建立 `/v1/health` profile 握手、协议 major 阻断和明确 transport 选择，不使用业务
+- [x] **P2.2 显式握手**：建立 `/v1/health` profile 握手、协议 major 阻断和明确 transport 选择，不使用业务
       404 猜测协议。依赖：P2.1。验收：local target 成功、remote target 无本地启动副作用、未知 major 明确失败。
 - [ ] 与 `unified-local-distribution` T3/T4 共用 resolver/managed handle contract；验证 local facade 与轻量 SDK 的依赖边界，Remote 连接零本地启动副作用。
 - [ ] CLI 增加 Local/Remote profile 与登录凭据查找，保持 `run`、`sessions`、`cancel` 等命令一致。

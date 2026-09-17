@@ -165,12 +165,16 @@ export async function startManagedRuntime(options: StartManagedRuntimeOptions = 
       if (ready.instanceId !== descriptor.instanceId)
         throw new HarnessSdkError('protocol', 'Managed readiness identity mismatch.');
     }
-    const client = new HarnessClient({
-      origin: descriptor.origin,
-      accessToken: descriptor.accessToken,
-      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-    });
-    await withSignal(client.health({ signal }), signal);
+    const client = await withSignal(
+      HarnessClient.connect({
+        mode: 'local-daemon',
+        descriptorPath,
+        environment,
+        signal,
+        ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+      }),
+      signal,
+    );
     control?.assertHealthy();
     signal.throwIfAborted();
     if (child.exitCode !== null || child.signalCode !== null) throw childOutcomeError(await outcome);

@@ -62,4 +62,23 @@ describe('SDK through the public local protocol', () => {
     expect(events.at(-1)?.type).toBe('run.completed');
     await expect(handle.refresh()).resolves.toMatchObject({ status: 'completed' });
   });
+
+  it('connects to a local daemon through descriptor discovery and negotiates /v1', async () => {
+    const temporary = await createTemporaryStateRoot('yanbot-sdk-target-');
+    cleanups.push(temporary.cleanup);
+    const descriptorPath = path.join(temporary.path, 'runtime.json');
+    const runtime = await startLocalRuntime({
+      stateRoot: path.join(temporary.path, 'state'),
+      runtimeDescriptorPath: descriptorPath,
+      adapters: [new ReferenceAdapter()],
+    });
+    runtimes.push(runtime);
+
+    const client = await HarnessClient.connect({ mode: 'local-daemon', descriptorPath });
+    expect(client.profile()).toMatchObject({
+      profile: { executionMode: 'local', authentication: 'local-descriptor' },
+    });
+    await expect(client.health()).resolves.toEqual(client.profile());
+    await expect(client.listSessions()).resolves.toEqual([]);
+  });
 });
