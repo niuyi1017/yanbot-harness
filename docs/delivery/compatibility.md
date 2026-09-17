@@ -80,7 +80,8 @@ The public Node.js exports are `HarnessClient`, `RunHandle`, `readRuntimeDescrip
 
 | API                                                                             | Result / behavior                                                                                                |
 | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `HarnessClient.connect(options)`                                                | Connect with an explicit Runtime origin and bearer token.                                                        |
+| `HarnessClient.connect(target)`                                                 | Negotiate an explicit local-daemon, local-managed, or HTTPS remote target on neutral `/v1` routes.               |
+| `HarnessClient.connect({ origin, accessToken })`                                | Legacy synchronous `/local` transport retained through the Preview migration window.                             |
 | `HarnessClient.fromRuntime(handle)`                                             | Connect from an embedded Runtime handle.                                                                         |
 | `HarnessClient.fromDaemon(options?)`                                            | Read a mode-0600 local descriptor and connect.                                                                   |
 | `startManagedRuntime(options?)`                                                 | Start an installed Runtime, validate readiness, and return an owned client/close handle.                         |
@@ -100,9 +101,12 @@ that fail the public schemas become `protocol` errors and raw non-protocol bodie
 The CLI command surface is frozen to `run`, `adapters`, `models`, `sessions`, `run-status`, and `cancel`, plus
 `--help`/`--version`. JSON mode writes one JSON value per stdout line; diagnostics stay on stderr. Exit codes are
 `0` success, `2` usage, `10` cancellation/timeout, `11` interaction/permission, `20` authentication, `30` Adapter or
-upstream failure, and `40` Runtime/network/protocol failure. Connection modes are mutually exclusive: explicit
-`--runtime` plus the environment token, explicit `--descriptor`, explicit `--managed-runtime`, or default Daemon
-descriptor discovery.
+upstream failure, and `40` Runtime/network/protocol failure. The preview.3 development candidate adds mutually
+exclusive `--remote`, `--profile`, `--descriptor`, and `--managed-runtime` targets; default descriptor discovery
+remains Local. `--runtime` is restricted to loopback legacy `/local`. Profiles contain no token value, and `--token`
+is rejected. Remote read/control commands use the same output contract, while Remote `run` fails with usage exit `2`
+before Session creation until Git/upload workspace preparation is implemented. See the
+[target/profile migration guide](runtime-target-profiles.md).
 
 Managed mode currently inherits `options.environment ?? process.env`. If a host puts a vendor Key in that environment,
 the host already holds it; the file-based Runtime-only credential flow does not prove otherwise. Windows managed close

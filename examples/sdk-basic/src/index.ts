@@ -1,6 +1,6 @@
 import { HarnessClient } from '@yanbot-harness/sdk';
 
-const client = await HarnessClient.fromDaemon();
+const client = await HarnessClient.connect({ mode: 'local-daemon' });
 await client.health();
 const adapter = (await client.listAdapters())[0];
 if (!adapter) throw new Error('The Runtime has no available Adapter.');

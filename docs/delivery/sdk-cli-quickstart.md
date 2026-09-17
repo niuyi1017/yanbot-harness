@@ -7,6 +7,10 @@ This is the current explicit-path workflow. The proposed `@yanbot-harness/local`
 Runtime discovery belong to a later Preview and are not available in these artifacts. Future plans are recorded in the
 repository under `docs/specs/unified-local-distribution/`; use the commands below for `preview.2`.
 
+The source-tree preview.3 candidate also contains neutral `/v1` SDK targets and CLI Local/Remote profiles. Those
+options are not present in this immutable preview.2 bundle. Migration syntax and current Remote limitations are
+documented in [`runtime-target-profiles.md`](./runtime-target-profiles.md).
+
 For a complete Windows 10/11 handoff, including PowerShell installation, SDK integration code, CodeBuddy BYOK,
 acceptance reporting, and cleanup, use
 [`windows-sdk-cli-integration-guide.zh-CN.md`](./windows-sdk-cli-integration-guide.zh-CN.md).

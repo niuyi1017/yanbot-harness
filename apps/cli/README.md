@@ -1,8 +1,9 @@
 # @yanbot-harness/cli
 
-Distribution boundary: this Preview CLI stays SDK-only and uses the existing explicit Runtime/descriptor/managed-path
-options. The proposed `@yanbot-harness/local` SDK entry does not make this CLI auto-install or auto-discover a Runtime.
-Future default local startup and Daemon management commands require their own acceptance gate.
+Distribution boundary: this Preview CLI stays SDK-only. Local managed mode requires an explicit installed Runtime;
+Remote mode never resolves or starts one. The `@yanbot-harness/local` SDK entry does not make this CLI auto-install
+or auto-discover a Runtime. Future default local startup and Daemon management commands require their own acceptance
+gate.
 
 Node.js 22 command-line client for a Yanbot Harness Runtime.
 
@@ -12,13 +13,37 @@ yanbot-harness adapters --json
 yanbot-harness run "Reply with a delivery check" --json --log-level silent
 ```
 
-By default the CLI discovers the mode-0600 local Runtime descriptor. Use `--descriptor PATH`, or use `--runtime URL`
-with `YANBOT_HARNESS_ACCESS_TOKEN`. There is deliberately no token or CodeBuddy key command-line option.
+By default the CLI discovers the mode-0600 local Runtime descriptor. New connections use neutral `/v1` routes and
+an explicit target selected by `--descriptor`, `--managed-runtime`, `--remote`, or `--profile`. Target options are
+mutually exclusive. `--runtime` remains a loopback-only legacy `/local` migration option. There is deliberately no
+token or CodeBuddy key command-line option.
 
 Use `--managed-runtime PATH` to start an already installed Runtime only for the current command. The CLI waits for
 the protected descriptor and health response, then shuts down the owned Runtime and removes its temporary state on
 every exit path. The option is mutually exclusive with `--descriptor` and `--runtime`; it never downloads or updates
-the executable.
+the executable. `--remote HTTPS_URL` uses `YANBOT_HARNESS_ACCESS_TOKEN` and never falls back to a Local target.
+
+Profiles are versioned JSON selected with `--profile NAME [--profile-file PATH]`. The default file is
+`YANBOT_HARNESS_PROFILE_FILE` or `~/.yanbot-harness/profiles.json`. Profiles store only target metadata and an
+environment-variable name, never a token:
+
+```json
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "local": { "mode": "local-daemon", "descriptorPath": "/path/runtime.json" },
+    "remote": {
+      "mode": "remote",
+      "origin": "https://runtime.example.com",
+      "tokenEnvironment": "YANBOT_HARNESS_ACCESS_TOKEN"
+    }
+  }
+}
+```
+
+Remote read/control commands use the same names and output as Local. Remote `run` is intentionally rejected before
+Session creation until Git/upload workspace preparation exists; the CLI never sends a local cwd or `--workspace` to
+a Remote Runtime. See the [target/profile migration guide](../../docs/delivery/runtime-target-profiles.md).
 
 Commands are `run`, `adapters`, `models`, `sessions`, `run-status`, and `cancel`. `run --json` emits a
 `cli.run-created` record followed by public Adapter events, one JSON value per stdout line; diagnostics remain on

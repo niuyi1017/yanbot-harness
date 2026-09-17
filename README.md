@@ -111,17 +111,22 @@ See `examples/sdk-basic` for the buildable version. The example depends only on 
 Run `pnpm --filter @yanbot-harness/cli start --help` for all commands. The CLI provides `run`, `adapters`,
 `models`, `sessions`, `run-status`, and `cancel`, with human-readable and `--json` JSONL modes.
 
-Connection credentials are resolved in this order:
+Choose exactly one connection target:
 
-1. `--runtime URL` with `YANBOT_HARNESS_ACCESS_TOKEN`.
-2. `--descriptor PATH`.
-3. `YANBOT_HARNESS_RUNTIME_DESCRIPTOR`.
-4. `~/.yanbot-harness/runtime.json`.
+1. `--remote HTTPS_URL` with `YANBOT_HARNESS_ACCESS_TOKEN`, or `--profile NAME` with a versioned profile file.
+2. `--descriptor PATH` or `--managed-runtime PATH` for Local.
+3. Without an explicit target, `YANBOT_HARNESS_RUNTIME_DESCRIPTOR` or `~/.yanbot-harness/runtime.json` for Local.
+4. `--runtime URL` is a loopback-only legacy `/local` migration option.
 
 There is deliberately no token command-line option. Exit codes are `0` success, `2` usage, `10` cancellation,
 `11` denied or unhandled interaction, `20` authentication, `30` adapter/upstream failure, and `40` Runtime/network/
 protocol failure. `--log-level` accepts `silent`, `error`, `info`, or `debug`; machine-readable records remain on
 stdout and diagnostics remain on stderr.
+
+Profiles never contain access-token values; Remote credentials are looked up through the profile's environment
+variable reference for each request. Remote `run` remains disabled until Git/upload workspace preparation is
+implemented, so the CLI cannot send a local path to a Remote Runtime. See the
+[target/profile migration guide](docs/delivery/runtime-target-profiles.md).
 
 ## Local Runtime
 

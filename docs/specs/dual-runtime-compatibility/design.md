@@ -82,8 +82,9 @@ token、refresh token 或模型密钥：
 }
 ```
 
-`tokenEnvironment` 只引用环境变量名，缺省为 `YANBOT_HARNESS_ACCESS_TOKEN`；变量值在 SDK 每次请求时由异步 provider
-读取，以允许外层进程刷新环境适配器。profile 缺失、Schema 非法、目标凭据缺失、Remote 非 HTTPS、握手形态不匹配
+`tokenEnvironment` 只引用 `YANBOT_HARNESS_*_ACCESS_TOKEN` 环境变量名，缺省为
+`YANBOT_HARNESS_ACCESS_TOKEN`；变量值在 SDK 每次请求时由异步 provider 读取，以允许外层进程刷新环境适配器，且不能
+借 profile 读取并发送其他进程环境秘密。profile 缺失、Schema 非法、目标凭据缺失、Remote 非 HTTPS、握手形态不匹配
 或协议不兼容均直接失败，不能尝试其他 profile、descriptor 或 managed Runtime。交互式登录和系统凭据存储由后续认证
 子 Spec 定义，本批不把明文 token 文件包装成“登录缓存”。
 
