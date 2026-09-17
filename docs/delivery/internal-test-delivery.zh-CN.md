@@ -20,6 +20,25 @@ pnpm build:internal-delivery -- \
 
 生成器只接受同版本、同源提交、同 lock 摘要的 `darwin-arm64` 或 `win32-x64` 测试签名输入。Windows 最终 ZIP 必须由 `windows-2022` runner 原生构建，并由 `verify:internal-delivery` 在中文/空格路径中完成校验、离线安装与 Reference smoke 后交付。输出为测试候选，不含正式信任根，不可作为生产发布。完整需求、设计和验证任务见 [`internal-test-delivery-bundle`](../specs/internal-test-delivery-bundle/requirements.md)。
 
+## Apple Silicon Mac 已验证交付
+
+- 本地交付文件：`delivery-output/yanbot-harness-0.1.0-preview.3-darwin-arm64-internal-test.zip`
+- 交付文件名：`yanbot-harness-0.1.0-preview.3-darwin-arm64-internal-test.zip`
+- 文件大小：`175,357,443` 字节
+- SHA-256：`ae4bc6a48eb3dba21c27deb0f6132def093eb890907bd563d56c53d371889d5e`
+- 源提交：`2ed0ecdcbbbe8e978e4da7636b5639533a126e08`
+- 适用平台：Apple Silicon Mac（`darwin-arm64`）；不适用于 Intel Mac、Windows 或 Linux
+
+把上述 ZIP 作为唯一交付包发给内测同事。内测同事解压后，在包目录中运行：
+
+```bash
+node install.mjs
+```
+
+运行前提为 Apple Silicon Mac、Node `22.22.0 <= version < 23` 与 npm `10.9.8`。顶层安装入口会先核对包内全部文件的 SHA-256，再使用空网络依赖的离线 kit 安装；该制品使用测试签名，只允许内部测试。
+
+该候选已通过完整仓库检查、ZIP 路径安全、全文件摘要、中文/空格新路径、空 npm cache、离线安装、最终仅直接依赖 `@yanbot-harness/local`、npm 依赖树，以及 Reference `startup → health → run.completed → close` 验证。机器可读证据见 [`verification-evidence.json`](../specs/internal-test-delivery-bundle/verification-evidence.json)。
+
 ## Windows x64 已验证交付
 
 - 下载入口：[GitHub Actions artifact `internal-test-delivery-win32-x64`](https://github.com/niuyi1017/yanbot-harness/actions/runs/35176486385/artifacts/10479605117)
