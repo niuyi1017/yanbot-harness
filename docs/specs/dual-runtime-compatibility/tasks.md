@@ -17,7 +17,7 @@
       不能被当前资源 Schema 接受。
 - [x] **P1.3 版本与兼容周期**：保持 Harness Protocol `1.0.0`；`/v1/*` 为规范路由；preview.4 与 preview.5
       强制保留 `/local/*` 和 `Local*`，最早在有迁移证据的 `0.2.0` 移除。验收：requirements/design 明确记录。
-- [ ] **P1.4 Local 中立路由**：在 `apps/local-runtime` 实现 `/v1/*`，同一 handler 同时挂载 `/local/*`，旧
+- [x] **P1.4 Local 中立路由**：在 `apps/local-runtime` 实现 `/v1/*`，同一 handler 同时挂载 `/local/*`，旧
       `/local/health` 保持最小响应。依赖：P1.2。验收：两套路由响应等价、认证边界一致、旧 health exact-match 通过。
 - [ ] **P1.5 边界测试**：覆盖 Schema 往返、旧客户端 JSON/路径兼容、稳定错误码、协议 major 阻断和禁止 404
       transport 猜测。依赖：P1.1-P1.4。验收：contracts 与 local-runtime 定向测试通过。

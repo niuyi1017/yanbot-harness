@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
-import type { AdapterEvent } from '@yanbot-harness/contracts';
+import { runtimeDiscoverySchema, type AdapterEvent } from '@yanbot-harness/contracts';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { LocalAdapterService } from '../src/adapters.js';
@@ -52,6 +52,38 @@ describe('local runtime API', () => {
       body: JSON.stringify({ adapterId: 'cn.yanbot.reference', vendorOption: true }),
     });
     expect(unknownField.status).toBe(400);
+  });
+
+  it('serves a neutral Runtime profile and keeps /local resource aliases equivalent', async () => {
+    const fixture = await setup();
+    const discovery = runtimeDiscoverySchema.parse(await (await fetch(`${fixture.baseUrl}/v1/health`)).json());
+    expect(discovery).toMatchObject({
+      protocolVersion: '1.0.0',
+      profile: {
+        executionMode: 'local',
+        authentication: 'local-descriptor',
+        capabilities: { workspaceSources: ['local-path-grant'] },
+      },
+    });
+
+    const unauthorized = await fetch(`${fixture.baseUrl}/v1/sessions`);
+    expect(unauthorized.status).toBe(401);
+    await expect(unauthorized.json()).resolves.toMatchObject({
+      error: { code: 'AUTHENTICATION_FAILED' },
+    });
+
+    const created = await fixture.request('/v1/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ adapterId: 'cn.yanbot.reference', title: 'Neutral session' }),
+    });
+    expect(created.status).toBe(201);
+    const session = await created.json();
+    const [neutralSessions, legacySessions] = await Promise.all([
+      fixture.request('/v1/sessions').then((response) => response.json()),
+      fixture.request('/local/sessions').then((response) => response.json()),
+    ]);
+    expect(neutralSessions).toEqual([session]);
+    expect(legacySessions).toEqual(neutralSessions);
   });
 
   it('restricts workspace grants to bearer clients after browser exchange', async () => {

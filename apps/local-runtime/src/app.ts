@@ -6,6 +6,7 @@ import { HarnessAdapterError } from '@yanbot-harness/adapter-api';
 import { ConfigLoaderError } from '@yanbot-harness/config-loader';
 import {
   HARNESS_PROTOCOL_VERSION,
+  HARNESS_RELEASE_VERSION,
   adapterIdSchema,
   configScopeSchema,
   createLocalRunRequestSchema,
@@ -29,6 +30,7 @@ const browserExchangeSchema = z.object({ token: z.string().min(1).max(1_024) }).
 const idempotencyKeySchema = z.string().trim().min(1).max(256);
 const cancelRunSchema = z.object({ reason: z.string().trim().min(1).max(1_024).optional() }).strict();
 const localInteractionResponseSchema = interactionResponseSchema.strict();
+const runtimePaths = (pathname: string): [string, string] => [`/v1${pathname}`, `/local${pathname}`];
 
 type AuthenticatedLocals = { requestId: string; principal: LocalAuthPrincipal };
 
@@ -73,9 +75,27 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
       startedAt,
     });
   });
+  app.get('/v1/health', (_request, response) => {
+    response.json({
+      service: options.serviceName ?? 'yanbot-harness-local-runtime',
+      protocolVersion: HARNESS_PROTOCOL_VERSION,
+      status: 'ok',
+      startedAt,
+      profile: {
+        executionMode: 'local',
+        serviceVersion: HARNESS_RELEASE_VERSION,
+        authentication: 'local-descriptor',
+        capabilities: {
+          workspaceSources: ['local-path-grant'],
+          eventReplay: { durability: 'process' },
+          interactions: { supported: true },
+        },
+      },
+    });
+  });
 
   app.post(
-    '/local/auth/exchange',
+    runtimePaths('/auth/exchange'),
     requireJson,
     asyncRoute(async (request, response) => {
       const origin = requiredHeader(request, 'origin');
@@ -86,7 +106,7 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
     }),
   );
 
-  app.use('/local', (request, response, next) => {
+  app.use(['/v1', '/local'], (request, response, next) => {
     try {
       const authorization = optionalHeader(request, 'authorization');
       const cookie = optionalHeader(request, 'cookie');
@@ -103,7 +123,7 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
   });
 
   app.post(
-    '/local/workspaces/grants',
+    runtimePaths('/workspaces/grants'),
     requireJson,
     requireBearer,
     asyncRoute(async (request, response) => {
@@ -113,7 +133,7 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
   );
 
   app.delete(
-    '/local/workspaces/grants/:grantId',
+    runtimePaths('/workspaces/grants/:grantId'),
     requireBearer,
     asyncRoute(async (request, response) => {
       options.workspaceGrants.revoke(uuidSchema.parse(request.params.grantId));
@@ -122,11 +142,11 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
   );
 
   app.get(
-    '/local/sessions',
+    runtimePaths('/sessions'),
     asyncRoute(async (_request, response) => response.json(await options.supervisor.listSessions())),
   );
   app.post(
-    '/local/sessions',
+    runtimePaths('/sessions'),
     requireJson,
     asyncRoute(async (request, response) => {
       response
@@ -135,13 +155,13 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
     }),
   );
   app.get(
-    '/local/sessions/:sessionId',
+    runtimePaths('/sessions/:sessionId'),
     asyncRoute(async (request, response) => {
       response.json(await options.supervisor.getSession(uuidSchema.parse(request.params.sessionId)));
     }),
   );
   app.post(
-    '/local/sessions/:sessionId/runs',
+    runtimePaths('/sessions/:sessionId/runs'),
     requireJson,
     asyncRoute(async (request, response) => {
       const result = await options.supervisor.createRun(
@@ -153,13 +173,13 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
     }),
   );
   app.get(
-    '/local/runs/:runId',
+    runtimePaths('/runs/:runId'),
     asyncRoute(async (request, response) => {
       response.json(await options.supervisor.getRun(uuidSchema.parse(request.params.runId)));
     }),
   );
   app.post(
-    '/local/runs/:runId/cancel',
+    runtimePaths('/runs/:runId/cancel'),
     requireJson,
     asyncRoute(async (request, response) => {
       const input = cancelRunSchema.parse(request.body);
@@ -167,7 +187,7 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
     }),
   );
   app.post(
-    '/local/interactions/:requestId/responses',
+    runtimePaths('/interactions/:requestId/responses'),
     requireJson,
     asyncRoute(async (request, response) => {
       const requestId = z.string().min(1).max(512).parse(request.params.requestId);
@@ -178,7 +198,7 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
   );
 
   app.get(
-    '/local/runs/:runId/events',
+    runtimePaths('/runs/:runId/events'),
     asyncRoute(async (request, response) => {
       const runId = uuidSchema.parse(request.params.runId);
       const queryCursor = optionalStringQuery(request.query.afterEventId);
@@ -213,22 +233,22 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
   );
 
   app.get(
-    '/local/adapters',
+    runtimePaths('/adapters'),
     asyncRoute(async (_request, response) => response.json(await options.supervisor.listAdapters())),
   );
   app.get(
-    '/local/models',
+    runtimePaths('/models'),
     asyncRoute(async (request, response) => {
       response.json(
         await options.supervisor.listModels(adapterIdSchema.parse(requiredStringQuery(request.query.adapterId))),
       );
     }),
   );
-  app.get('/local/config/effective', (request, response) => {
+  app.get(runtimePaths('/config/effective'), (request, response) => {
     response.json(options.supervisor.effectiveConfig(parseScopes(request.query.scopes)).publicSummary);
   });
   app.get(
-    '/local/extensions',
+    runtimePaths('/extensions'),
     asyncRoute(async (request, response) => {
       const adapterId = optionalStringQuery(request.query.adapterId);
       const extensions = await options.supervisor.listExtensions(
