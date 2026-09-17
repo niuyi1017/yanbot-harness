@@ -55,28 +55,36 @@ client。`connect(remote)` 不解析本地平台包，不启动本地进程。�
 
 ## 3. 协议中立化与迁移
 
-当前 Harness Protocol `1.0.0` 的 `/local/*` 与 `Local*` 名称已经进入 Preview 包。直接在同一主版本改变路径和
-类型会造成隐蔽破坏，因此按以下顺序迁移：
+当前 Harness Protocol `1.0.0` 的 `/local/*` 与 `Local*` 名称已经进入 Preview 包。中立资源不改变既有字段、
+状态机、错误码或事件语义，因此本轮保持协议版本 `1.0.0`，并把 `/v1/*` 作为同一协议主版本的规范路由；
+不以命名中立化为由制造 2.x 断层。迁移顺序如下：
 
 1. 在 contracts 中新增中立 `Session`、`Run`、`CreateSessionRequest`、`CreateRunRequest` 与 Runtime profile/capability。
 2. 新增中立版本化资源路由（目标 `/v1/*`）；Local Runtime 暂时同时提供 `/local/*` 兼容别名。
-3. SDK 握手后优先使用中立路由；连接旧 Local Preview 时使用兼容 transport。
-4. `Local*` TypeScript 导出先变为带弃用说明的类型别名，至少跨一个 Preview 迁移窗口后再删除。
+3. 新 SDK 先请求 `/v1/health` 并根据显式 profile 选择 `/v1` transport；现有构造器明确固定为 legacy
+   `/local` transport，以保持已发布客户端行为。不得捕获业务接口 404 后逐个探测。
+4. `Local*` TypeScript 导出变为带 `@deprecated` 的值/类型别名，不复制第二套 Schema。
 5. Remote Runtime 只实现中立路由，不新增 `/cloud/*` 客户端协议。
 
-如果评审决定中立路由必须提升协议主版本，则 SDK 根据 health 返回的 major 选择 transport；不得通过捕获 404
-逐个探测接口。最终版本号在 contracts 子任务中冻结。
+兼容周期冻结为：`0.1.0-preview.4` 与 `0.1.0-preview.5` 必须同时保留全部 `/local/*` 路由和 `Local*` 导出；
+最早只能在后续 `0.2.0` 移除，并且需要先有一版发布说明、弃用测试和使用量/内测迁移证据。协议 major 不兼容时
+SDK 在 health 握手后立即阻断；协议 discovery Schema 可解析任意合法 SemVer，资源 Schema 仍只接受当前
+`1.0.0`，从而能把“不兼容版本”与“畸形响应”区分开。
 
 ## 4. Runtime Profile 与 capability
 
-health 握手除 `protocolVersion` 外至少返回：
+规范 `/v1/health` 握手除 `protocolVersion` 外返回完整 Runtime Profile；兼容 `/local/health` 保持 preview.3 的
+四字段最小响应，避免旧客户端的 strict Schema 被加法字段击穿：
 
 ```ts
 type RuntimeProfile = {
   executionMode: 'local' | 'remote';
   serviceVersion: string;
-  workspaceSources: Array<'local-path-grant' | 'git-ref' | 'uploaded-snapshot'>;
-  eventReplay: { durable: boolean; retentionSeconds?: number };
+  capabilities: {
+    workspaceSources: Array<'local-path-grant' | 'git-ref' | 'uploaded-snapshot'>;
+    eventReplay: { durability: 'process' | 'durable'; retentionSeconds?: number };
+    interactions: { supported: boolean; maxWaitSeconds?: number };
+  };
   authentication: 'local-descriptor' | 'bearer';
 };
 ```
@@ -86,11 +94,11 @@ Adapter capability 继续描述模型侧能力；Runtime Profile 描述部署侧
 
 ## 5. 工作区抽象
 
-Run 使用模式中立的 `workspaceRef`，但创建该引用的来源因部署不同：
+Run 创建请求使用可判别的 `workspace` 来源，但资源响应只保存不泄密的 `workspaceRef`。来源因部署不同：
 
 ```ts
 type WorkspaceSource =
-  | { kind: 'local-path-grant'; grant: string; relativeCwd?: string }
+  | { kind: 'local-path-grant'; workspaceGrant: string; relativeCwd?: string }
   | { kind: 'git-ref'; repository: string; ref: string; credentialRef?: string }
   | { kind: 'uploaded-snapshot'; uploadId: string; digest: string };
 ```
@@ -99,6 +107,10 @@ type WorkspaceSource =
 - Remote：客户端先创建 upload/Git preparation，再得到租户作用域 `workspaceRef`；Worker 只能领取该引用对应的快照。
 - 首个 Remote Preview 只开放受控 Git 引用和上传快照；`credentialRef` 若未完成安全设计必须禁用。
 - 路径、token、Git 密钥不进入 Session/Run 公共事件。
+
+为保持 preview.3 线上的请求 JSON 可用，`CreateRunRequest` 第一批仍保留顶层 `workspaceGrant` 与
+`relativeCwd` 作为规范 local-path-grant 表达；`WorkspaceSource` Schema 同时冻结远端形态，待远端工作区准备子 Spec
+实施时再把联合类型接入 Run 创建 API。这样不会提前接受 Runtime 尚不能安全处理的远端输入。
 
 ## 6. 认证与租户边界
 
@@ -160,6 +172,9 @@ CodeBuddy 真实认证另跑环境门禁。发布矩阵分别记录 Local macOS�
   -> CodeBuddy 真实远端门禁
   -> macOS/Windows Local + Remote 联合交付认证
 ```
+
+第一批提交边界为 contracts（含测试）→ Local `/v1` 路由（含 alias 测试）→ SDK RuntimeTarget/握手；不会越过到
+`apps/cloud-server`。CLI profile、Remote Reference 与后续阶段各自继续依照任务清单推进。
 
 ## 11. 拒绝方案
 

@@ -1,6 +1,6 @@
 # Local / Remote Runtime 双形态兼容任务清单
 
-## 当前状态（2026-09-15）
+## 当前状态（2026-09-17）
 
 - [x] 审计总体需求、总体设计、SDK/CLI Spec、当前 contracts 与交付兼容矩阵。
 - [x] 明确“一套 SDK/CLI、两种 Runtime”是强制产品要求。
@@ -9,18 +9,27 @@
 
 ## Phase 1：中立协议与迁移层
 
-- [ ] 在 `packages/contracts` 增加中立 Session/Run/Request 类型，并为 `Local*` 导出提供弃用别名。
-- [ ] 定义 Runtime Profile、部署 capability、工作区来源与认证模式 Schema。
-- [ ] 冻结协议版本决策与 `/local/*` 到中立路由的兼容周期。
-- [ ] 在 `apps/local-runtime` 实现中立路由，并保留已承诺的 Preview 兼容别名。
-- [ ] 增加 Schema 往返、旧客户端兼容、错误码与版本阻断测试。
+- [ ] **P1.1 中立 contracts**：在 `packages/contracts/src/index.ts` 增加 Session/Run/Request/Result 中立
+      Schema 与类型；`Local*` 改为带 `@deprecated` 的同对象别名。依赖：Spec 提交。验收：contracts 单测、build、
+      typecheck，Schema identity 与 JSON 往返均通过。
+- [ ] **P1.2 Runtime 描述 contracts**：定义 Runtime Profile、部署 capability、Workspace Source、认证模式和
+      protocol discovery Schema。依赖：P1.1。验收：Local/Remote profile 往返、非法组合拒绝、未知 major 可被发现但
+      不能被当前资源 Schema 接受。
+- [x] **P1.3 版本与兼容周期**：保持 Harness Protocol `1.0.0`；`/v1/*` 为规范路由；preview.4 与 preview.5
+      强制保留 `/local/*` 和 `Local*`，最早在有迁移证据的 `0.2.0` 移除。验收：requirements/design 明确记录。
+- [ ] **P1.4 Local 中立路由**：在 `apps/local-runtime` 实现 `/v1/*`，同一 handler 同时挂载 `/local/*`，旧
+      `/local/health` 保持最小响应。依赖：P1.2。验收：两套路由响应等价、认证边界一致、旧 health exact-match 通过。
+- [ ] **P1.5 边界测试**：覆盖 Schema 往返、旧客户端 JSON/路径兼容、稳定错误码、协议 major 阻断和禁止 404
+      transport 猜测。依赖：P1.1-P1.4。验收：contracts 与 local-runtime 定向测试通过。
 
 验收：旧 Local Preview 场景不回退；新客户端不再要求业务代码使用 `Local*`；协议 major 不兼容时明确阻断。
 
 ## Phase 2：SDK/CLI 双目标连接
 
-- [ ] 在 `packages/sdk` 实现 `RuntimeTarget` 与远端 `AccessTokenProvider`。
-- [ ] 建立 health/profile 握手与明确 transport 选择，不使用 404 猜测协议。
+- [ ] **P2.1 SDK 目标模型**：在 `packages/sdk` 实现 `RuntimeTarget` 与异步 `AccessTokenProvider`，保留当前
+      constructor/fromDaemon/fromRuntime 兼容入口。依赖：P1。验收：类型检查与构造/刷新提供器测试。
+- [ ] **P2.2 显式握手**：建立 `/v1/health` profile 握手、协议 major 阻断和明确 transport 选择，不使用业务
+      404 猜测协议。依赖：P2.1。验收：local target 成功、remote target 无本地启动副作用、未知 major 明确失败。
 - [ ] 与 `unified-local-distribution` T3/T4 共用 resolver/managed handle contract；验证 local facade 与轻量 SDK 的依赖边界，Remote 连接零本地启动副作用。
 - [ ] CLI 增加 Local/Remote profile 与登录凭据查找，保持 `run`、`sessions`、`cancel` 等命令一致。
 - [ ] 禁止 token 命令行参数、静默 fallback 和远端本机路径请求。
@@ -70,7 +79,8 @@
 
 ## 实施门禁
 
-- Phase 1 属于公共协议改动，开始编码前需要评审本 Spec，按 contracts → producer → consumer 顺序实施。
+- Phase 1 属于公共协议改动，按 contracts → producer → consumer 顺序实施；本次委托视为已授权按更新后的 Spec
+  连续执行，但 Spec 仍必须独立提交后才开始编码。
 - Phase 4、5 涉及认证、多租户和沙箱，分别建立模块级子 Spec 与威胁模型。
 - 开始 Remote 实现节点时建议切换到 `gpt-6-astra + high`；文档审计与任务拆分使用当前
   `gpt-5.6-sol + high` 足够。

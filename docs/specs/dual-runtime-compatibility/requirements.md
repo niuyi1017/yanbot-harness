@@ -85,11 +85,20 @@ Local Preview：公开 DTO 使用 `LocalSession`、`LocalRun`，HTTP 路由为 `
 - **可观测性**：两种模式使用相同 `sessionId`、`runId`、`requestId`、事件序号和错误分类字段。
 - **可移植性**：SDK/CLI 的核心调用不依赖 macOS/Windows 路径格式；平台差异留在 Local 启动与授权层。
 
-## 5. 当前版本边界
+## 5. 当前实施边界
 
-本次任务只冻结产品要求、架构与实施计划，不实现或部署 Remote Runtime。`0.1.0-preview.2` 仍是 Local-only
-认证版本；Windows 仍需真实机器验收。完成 Remote 控制平面、Worker、认证、工作区输入和双模式一致性测试之前，
-兼容矩阵必须保持“Required, not implemented”。
+本轮第一批实现仅覆盖以下可独立交付的兼容基座：
+
+- `packages/contracts` 的中立 Session、Run、创建请求与结果 Schema；现有 `Local*` 导出变为弃用别名。
+- Runtime Profile、部署 capability、Workspace Source、认证模式和协议发现 Schema。
+- Harness Protocol `1.0.0` 的版本判定，以及 `/v1/*` 与 `/local/*` 的明确兼容周期。
+- Local Runtime 的 `/v1/*` 中立路由与 `/local/*` 兼容别名。
+- SDK 的显式 `RuntimeTarget`、health/profile 握手和版本阻断；不依赖 404 猜测 transport。
+
+本轮不实现或部署 Remote Runtime、Remote CLI 登录、远端工作区准备、队列、Worker 或沙箱。当前交付仍是
+Local-only Preview；正式签名/信任根、Registry scope、再分发许可、真实 Windows 10/11 和真实厂商认证继续作为
+外部门禁单独跟踪，不阻塞上述兼容基座开发。完成 Remote 全链路之前，兼容矩阵必须保持
+“Required, not implemented”。
 
 ## 6. 非目标
 
@@ -98,6 +107,7 @@ Local Preview：公开 DTO 使用 `LocalSession`、`LocalRun`，HTTP 路由为 `
 - 不为 Remote Runtime 复制独立 SDK、CLI 或厂商专用协议。
 - 不在首个 Remote Preview 托管任意长期私有 Git 凭据。
 - 不修改当前已交付 Local Preview 的能力声明或伪造远端认证结果。
+- 不在本轮新增 `apps/cloud-server`、Remote fixture 或远端持久化实现。
 
 ## 7. 依赖
 
