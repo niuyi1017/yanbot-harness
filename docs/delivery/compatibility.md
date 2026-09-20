@@ -41,17 +41,17 @@ see the repository's `docs/specs/unified-local-distribution/`. No production ins
 
 ## Certified environments
 
-| Environment                | Status                    | Evidence                                                                                        |
-| -------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
-| macOS arm64, Node 22       | Preview certified         | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI |
-| Linux x64, Node 22         | Delivery target           | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
-| Windows 10/11 x64, Node 22 | Candidate                 | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending   |
-| Browser                    | Not supported             | The Preview SDK includes Node-only Runtime discovery and process management                     |
-| Remote Runtime             | Required, not implemented | Product design is defined; implementation and dual-mode certification are pending               |
+| Environment                | Status                  | Evidence                                                                                        |
+| -------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
+| macOS arm64, Node 22       | Preview certified       | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI |
+| Linux x64, Node 22         | Delivery target         | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
+| Windows 10/11 x64, Node 22 | Candidate               | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending   |
+| Browser                    | Not supported           | The Preview SDK includes Node-only Runtime discovery and process management                     |
+| Remote Runtime             | Control plane candidate | Phase 4 source exists; Worker, production deployment and dual-mode certification remain pending |
 
 The product must support both Local and Remote Runtime through one SDK/CLI surface. This release certifies Local Runtime only:
 an explicit `origin` and bearer token are transport primitives, not evidence that remote authentication, tenant isolation,
-remote workspace preparation, durable event replay, or sandbox execution is available. The implementation and acceptance plan is
+production remote workspace durability, deployed event replay, or sandbox execution is certified. The control-plane candidate and acceptance plan are
 defined in [`docs/specs/dual-runtime-compatibility/`](../specs/dual-runtime-compatibility/requirements.md).
 
 ## Protocol compatibility
@@ -86,7 +86,8 @@ The public Node.js exports are `HarnessClient`, `RunHandle`, `readRuntimeDescrip
 | `HarnessClient.fromDaemon(options?)`                                            | Read a mode-0600 local descriptor and connect.                                                                   |
 | `startManagedRuntime(options?)`                                                 | Start an installed Runtime, validate readiness, and return an owned client/close handle.                         |
 | `health()`                                                                      | Validate Runtime health and protocol response.                                                                   |
-| `grantWorkspace()` / `revokeWorkspaceGrant()`                                   | Create or revoke a path-scoped workspace grant.                                                                  |
+| `grantWorkspace()` / `revokeWorkspaceGrant()`                                   | Create or revoke a Local path-scoped workspace grant.                                                            |
+| `prepareWorkspaceSnapshot()` / `prepareGitWorkspace()`                          | Prepare an explicit Remote snapshot or immutable Git source; never accepts an implicit local path.               |
 | `createSession()` / `listSessions()` / `getSession()`                           | Manage public Session records.                                                                                   |
 | `createRun()` / `getRun()` / `cancelRun()`                                      | Create idempotent runs, inspect state, or cancel.                                                                |
 | `events(runId, options?)`                                                       | Consume schema-validated SSE; `afterEventId` resumes explicitly and `signal` aborts the reader.                  |
@@ -104,8 +105,9 @@ The CLI command surface is frozen to `run`, `adapters`, `models`, `sessions`, `r
 upstream failure, and `40` Runtime/network/protocol failure. The preview.3 development candidate adds mutually
 exclusive `--remote`, `--profile`, `--descriptor`, and `--managed-runtime` targets; default descriptor discovery
 remains Local. `--runtime` is restricted to loopback legacy `/local`. Profiles contain no token value, and `--token`
-is rejected. Remote read/control commands use the same output contract, while Remote `run` fails with usage exit `2`
-before Session creation until Git/upload workspace preparation is implemented. See the
+is rejected. Remote read/control commands use the same output contract. Remote `run` requires `--snapshot` or the
+`--git-repository`/`--git-commit` pair and never sends implicit cwd or Local `--workspace`; without an attached Worker
+the control plane keeps the Run queued. See the
 [target/profile migration guide](runtime-target-profiles.md).
 
 Managed mode currently inherits `options.environment ?? process.env`. If a host puts a vendor Key in that environment,

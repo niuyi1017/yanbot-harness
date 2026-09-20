@@ -184,7 +184,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 详细清单：[`cli-harness-adapter/tasks.md`](../cli-harness-adapter/tasks.md) Phase 1、4-6。
 
-### P4 `[ ]` Remote Reference Runtime 与控制平面
+### P4 `[~]` Remote Reference Runtime 与控制平面
 
 **目标**：先用无真实模型凭据的 Reference Adapter 建立可验证的远端运行闭环。
 
@@ -262,17 +262,17 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ## 6. 当前进度汇总
 
-| 阶段                      | 状态  | 当前结论                                                          | 下一动作                                               |
-| ------------------------- | ----- | ----------------------------------------------------------------- | ------------------------------------------------------ |
-| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞               | 固定候选提交和摘要；并行等待 Windows 验收              |
-| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                              | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移       |
-| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过 | 完整 containment/业务回滚、Windows 阻网、正式身份/实机 |
-| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                       | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI        |
-| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                | 先做能力与许可证探针，不直接写 Wrapper                 |
-| P4 Remote Reference       | `[ ]` | 只有设计                                                          | 建立 cloud-server 子 Spec 和 Reference 闭环            |
-| P5 Remote CodeBuddy       | `[ ]` | 未实现                                                            | P4 通过后建设 Worker/Sandbox                           |
-| P6 四象限认证             | `[ ]` | 未开始                                                            | 等待 P3、P5 和 Windows 实机条件                        |
-| P7 产品/运营              | `[ ]` | 未脚手架化                                                        | Local Web 可在 P1 后并行，其余按依赖进入               |
+| 阶段                      | 状态  | 当前结论                                                           | 下一动作                                               |
+| ------------------------- | ----- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                | 固定候选提交和摘要；并行等待 Windows 验收              |
+| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                               | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移       |
+| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过  | 完整 containment/业务回滚、Windows 阻网、正式身份/实机 |
+| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                        | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI        |
+| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                 | 先做能力与许可证探针，不直接写 Wrapper                 |
+| P4 Remote Reference       | `[~]` | Cloud 控制面代码完成；尚无 Worker、真实 Mongo/TLS 与双平台部署证据 | 建设 Reference Worker/Queue 并完成正式 Remote 验收     |
+| P5 Remote CodeBuddy       | `[ ]` | 未实现                                                             | P4 通过后建设 Worker/Sandbox                           |
+| P6 四象限认证             | `[ ]` | 未开始                                                             | 等待 P3、P5 和 Windows 实机条件                        |
+| P7 产品/运营              | `[ ]` | 未脚手架化                                                         | Local Web 可在 P1 后并行，其余按依赖进入               |
 
 ## 7. 最近两个执行节点
 

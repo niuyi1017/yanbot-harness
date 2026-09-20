@@ -36,4 +36,34 @@ describe('CLI arguments', () => {
       parseArguments(['sessions', '--profile', 'staging', '--remote', 'https://runtime.example.test']),
     ).toThrowError(/mutually exclusive/u);
   });
+
+  it('parses explicit Remote workspace preparation without changing the Local default', () => {
+    expect(
+      parseArguments([
+        'run',
+        'remote',
+        '--remote',
+        'https://runtime.example.test',
+        '--git-repository',
+        'https://github.com/example/repo.git',
+        '--git-commit',
+        'a'.repeat(40),
+      ]),
+    ).toMatchObject({ remoteWorkspace: { kind: 'git', commit: 'a'.repeat(40) } });
+    expect(() => parseArguments(['run', 'bad', '--git-repository', 'https://github.com/example/repo.git'])).toThrow(
+      /must be used together/u,
+    );
+    expect(() =>
+      parseArguments([
+        'run',
+        'bad',
+        '--snapshot',
+        '/work',
+        '--git-repository',
+        'https://github.com/example/repo.git',
+        '--git-commit',
+        'a'.repeat(40),
+      ]),
+    ).toThrow(/mutually exclusive/u);
+  });
 });

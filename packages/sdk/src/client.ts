@@ -7,6 +7,7 @@ import {
   runSchema,
   runtimeDiscoverySchema,
   modelDescriptorSchema,
+  preparedWorkspaceSchema,
   runtimeHealthSchema,
   sessionSchema,
   workspaceGrantSchema,
@@ -23,6 +24,7 @@ import {
   type RuntimeDiscovery,
   type Session,
   type ModelDescriptor,
+  type PreparedWorkspace,
   type RuntimeHealth,
   type WorkspaceGrant,
 } from '@yanbot-harness/contracts';
@@ -127,6 +129,14 @@ export class HarnessClient {
 
   revokeWorkspaceGrant(grantId: string): Promise<void> {
     return this.#transport.empty('DELETE', this.#path(`/workspaces/grants/${encodeURIComponent(grantId)}`));
+  }
+
+  prepareWorkspaceSnapshot(input: { manifest: unknown; files: unknown }): Promise<PreparedWorkspace> {
+    return this.#transport.json('POST', this.#path('/workspaces/snapshots'), preparedWorkspaceSchema, { body: input });
+  }
+
+  prepareGitWorkspace(input: { repository: string; commit: string }): Promise<PreparedWorkspace> {
+    return this.#transport.json('POST', this.#path('/workspaces/git'), preparedWorkspaceSchema, { body: input });
   }
 
   createSession(input: CreateSessionRequest): Promise<Session> {

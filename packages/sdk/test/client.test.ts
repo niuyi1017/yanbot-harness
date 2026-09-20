@@ -122,6 +122,30 @@ describe('HarnessClient transport', () => {
     });
     await expect(client.listSessions()).rejects.toMatchObject({ kind: 'protocol' });
   });
+
+  it('prepares snapshot and immutable Git workspaces without accepting a local path API', async () => {
+    const requests: Array<{ pathname: string; body: unknown }> = [];
+    const client = new HarnessClient({
+      origin: 'https://runtime.example.test',
+      accessToken: 'secret',
+      routePrefix: '/v1',
+      fetch: async (input, init) => {
+        const pathname = new URL(input instanceof Request ? input.url : input.toString()).pathname;
+        requests.push({ pathname, body: JSON.parse(String(init?.body)) });
+        return Response.json({
+          workspace: pathname.endsWith('/git')
+            ? { kind: 'git-ref', repository: 'https://github.com/example/repo.git', ref: 'a'.repeat(40) }
+            : { kind: 'uploaded-snapshot', uploadId: 'upload-id', digest: `sha256:${'b'.repeat(64)}` },
+          workspaceRef: '44444444-4444-4444-8444-444444444444',
+          expiresAt: '2026-09-21T00:00:00.000Z',
+        });
+      },
+    });
+    await client.prepareWorkspaceSnapshot({ manifest: { schemaVersion: 1, entries: [] }, files: [] });
+    await client.prepareGitWorkspace({ repository: 'https://github.com/example/repo.git', commit: 'a'.repeat(40) });
+    expect(requests.map((request) => request.pathname)).toEqual(['/v1/workspaces/snapshots', '/v1/workspaces/git']);
+    expect('prepareLocalPath' in client).toBe(false);
+  });
 });
 
 function remoteDiscovery() {

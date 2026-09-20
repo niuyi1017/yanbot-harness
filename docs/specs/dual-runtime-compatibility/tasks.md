@@ -69,10 +69,10 @@
 
 ## Phase 4：Remote 控制平面与工作区
 
-- [ ] 建立 `apps/cloud-server` 认证、组织/用户/设备、Session、Run、execution grant 与审计模块子 Spec。
-- [ ] 实现 HTTPS API、短期访问令牌、刷新流程和租户作用域查询。
-- [ ] 实现上传快照与受控 Git 引用的准备、摘要校验、大小限制、TTL 和清理。
-- [ ] 实现 Run 元数据、事件持久化、SSE 重放和幂等创建。
+- [x] 建立 `apps/cloud-server` 认证、组织/用户/设备、Session、Run、execution grant 与审计模块子 Spec。
+- [x] 实现 HTTPS API、短期访问令牌、刷新流程和租户作用域查询。
+- [x] 实现上传快照与受控 Git 引用的准备、摘要校验、大小限制、TTL 和清理。
+- [x] 实现 Run 元数据、事件持久化、SSE 重放和幂等创建。
 - [ ] 建立额度、并发和权限预检；失败不得绕过安全边界。
 
 验收：跨用户/组织资源不可见；本机路径被拒绝；网关重启后仍可在保留期内重放事件。

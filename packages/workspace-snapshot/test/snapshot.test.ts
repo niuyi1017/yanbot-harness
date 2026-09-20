@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   WorkspaceSnapshotError,
+  createWorkspaceSnapshot,
   validateWorkspaceManifest,
   validateWorkspacePayload,
   writeWorkspaceSnapshot,
@@ -70,6 +71,26 @@ describe('workspace snapshot', () => {
     const payload = validateWorkspacePayload({ schemaVersion: 1, entries: [] }, []);
     await writeWorkspaceSnapshot(destination, payload);
     await expect(writeWorkspaceSnapshot(destination, payload)).rejects.toThrow(WorkspaceSnapshotError);
+  });
+
+  it('serializes a directory deterministically and rejects symlinks and secret paths', async () => {
+    const root = await temporaryRoot();
+    await mkdir(path.join(root, 'src'));
+    await writeFile(path.join(root, 'src', 'index.txt'), 'hello');
+    await expect(createWorkspaceSnapshot(root)).resolves.toMatchObject({
+      manifest: {
+        entries: [
+          { path: 'src', type: 'directory' },
+          { path: 'src/index.txt', type: 'file', size: 5 },
+        ],
+      },
+      files: [{ path: 'src/index.txt', contentBase64: 'aGVsbG8=' }],
+    });
+    await symlink('src/index.txt', path.join(root, 'linked'));
+    await expect(createWorkspaceSnapshot(root)).rejects.toThrow(WorkspaceSnapshotError);
+    await rm(path.join(root, 'linked'));
+    await writeFile(path.join(root, '.env'), 'secret');
+    await expect(createWorkspaceSnapshot(root)).rejects.toThrow(WorkspaceSnapshotError);
   });
 });
 

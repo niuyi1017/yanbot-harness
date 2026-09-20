@@ -438,6 +438,14 @@ export const workspaceGrantSchema = z
   })
   .strict();
 
+export const preparedWorkspaceSchema = z
+  .object({
+    workspace: workspaceSourceSchema,
+    workspaceRef: uuidSchema,
+    expiresAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
 export const eventCursorSchema = z
   .object({
     afterEventId: uuidSchema.optional(),
@@ -620,6 +628,7 @@ export type RuntimeKind = z.infer<typeof runtimeKindSchema>;
 export type TerminalEventType = z.infer<typeof terminalEventTypeSchema>;
 export type Usage = z.infer<typeof usageSchema>;
 export type WorkspaceGrant = z.infer<typeof workspaceGrantSchema>;
+export type PreparedWorkspace = z.infer<typeof preparedWorkspaceSchema>;
 export type WorkspaceSource = z.infer<typeof workspaceSourceSchema>;
 
 /** @deprecated Use CreateRunRequest. Kept through at least 0.1.0-preview.5. */

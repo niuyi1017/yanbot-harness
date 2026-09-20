@@ -11,6 +11,7 @@ import { CliUsageError, parseArguments, type CliCommand } from './arguments.js';
 import { promptForInteraction } from './interactions.js';
 import { EventRenderer, type CliIo, writeAdapters, writeJson, writeModels, writeRun, writeSessions } from './output.js';
 import { loadCliProfile, type CliProfile } from './profiles.js';
+import { serializeWorkspaceSnapshot } from './snapshot.js';
 
 export const CLI_VERSION = HARNESS_RELEASE_VERSION;
 export const CLI_EXIT = {
@@ -177,17 +178,20 @@ async function execute(
       return CLI_EXIT.success;
     case 'run':
       if (executionMode === 'remote') {
-        throw new CliUsageError(
-          'Remote run requires Git or uploaded workspace preparation, which is not available in this Preview.',
-        );
+        if (!command.remoteWorkspace)
+          throw new CliUsageError('Remote run requires --snapshot or --git-repository with --git-commit.');
+        if (command.relativeCwd) throw new CliUsageError('--cwd is only available for Local workspace grants.');
+      } else if (command.remoteWorkspace) {
+        throw new CliUsageError('--snapshot and Git workspace options require a Remote target.');
       }
-      return executeRun(command, client, io);
+      return executeRun(command, client, executionMode, io);
   }
 }
 
 async function executeRun(
   command: Extract<CliCommand, { name: 'run' }>,
   client: HarnessClient,
+  executionMode: 'local' | 'remote',
   io: CliIo,
 ): Promise<number> {
   let session: Session;
@@ -201,15 +205,20 @@ async function executeRun(
     if (!adapterId) throw new CliFailure(CLI_EXIT.runtime, 'The Runtime has no available Adapter.');
     session = await client.createSession({ adapterId });
   }
-  const grant = await client.grantWorkspace({ path: command.workspace });
+  const workspaceInput =
+    executionMode === 'local'
+      ? await client.grantWorkspace({ path: command.workspace }).then((grant) => ({
+          workspaceGrant: grant.grant,
+          ...(command.relativeCwd === undefined ? {} : { relativeCwd: command.relativeCwd }),
+        }))
+      : await prepareRemoteWorkspace(command, client).then((prepared) => ({ workspace: prepared.workspace }));
   const handle = await client.createRun(session.sessionId, {
     prompt: command.prompt,
-    workspaceGrant: grant.grant,
+    ...workspaceInput,
     permissionPolicy: command.permissionPolicy,
     configScopes: command.configScopes,
     extensions: [],
     resume: command.resume,
-    ...(command.relativeCwd === undefined ? {} : { relativeCwd: command.relativeCwd }),
     ...(command.modelId === undefined ? {} : { model: { adapterId: session.adapterId, modelId: command.modelId } }),
   });
   if (command.json) writeJson(io, { type: 'cli.run-created', run: handle.run, reused: handle.reused });
@@ -231,6 +240,15 @@ async function executeRun(
     }
   }
   throw new CliFailure(CLI_EXIT.runtime, 'The Runtime event stream ended without a terminal event.');
+}
+
+async function prepareRemoteWorkspace(command: Extract<CliCommand, { name: 'run' }>, client: HarnessClient) {
+  const source = command.remoteWorkspace;
+  if (!source) throw new CliUsageError('Remote workspace preparation is required.');
+  if (source.kind === 'git') {
+    return client.prepareGitWorkspace({ repository: source.repository, commit: source.commit });
+  }
+  return client.prepareWorkspaceSnapshot(await serializeWorkspaceSnapshot(source.path));
 }
 
 class CliFailure extends Error {
@@ -266,6 +284,7 @@ const helpText = `Yanbot Harness CLI ${CLI_VERSION}
 
 Usage:
   yanbot-harness run <prompt> [--adapter ID] [--session ID] [--workspace PATH]
+      [--snapshot PATH | --git-repository HTTPS_URL --git-commit SHA]
       [--cwd RELATIVE] [--model ID] [--permission interactive|auto-edit|read-only]
       [--config-scope user|organization|project|local]... [--resume] [--json]
   yanbot-harness adapters [--json]
@@ -284,7 +303,8 @@ Connection:
   --runtime URL       Legacy loopback /local endpoint with YANBOT_HARNESS_ACCESS_TOKEN.
   Otherwise YANBOT_HARNESS_RUNTIME_DESCRIPTOR or ~/.yanbot-harness/runtime.json is used.
 
-Remote run remains disabled until Git/upload workspace preparation is available.
+Remote run requires an explicit --snapshot directory or immutable Git repository and commit.
+The implicit cwd and --workspace Local path are never sent to a Remote Runtime.
 Access tokens are never accepted as command-line arguments or stored in profile files.
 
 Output:

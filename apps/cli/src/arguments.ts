@@ -13,6 +13,7 @@ export type CliCommand =
       adapterId?: string;
       sessionId?: string;
       workspace: string;
+      remoteWorkspace?: { kind: 'snapshot'; path: string } | { kind: 'git'; repository: string; commit: string };
       relativeCwd?: string;
       modelId?: string;
       permissionPolicy: PermissionPolicy;
@@ -99,6 +100,15 @@ export function parseArguments(argv: readonly string[], cwd = process.cwd()): Cl
   const sessionId = option(parsed, 'session');
   const relativeCwd = option(parsed, 'cwd');
   const modelId = option(parsed, 'model');
+  const snapshotPath = option(parsed, 'snapshot');
+  const gitRepository = option(parsed, 'git-repository');
+  const gitCommit = option(parsed, 'git-commit');
+  if (snapshotPath !== undefined && (gitRepository !== undefined || gitCommit !== undefined)) {
+    throw new CliUsageError('--snapshot and Git workspace options are mutually exclusive.');
+  }
+  if ((gitRepository === undefined) !== (gitCommit === undefined)) {
+    throw new CliUsageError('--git-repository and --git-commit must be used together.');
+  }
   return {
     name: 'run',
     prompt: parsed.positionals.join(' '),
@@ -110,6 +120,10 @@ export function parseArguments(argv: readonly string[], cwd = process.cwd()): Cl
     ...(sessionId === undefined ? {} : { sessionId }),
     ...(relativeCwd === undefined ? {} : { relativeCwd }),
     ...(modelId === undefined ? {} : { modelId }),
+    ...(snapshotPath === undefined ? {} : { remoteWorkspace: { kind: 'snapshot' as const, path: snapshotPath } }),
+    ...(gitRepository === undefined || gitCommit === undefined
+      ? {}
+      : { remoteWorkspace: { kind: 'git' as const, repository: gitRepository, commit: gitCommit } }),
     ...common,
   };
 }
@@ -152,7 +166,19 @@ function commonOptionNames(command: string | undefined): Set<string> {
     'log-level',
   ]);
   const extras: Record<string, string[]> = {
-    run: ['adapter', 'session', 'workspace', 'cwd', 'model', 'permission', 'config-scope', 'resume'],
+    run: [
+      'adapter',
+      'session',
+      'workspace',
+      'snapshot',
+      'git-repository',
+      'git-commit',
+      'cwd',
+      'model',
+      'permission',
+      'config-scope',
+      'resume',
+    ],
     models: ['adapter'],
     cancel: ['reason'],
   };

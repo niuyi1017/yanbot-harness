@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const WORKSPACE_SNAPSHOT_LIMITS = Object.freeze({
@@ -21,6 +21,7 @@ export type ValidatedWorkspacePayload = {
   digest: `sha256:${string}`;
   files: Array<{ path: string; bytes: Uint8Array; executable: boolean }>;
 };
+export type SerializedWorkspacePayload = { manifest: WorkspaceManifest; files: WorkspacePayloadFile[] };
 
 export class WorkspaceSnapshotError extends Error {
   readonly code = 'CONFIGURATION_INVALID' as const;
@@ -123,6 +124,58 @@ export function validateWorkspacePayload(
       return { path: expected.path, bytes: new Uint8Array(bytes), executable: expected.executable };
     });
     return { manifest, digest, files };
+  } catch (error) {
+    if (error instanceof WorkspaceSnapshotError) throw error;
+    throw new WorkspaceSnapshotError({ cause: error });
+  }
+}
+
+export async function createWorkspaceSnapshot(root: string): Promise<SerializedWorkspacePayload> {
+  try {
+    const resolvedRoot = path.resolve(root);
+    const rootStatus = await lstat(resolvedRoot);
+    if (!rootStatus.isDirectory() || rootStatus.isSymbolicLink()) fail();
+    const entries: WorkspaceManifestEntry[] = [];
+    const files: WorkspacePayloadFile[] = [];
+    let totalBytes = 0;
+    await visit('');
+    const payload = { manifest: { schemaVersion: 1 as const, entries }, files };
+    validateWorkspacePayload(payload.manifest, payload.files);
+    return payload;
+
+    async function visit(relativeDirectory: string): Promise<void> {
+      const directory = relativeDirectory ? path.join(resolvedRoot, ...relativeDirectory.split('/')) : resolvedRoot;
+      const children = await readdir(directory);
+      children.sort();
+      for (const name of children) {
+        if (name.toLocaleLowerCase('en-US') === '.git') continue;
+        const relative = relativeDirectory ? `${relativeDirectory}/${name}` : name;
+        validateManifestPath(relative);
+        const absolute = path.join(resolvedRoot, ...relative.split('/'));
+        const status = await lstat(absolute);
+        if (status.isSymbolicLink()) fail();
+        if (status.isDirectory()) {
+          entries.push({ path: relative, type: 'directory' });
+          if (entries.length > WORKSPACE_SNAPSHOT_LIMITS.entries) fail();
+          await visit(relative);
+          continue;
+        }
+        if (!status.isFile() || status.size > WORKSPACE_SNAPSHOT_LIMITS.fileBytes) fail();
+        totalBytes += status.size;
+        if (totalBytes > WORKSPACE_SNAPSHOT_LIMITS.totalBytes) fail();
+        const bytes = await readFile(absolute);
+        if (bytes.byteLength !== status.size) fail();
+        entries.push({
+          path: relative,
+          type: 'file',
+          size: bytes.byteLength,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+          executable: (status.mode & 0o111) !== 0,
+        });
+        files.push({ path: relative, contentBase64: bytes.toString('base64') });
+        if (entries.length > WORKSPACE_SNAPSHOT_LIMITS.entries) fail();
+      }
+    }
   } catch (error) {
     if (error instanceof WorkspaceSnapshotError) throw error;
     throw new WorkspaceSnapshotError({ cause: error });

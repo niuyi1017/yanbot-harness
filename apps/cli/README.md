@@ -41,9 +41,9 @@ environment-variable name, never a token:
 }
 ```
 
-Remote read/control commands use the same names and output as Local. Remote `run` is intentionally rejected before
-Session creation until Git/upload workspace preparation exists; the CLI never sends a local cwd or `--workspace` to
-a Remote Runtime. See the [target/profile migration guide](../../docs/delivery/runtime-target-profiles.md).
+Remote read/control commands use the same names and output as Local. Remote `run` requires `--snapshot PATH` or the
+pair `--git-repository HTTPS_URL --git-commit SHA`; it never sends the implicit cwd, Local `--workspace`, or `--cwd`
+to a Remote Runtime. See the [target/profile migration guide](../../docs/delivery/runtime-target-profiles.md).
 
 Commands are `run`, `adapters`, `models`, `sessions`, `run-status`, and `cancel`. `run --json` emits a
 `cli.run-created` record followed by public Adapter events, one JSON value per stdout line; diagnostics remain on
@@ -53,5 +53,5 @@ when caller interaction is required.
 Exit codes: `0` success, `2` usage, `10` cancelled/timeout, `11` interaction/permission, `20` authentication, `30`
 Adapter/upstream, `40` Runtime/network/protocol.
 
-The CLI only depends on `@yanbot-harness/sdk`. It requires the separately delivered Runtime companion and never
-imports an Adapter or vendor SDK.
+The CLI depends on the SDK and the shared workspace-snapshot serializer. It requires a separately delivered Runtime
+and never imports an Adapter or vendor SDK.
