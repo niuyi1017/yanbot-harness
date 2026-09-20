@@ -1,0 +1,73 @@
+name: Dual Runtime Matrix Evidence
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+jobs:
+  platform-evidence:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: windows-2022
+            target: win32-x64
+    name: Runtime evidence (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm evidence:dual-runtime -- --target ${{ matrix.target }} --output evidence/${{ matrix.target }}.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dual-runtime-evidence-${{ matrix.target }}
+          path: evidence/${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    needs: platform-evidence
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/download-artifact@v8
+        with:
+          name: dual-runtime-evidence-darwin-arm64
+          path: evidence/darwin-arm64
+      - uses: actions/download-artifact@v8
+        with:
+          name: dual-runtime-evidence-win32-x64
+          path: evidence/win32-x64
+      - run: >-
+          pnpm evidence:dual-runtime:aggregate --
+          evidence/matrix-summary.json
+          evidence/darwin-arm64/darwin-arm64.json
+          evidence/win32-x64/win32-x64.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dual-runtime-matrix-summary
+          path: evidence/matrix-summary.json
+          if-no-files-found: error
+          retention-days: 14
