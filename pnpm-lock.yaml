@@ -228,6 +228,9 @@ importers:
       '@yanbot-harness/core':
         specifier: workspace:*
         version: link:../harness-core
+      '@yanbot-harness/workspace-snapshot':
+        specifier: workspace:*
+        version: link:../workspace-snapshot
     devDependencies:
       '@yanbot-harness/sdk':
         specifier: workspace:*
@@ -263,6 +266,8 @@ importers:
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/workspace-snapshot: {}
 
 packages:
 

@@ -21,7 +21,8 @@
     "@yanbot-harness/adapter-api": "workspace:*",
     "@yanbot-harness/adapter-reference": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
-    "@yanbot-harness/core": "workspace:*"
+    "@yanbot-harness/core": "workspace:*",
+    "@yanbot-harness/workspace-snapshot": "workspace:*"
   },
   "devDependencies": {
     "@yanbot-harness/sdk": "workspace:*",

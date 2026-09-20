@@ -4,7 +4,7 @@
 
 - [x] 审计双 Runtime、总体架构、Remote Fixture、安全负例与现有 contracts。
 - [x] 冻结 Phase 4 控制面边界、认证模型、持久化模型、工作区 API 与威胁模型。
-- [ ] 正式实现尚未开始；Phase 5 Worker/Redis Queue/沙箱明确不在本 Spec。
+- [ ] Phase 4 控制面实现进行中；Phase 5 Worker/Redis Queue/沙箱明确不在本 Spec。
 
 ## T1. Spec 门禁
 
@@ -15,9 +15,9 @@
 
 ## T2. Workspace Snapshot 公共安全包
 
-- [ ] 新增 `packages/workspace-snapshot`，迁移 manifest/path/digest 规则。
-- [ ] 增加 payload base64、size、逐文件 digest、覆盖关系与安全写入验证。
-- [ ] Remote Fixture 改为依赖公共包，删除重复实现且全部 P3.6/P3.7 回归通过。
+- [x] 新增 `packages/workspace-snapshot`，迁移 manifest/path/digest 规则。
+- [x] 增加 payload base64、size、逐文件 digest、覆盖关系与安全写入验证。
+- [x] Remote Fixture 改为依赖公共包，删除重复实现且全部 P3.6/P3.7 回归通过。
 
 验收：公共包不依赖 Fixture/Nest/Mongo；原 23 项 manifest 测试与新增 payload/写入攻击矩阵通过。
 
