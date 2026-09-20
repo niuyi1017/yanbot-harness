@@ -24,44 +24,6 @@ afterEach(async () => {
 });
 
 describe('local runtime end to end', () => {
-  it('keeps an interaction alive across SSE disconnect and accepts an idempotent response', async () => {
-    const fixture = await workspaceFixture();
-    const runtime = await start({
-      stateRoot: fixture.stateRoot,
-      adapter: new ReferenceAdapter({
-        scenario: { kind: 'question', prompt: 'Choose?', answerResult: 'answered' },
-      }),
-    });
-    const client = new LocalRuntimeTestClient(runtime);
-    const grant = await client.issueWorkspaceGrant({ path: fixture.workspace });
-    const session = await client.createSession({ adapterId: 'cn.yanbot.reference' });
-    const created = await client.createRun(session.sessionId, runRequest(grant.grant));
-    const iterator = client.events(created.run.runId)[Symbol.asyncIterator]();
-    let requested: Extract<AdapterEvent, { type: 'interaction.requested' }> | undefined;
-    while (!requested) {
-      const item = await iterator.next();
-      if (item.done) throw new Error('The run ended before requesting an interaction.');
-      if (item.value.type === 'interaction.requested') requested = item.value;
-    }
-    await iterator.return?.();
-    await expect(client.getRun(created.run.runId)).resolves.toMatchObject({ status: 'running' });
-
-    const questionId = requested.payload.kind === 'question' ? requested.payload.questions[0]!.id : '';
-    const response = {
-      requestId: requested.payload.requestId,
-      action: 'submit' as const,
-      answers: { [questionId]: 'yes' },
-    };
-    await Promise.all([client.respond(response), client.respond(response)]);
-    const resumedEvents = await collectAsync(client.events(created.run.runId, { afterEventId: requested.eventId }));
-    expect(resumedEvents.map((event) => event.type)).toEqual([
-      'interaction.resolved',
-      'assistant.message',
-      'run.completed',
-    ]);
-    await expect(client.getRun(created.run.runId)).resolves.toMatchObject({ status: 'completed' });
-  });
-
   it('resumes sessions after restart, invalidates old grants, and keeps state free of paths and tokens', async () => {
     const fixture = await workspaceFixture();
     const first = await start({
@@ -104,7 +66,7 @@ describe('local runtime end to end', () => {
     expect(persisted).not.toContain('second-runtime-secret');
   });
 
-  it('produces one terminal event for explicit cancellation and run timeout', async () => {
+  it('produces one terminal event for run timeout', async () => {
     const fixture = await workspaceFixture();
     const runtime = await start({
       stateRoot: fixture.stateRoot,
@@ -113,16 +75,6 @@ describe('local runtime end to end', () => {
     });
     const client = new LocalRuntimeTestClient(runtime);
     const grant = await client.issueWorkspaceGrant({ path: fixture.workspace });
-    const cancelledSession = await client.createSession({ adapterId: 'cn.yanbot.reference' });
-    const cancelled = await client.createRun(cancelledSession.sessionId, runRequest(grant.grant));
-    await client.cancelRun(cancelled.run.runId, 'Explicit cancellation.');
-    const cancelledEvents = await collectAsync(client.events(cancelled.run.runId));
-    expect(cancelledEvents.filter(isTerminal)).toHaveLength(1);
-    expect(cancelledEvents.at(-1)).toMatchObject({
-      type: 'run.cancelled',
-      payload: { reason: 'Explicit cancellation.' },
-    });
-
     const timeoutSession = await client.createSession({ adapterId: 'cn.yanbot.reference' });
     const timedOut = await client.createRun(timeoutSession.sessionId, runRequest(grant.grant));
     const timeoutEvents = await collectAsync(client.events(timedOut.run.runId));

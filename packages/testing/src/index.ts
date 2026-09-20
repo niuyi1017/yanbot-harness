@@ -1,3 +1,34 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import {
+  adapterEventSchema,
+  adapterSummarySchema,
+  createRunResultSchema,
+  modelDescriptorSchema,
+  runSchema,
+  runtimeDiscoverySchema,
+  runtimeHealthSchema,
+  sessionSchema,
+  workspaceGrantSchema,
+  type AdapterEvent,
+  type AdapterSummary,
+  type CreateRunRequest,
+  type CreateRunResult,
+  type CreateSessionRequest,
+  type CreateWorkspaceGrantRequest,
+  type InteractionResponse,
+  type ModelDescriptor,
+  type Run,
+  type RuntimeDiscovery,
+  type RuntimeHealth,
+  type Session,
+  type WorkspaceGrant,
+} from '@yanbot-harness/contracts';
+
+export * from './runtime-conformance.js';
+
 export function createDeterministicIdGenerator(prefix = '00000000-0000-4000-8000-'): () => string {
   let counter = 0;
   return () => `${prefix}${String(++counter).padStart(12, '0')}`;
@@ -26,50 +57,54 @@ export class LocalRuntimeTestClient {
   readonly #origin: string;
   readonly #accessToken: string;
   readonly #fetch: typeof fetch;
+  readonly #routePrefix: '/local' | '/v1';
 
-  constructor(options: { origin: string; accessToken: string; fetch?: typeof fetch }) {
+  constructor(options: { origin: string; accessToken: string; fetch?: typeof fetch; routePrefix?: '/local' | '/v1' }) {
     this.#origin = options.origin.replace(/\/$/, '');
     this.#accessToken = options.accessToken;
     this.#fetch = options.fetch ?? fetch;
+    this.#routePrefix = options.routePrefix ?? '/local';
+  }
+
+  async health(): Promise<RuntimeHealth | RuntimeDiscovery> {
+    const value = await this.#json('GET', '/health');
+    return this.#routePrefix === '/v1' ? runtimeDiscoverySchema.parse(value) : runtimeHealthSchema.parse(value);
   }
 
   async issueWorkspaceGrant(input: CreateWorkspaceGrantRequest): Promise<WorkspaceGrant> {
-    return workspaceGrantSchema.parse(await this.#json('POST', '/local/workspaces/grants', input));
+    return workspaceGrantSchema.parse(await this.#json('POST', '/workspaces/grants', input));
   }
 
-  async createSession(input: CreateLocalSessionRequest): Promise<LocalSession> {
-    return localSessionSchema.parse(await this.#json('POST', '/local/sessions', input));
+  async createSession(input: CreateSessionRequest): Promise<Session> {
+    return sessionSchema.parse(await this.#json('POST', '/sessions', input));
   }
 
-  async listSessions(): Promise<LocalSession[]> {
-    const response = await this.#request('/local/sessions');
-    const value: unknown = await response.json();
-    if (!Array.isArray(value)) throw new Error('The local runtime returned an invalid session list.');
-    return value.map((session) => localSessionSchema.parse(session));
+  async listSessions(): Promise<Session[]> {
+    return parseArray(await this.#json('GET', '/sessions'), sessionSchema);
   }
 
-  async getRun(runId: string): Promise<LocalRun> {
-    return localRunSchema.parse(await this.#json('GET', `/local/runs/${encodeURIComponent(runId)}`));
+  async getSession(sessionId: string): Promise<Session> {
+    return sessionSchema.parse(await this.#json('GET', `/sessions/${encodeURIComponent(sessionId)}`));
   }
 
-  async createRun(
-    sessionId: string,
-    input: CreateLocalRunRequest,
-    idempotencyKey?: string,
-  ): Promise<{ run: LocalRun; reused: boolean }> {
-    const response = (await this.#json(
-      'POST',
-      `/local/sessions/${encodeURIComponent(sessionId)}/runs`,
-      input,
-      idempotencyKey === undefined ? {} : { 'idempotency-key': idempotencyKey },
-    )) as { run?: unknown; reused?: unknown };
-    if (typeof response.reused !== 'boolean') throw new Error('The local runtime returned an invalid run result.');
-    return { run: localRunSchema.parse(response.run), reused: response.reused };
+  async getRun(runId: string): Promise<Run> {
+    return runSchema.parse(await this.#json('GET', `/runs/${encodeURIComponent(runId)}`));
   }
 
-  async cancelRun(runId: string, reason?: string): Promise<LocalRun> {
-    return localRunSchema.parse(
-      await this.#json('POST', `/local/runs/${encodeURIComponent(runId)}/cancel`, {
+  async createRun(sessionId: string, input: CreateRunRequest, idempotencyKey?: string): Promise<CreateRunResult> {
+    return createRunResultSchema.parse(
+      await this.#json(
+        'POST',
+        `/sessions/${encodeURIComponent(sessionId)}/runs`,
+        input,
+        idempotencyKey === undefined ? {} : { 'idempotency-key': idempotencyKey },
+      ),
+    );
+  }
+
+  async cancelRun(runId: string, reason?: string): Promise<Run> {
+    return runSchema.parse(
+      await this.#json('POST', `/runs/${encodeURIComponent(runId)}/cancel`, {
         ...(reason === undefined ? {} : { reason }),
       }),
     );
@@ -78,10 +113,21 @@ export class LocalRuntimeTestClient {
   async respond(response: InteractionResponse): Promise<void> {
     await this.#json(
       'POST',
-      `/local/interactions/${encodeURIComponent(response.requestId)}/responses`,
+      `/interactions/${encodeURIComponent(response.requestId)}/responses`,
       Object.fromEntries(Object.entries(response).filter(([key]) => key !== 'requestId')),
       {},
       true,
+    );
+  }
+
+  async listAdapters(): Promise<AdapterSummary[]> {
+    return parseArray(await this.#json('GET', '/adapters'), adapterSummarySchema);
+  }
+
+  async listModels(adapterId: string): Promise<ModelDescriptor[]> {
+    return parseArray(
+      await this.#json('GET', `/models?adapterId=${encodeURIComponent(adapterId)}`),
+      modelDescriptorSchema,
     );
   }
 
@@ -106,7 +152,7 @@ export class LocalRuntimeTestClient {
   }
 
   async #request(pathname: string, init: RequestInit = {}): Promise<Response> {
-    const response = await this.#fetch(`${this.#origin}${pathname}`, {
+    const response = await this.#fetch(`${this.#origin}${this.#routePrefix}${pathname}`, {
       ...init,
       headers: {
         authorization: `Bearer ${this.#accessToken}`,
@@ -116,7 +162,7 @@ export class LocalRuntimeTestClient {
     });
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`Local runtime request failed with HTTP ${response.status}: ${body.slice(0, 2_048)}`);
+      throw new Error(`Harness Runtime request failed with HTTP ${response.status}: ${body.slice(0, 2_048)}`);
     }
     return response;
   }
@@ -125,11 +171,18 @@ export class LocalRuntimeTestClient {
     runId: string,
     options: { afterEventId?: string; signal?: AbortSignal },
   ): AsyncGenerator<AdapterEvent> {
-    const response = await this.#request(`/local/runs/${encodeURIComponent(runId)}/events`, {
-      headers: options.afterEventId === undefined ? {} : { 'last-event-id': options.afterEventId },
+    const cursor =
+      this.#routePrefix === '/v1' && options.afterEventId !== undefined
+        ? `?afterEventId=${encodeURIComponent(options.afterEventId)}`
+        : '';
+    const response = await this.#request(`/runs/${encodeURIComponent(runId)}/events${cursor}`, {
+      headers:
+        this.#routePrefix === '/local' && options.afterEventId !== undefined
+          ? { 'last-event-id': options.afterEventId }
+          : {},
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
-    if (!response.body) throw new Error('The local runtime returned an empty event stream.');
+    if (!response.body) throw new Error('The Harness Runtime returned an empty event stream.');
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -170,21 +223,8 @@ export async function createTemporaryStateRoot(prefix = 'yanbot-harness-test-'):
     },
   };
 }
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 
-import {
-  adapterEventSchema,
-  localRunSchema,
-  localSessionSchema,
-  workspaceGrantSchema,
-  type AdapterEvent,
-  type CreateLocalRunRequest,
-  type CreateLocalSessionRequest,
-  type CreateWorkspaceGrantRequest,
-  type InteractionResponse,
-  type LocalRun,
-  type LocalSession,
-  type WorkspaceGrant,
-} from '@yanbot-harness/contracts';
+function parseArray<T>(value: unknown, schema: { parse(value: unknown): T }): T[] {
+  if (!Array.isArray(value)) throw new Error('The Harness Runtime returned an invalid list.');
+  return value.map((entry) => schema.parse(entry));
+}

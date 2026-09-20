@@ -47,14 +47,14 @@
 
 - [x] **P3.1 Kit Spec**：冻结 contracts-only driver、首批公共场景、本地专项测试保留边界与 Remote fixture
       延后条件。依赖：P2。验收：requirements/design/tasks 独立提交且不声称 Remote 已实现。
-- [ ] **P3.2 中立测试客户端**：扩展 `packages/testing` 的 HTTP/SSE client，使其可显式选择 `/v1`，使用中立
+- [x] **P3.2 中立测试客户端**：扩展 `packages/testing` 的 HTTP/SSE client，使其可显式选择 `/v1`，使用中立
       contracts，并保留 `/local` legacy 默认行为。依赖：P3.1。验收：build/typecheck 和旧 Local E2E 通过。
-- [ ] **P3.3 Conformance Kit**：在 `packages/testing` 定义无 SDK/Vitest/Runtime 依赖的 driver 与
+- [x] **P3.3 Conformance Kit**：在 `packages/testing` 定义无 SDK/Vitest/Runtime 依赖的 driver 与
       discovery/resources、run/idempotency、interaction/replay、cancellation 四个场景函数。依赖：P3.2。
       验收：包依赖边界检查与定向单测通过。
-- [ ] **P3.4 Local driver**：新增 Local `/v1` Reference driver，运行全部公共场景；工作区准备仅在 driver 内使用
+- [x] **P3.4 Local driver**：新增 Local `/v1` Reference driver，运行全部公共场景；工作区准备仅在 driver 内使用
       path grant。依赖：P3.3。验收：四场景通过，公共断言无 execution-mode 分支。
-- [ ] **P3.5 Local 专项回归**：从现有 E2E 移除已抽取的重复断言，保留重启恢复、旧 grant 失效、持久化脱敏、
+- [x] **P3.5 Local 专项回归**：从现有 E2E 移除已抽取的重复断言，保留重启恢复、旧 grant 失效、持久化脱敏、
       timeout 和 interrupted recovery；运行全仓门禁。依赖：P3.4。验收：`pnpm check` 通过。
 - [ ] **P3.6 Remote Reference fixture**：在远端工作区请求契约可安全表达后，实现不连接真实模型的最小 fixture，
       复用 P3.3 全部场景，不复制断言。依赖：P3.5 与 Remote workspace 子 Spec。
