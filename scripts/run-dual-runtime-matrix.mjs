@@ -17,6 +17,7 @@ function parseArguments(args) {
   let output;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
+    if (argument === '--') continue;
     if (argument === '--target') target = args[++index];
     else if (argument === '--output') output = args[++index];
     else throw new Error(`Unknown argument: ${String(argument)}`);

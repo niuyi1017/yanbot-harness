@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { URL } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
+import { promisify } from 'node:util';
 
 import { aggregatePlatformEvidence, validatePlatformReport } from './aggregate-dual-runtime-matrix.mjs';
 
 const commit = 'a'.repeat(40);
 const scenarioIds = ['discovery-resources', 'run-idempotency', 'interaction-replay', 'cancellation'];
+const execute = promisify(execFile);
 
 test('aggregates distinct macOS and Windows reports without promoting fixture evidence', () => {
   const result = aggregatePlatformEvidence([report('darwin-arm64'), report('win32-x64')]);
@@ -56,6 +59,23 @@ test('workflow binds the two targets to independent native runners', async () =>
   assert.match(workflow, /runner: windows-2022\s+target: win32-x64/u);
   assert.match(workflow, /dual-runtime-evidence-\$\{\{ matrix\.target \}\}/u);
   assert.doesNotMatch(workflow, /secrets\./u);
+});
+
+test('aggregate CLI accepts the pnpm argument separator', async () => {
+  await assert.rejects(
+    execute(process.execPath, [
+      fileURLToPath(new URL('./aggregate-dual-runtime-matrix.mjs', import.meta.url)),
+      '--',
+      'not-created-matrix-report.json',
+      'missing-darwin-report.json',
+      'missing-windows-report.json',
+    ]),
+    (error) => {
+      assert.doesNotMatch(String(error.stderr), /Use aggregate-dual-runtime-matrix/u);
+      assert.match(String(error.stderr), /ENOENT/u);
+      return true;
+    },
+  );
 });
 
 function report(target) {

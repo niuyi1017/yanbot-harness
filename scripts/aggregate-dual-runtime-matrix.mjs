@@ -101,7 +101,7 @@ export function validatePlatformReport(report) {
 }
 
 async function main() {
-  const [output, ...files] = process.argv.slice(2);
+  const [output, ...files] = process.argv.slice(2).filter((argument) => argument !== '--');
   if (!output || files.length === 0) {
     throw new Error('Use aggregate-dual-runtime-matrix.mjs <output.json> <platform-report...>.');
   }
