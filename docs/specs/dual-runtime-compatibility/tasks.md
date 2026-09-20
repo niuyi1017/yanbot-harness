@@ -45,11 +45,22 @@
 
 ## Phase 3：双模式 Reference Conformance
 
-- [ ] 把现有 Local Runtime 黑盒场景抽成部署无关 Conformance Kit。
-- [ ] 实现最小 Remote Reference Runtime/fixture，不连接真实模型。
-- [ ] 覆盖 Session、Run、Event、Interaction、取消、幂等、重连、能力不支持与错误分类。
-- [ ] 增加跨租户拒绝、token 过期、事件重放、恶意工作区清单和日志脱敏测试。
-- [ ] 将 Local macOS/Windows 与 Remote service 作为独立矩阵项输出证据。
+- [x] **P3.1 Kit Spec**：冻结 contracts-only driver、首批公共场景、本地专项测试保留边界与 Remote fixture
+      延后条件。依赖：P2。验收：requirements/design/tasks 独立提交且不声称 Remote 已实现。
+- [ ] **P3.2 中立测试客户端**：扩展 `packages/testing` 的 HTTP/SSE client，使其可显式选择 `/v1`，使用中立
+      contracts，并保留 `/local` legacy 默认行为。依赖：P3.1。验收：build/typecheck 和旧 Local E2E 通过。
+- [ ] **P3.3 Conformance Kit**：在 `packages/testing` 定义无 SDK/Vitest/Runtime 依赖的 driver 与
+      discovery/resources、run/idempotency、interaction/replay、cancellation 四个场景函数。依赖：P3.2。
+      验收：包依赖边界检查与定向单测通过。
+- [ ] **P3.4 Local driver**：新增 Local `/v1` Reference driver，运行全部公共场景；工作区准备仅在 driver 内使用
+      path grant。依赖：P3.3。验收：四场景通过，公共断言无 execution-mode 分支。
+- [ ] **P3.5 Local 专项回归**：从现有 E2E 移除已抽取的重复断言，保留重启恢复、旧 grant 失效、持久化脱敏、
+      timeout 和 interrupted recovery；运行全仓门禁。依赖：P3.4。验收：`pnpm check` 通过。
+- [ ] **P3.6 Remote Reference fixture**：在远端工作区请求契约可安全表达后，实现不连接真实模型的最小 fixture，
+      复用 P3.3 全部场景，不复制断言。依赖：P3.5 与 Remote workspace 子 Spec。
+- [ ] **P3.7 Remote 安全负例**：覆盖跨租户拒绝、token 过期、持久化事件重放、恶意工作区清单和日志脱敏。
+      依赖：P3.6。验收：稳定错误分类和无敏感数据证据。
+- [ ] **P3.8 矩阵证据**：将 Local macOS/Windows 与 Remote service 作为独立矩阵项输出证据。依赖：P3.7。
 
 验收：Reference Adapter 在 Local 与 Remote 两套后端通过同一组核心断言，没有模式专用公共 API。
 

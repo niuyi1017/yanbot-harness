@@ -110,6 +110,15 @@ Local-only Preview；正式签名/信任根、Registry scope、再分发许可�
 外部门禁单独跟踪，不阻塞上述兼容基座开发。完成 Remote 全链路之前，兼容矩阵必须保持
 “Required, not implemented”。
 
+Phase 3 第一批只抽取部署无关 Conformance Kit 并让 Local Reference Runtime 通过：
+
+- Kit 通过结构化 driver 调用公共 Runtime 语义，不依赖 Local Runtime、SDK 实现、Vitest 或厂商包。
+- 首批公共场景覆盖 `/v1` profile、Adapter/Model 发现、Session、Run、幂等、SSE 顺序/终态、Interaction 重放和取消。
+- driver 只抽象“如何准备当前目标可用的工作区输入”；Session/Run/Event 等公共断言不得按部署形态分叉。
+- 现有重启恢复、descriptor、路径脱敏与本地持久化测试保留为 Local 专项，不伪装成 Remote 公共保证。
+- 本批不实现 Remote fixture、租户、token 过期、持久化事件服务或远端 workspace preparation；这些仍是 Phase 3
+  后续批次及 Phase 4 的验收内容。
+
 ## 6. 非目标
 
 - 不在本阶段建设 Kubernetes、多区域调度、自动扩缩容或 microVM。
@@ -118,6 +127,7 @@ Local-only Preview；正式签名/信任根、Registry scope、再分发许可�
 - 不在首个 Remote Preview 托管任意长期私有 Git 凭据。
 - 不修改当前已交付 Local Preview 的能力声明或伪造远端认证结果。
 - 不在本轮新增 `apps/cloud-server`、Remote fixture 或远端持久化实现。
+- 不让 Conformance Kit 直接导入 `apps/local-runtime`、`packages/sdk`、Reference Adapter 或测试框架。
 
 ## 7. 依赖
 

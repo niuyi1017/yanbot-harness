@@ -200,6 +200,31 @@ Local Runtime 和 Remote Worker 都只通过 `adapter-api` 调用 CodeBuddy Adap
 CodeBuddy 真实认证另跑环境门禁。发布矩阵分别记录 Local macOS、Local Windows、Remote service，不以 CI 模拟结果
 替代目标环境实测。只有 Remote 全链路通过后，兼容表才能从“Required, not implemented”改为 Preview。
 
+### 9.1 Conformance Kit 边界
+
+第一批在 `packages/testing` 增加 Node-only、测试框架无关的 Runtime Conformance Kit。该包继续只依赖
+`@yanbot-harness/contracts`，不能依赖 SDK、Local Runtime、Adapter 或 Vitest，避免形成
+`sdk -> local-runtime -> testing -> sdk` 循环，也避免测试套件把某个客户端实现当成协议真相。
+
+Kit 定义结构化 `RuntimeConformanceDriver`，方法使用中立 `Session`、`Run`、`RunEvent` 和 `RuntimeDiscovery` 类型。
+driver 负责把测试意图转换为目标支持的工作区输入：Local driver 获取 path grant；后续 Remote driver 使用预创建的
+Git/upload reference。该抽象只允许发生在 Run 输入准备处；资源状态、事件序列、幂等键、Interaction、取消和错误语义
+必须由同一组断言检查，不能在 Kit 内写 `if (mode === 'local')` 分支。
+
+首批导出四个独立场景函数，便于 Vitest/Jest/Node test 将失败定位到具体能力：
+
+1. discovery/resources：profile execution mode、Adapter、Model、Session 创建/读取/列表。
+2. run/idempotency：相同幂等键返回同一 Run，事件 sequence 单调、恰好一个终端事件，最终状态一致。
+3. interaction/replay：在 `interaction.requested` 后断开，响应后从 `afterEventId` 重放并到达完成态。
+4. cancellation：活动 Run 被取消后只产生一个 `run.cancelled` 终端事件，原因可观察。
+
+`LocalRuntimeTestClient` 增加显式 route prefix 并以 `/v1` 驱动 Conformance；原默认 `/local` 行为保留给 legacy 回归。
+`apps/local-runtime/test/runtime-conformance.test.ts` 只负责启动不同 Reference scenario、准备临时工作区和实现 driver。
+重启恢复、旧 grant 失效、持久化不含路径/token、超时和 interrupted 恢复继续留在 Local 专项测试中。
+
+第二批 Remote fixture 必须复用这四个场景函数，不得复制断言。由于当前公共 Run 请求尚未接入 Git/upload source，
+本批不以伪造 `workspaceGrant` 冒充 Remote workspace；Remote fixture 与安全负例在对应请求契约明确后实施。
+
 ## 10. 实施顺序
 
 ```text
@@ -215,7 +240,8 @@ CodeBuddy 真实认证另跑环境门禁。发布矩阵分别记录 Local macOS�
 
 第一批提交边界为 contracts（含测试）→ Local `/v1` 路由（含 alias 测试）→ SDK RuntimeTarget/握手。第二批为
 CLI target/profile → 安全失败测试 → 帮助与迁移文档；仍不会越过到 `apps/cloud-server`。Remote Reference 与后续
-阶段各自继续依照任务清单推进。
+阶段各自继续依照任务清单推进。第三批先做 contracts-only Conformance Kit → Local `/v1` driver → Local 回归；
+Remote fixture 另批进入，不能用本机 workspace grant 伪造远端能力。
 
 ## 11. 拒绝方案
 
@@ -224,3 +250,5 @@ CLI target/profile → 安全失败测试 → 帮助与迁移文档；仍不会�
 - **把本机路径发给 Remote**：远端无法访问该路径，也会泄漏客户端目录信息。
 - **客户端携带 CodeBuddy Key**：扩大泄漏面，无法统一轮换、额度和审计。
 - **把可配置 origin 当作已兼容**：只证明 HTTP transport 可指向其他地址，不能证明服务端契约与安全边界成立。
+- **复制 Local/Remote 两套断言**：测试会随实现分叉，无法证明公共语义一致。
+- **让 Kit 依赖 SDK 或测试框架**：会形成依赖环并限制其他客户端/Runner 复用。
