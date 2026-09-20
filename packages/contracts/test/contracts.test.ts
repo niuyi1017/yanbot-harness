@@ -144,6 +144,78 @@ describe('contracts', () => {
     expect(createRunResultSchema.parse({ run, reused: false })).toEqual({ run, reused: false });
   });
 
+  it('accepts remote workspace sources without weakening the legacy request', () => {
+    const legacy = createRunRequestSchema.parse({
+      prompt: 'Inspect the repository',
+      workspaceGrant: 'grant-id.secret',
+      relativeCwd: 'packages/contracts',
+    });
+    const localSource = createRunRequestSchema.parse({
+      prompt: 'Inspect the repository',
+      workspace: {
+        kind: 'local-path-grant',
+        workspaceGrant: 'grant-id.secret',
+        relativeCwd: 'packages/contracts',
+      },
+    });
+    const snapshotSource = createRunRequestSchema.parse({
+      prompt: 'Inspect the repository',
+      workspace: {
+        kind: 'uploaded-snapshot',
+        uploadId: 'upload-1',
+        digest: `sha256:${'a'.repeat(64)}`,
+      },
+    });
+    const gitSource = createRunRequestSchema.parse({
+      prompt: 'Inspect the repository',
+      workspace: {
+        kind: 'git-ref',
+        repository: 'https://example.test/repository.git',
+        ref: 'refs/heads/main',
+      },
+    });
+
+    for (const request of [legacy, localSource, snapshotSource, gitSource]) {
+      expect(request).toMatchObject({
+        permissionPolicy: 'interactive',
+        configScopes: [],
+        extensions: [],
+        resume: false,
+      });
+      expect(JSON.parse(JSON.stringify(request))).toEqual(request);
+    }
+  });
+
+  it('rejects mixed, malformed, or unsafe workspace source requests', () => {
+    expect(() =>
+      createRunRequestSchema.parse({
+        prompt: 'Inspect the repository',
+        workspaceGrant: 'grant-id.secret',
+        workspace: {
+          kind: 'uploaded-snapshot',
+          uploadId: 'upload-1',
+          digest: `sha256:${'a'.repeat(64)}`,
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      createRunRequestSchema.parse({
+        prompt: 'Inspect the repository',
+        workspace: { kind: 'uploaded-snapshot', uploadId: 'upload-1', digest: 'sha256:not-a-digest' },
+      }),
+    ).toThrow();
+    expect(() =>
+      createRunRequestSchema.parse({
+        prompt: 'Inspect the repository',
+        workspace: {
+          kind: 'local-path-grant',
+          workspaceGrant: 'grant-id.secret',
+          relativeCwd: '../outside',
+        },
+      }),
+    ).toThrow();
+  });
+
   it('round-trips workspace sources and constrained Runtime profiles', () => {
     const localSource = workspaceSourceSchema.parse({
       kind: 'local-path-grant',

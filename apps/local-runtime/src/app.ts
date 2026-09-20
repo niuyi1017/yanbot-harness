@@ -14,6 +14,7 @@ import {
   createWorkspaceGrantRequestSchema,
   interactionResponseSchema,
   uuidSchema,
+  type CreateRunRequest,
   type HarnessError,
 } from '@yanbot-harness/contracts';
 import { ExtensionKitError } from '@yanbot-harness/extension-kit';
@@ -23,7 +24,7 @@ import { z } from 'zod';
 import { LocalAuthError, type LocalAuthManager, type LocalAuthPrincipal } from './auth.js';
 import { EventBufferOverflowError } from './event-hub.js';
 import { StateStoreError } from './local-state-store.js';
-import { RunSupervisorError, type RunSupervisor } from './run-supervisor.js';
+import { RunSupervisorError, type LocalRunRequest, type RunSupervisor } from './run-supervisor.js';
 import { WorkspaceGrantError, type WorkspaceGrantRegistry } from './workspace-grants.js';
 
 const browserExchangeSchema = z.object({ token: z.string().min(1).max(1_024) }).strict();
@@ -166,7 +167,7 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
     asyncRoute(async (request, response) => {
       const result = await options.supervisor.createRun(
         uuidSchema.parse(request.params.sessionId),
-        createLocalRunRequestSchema.parse(request.body),
+        normalizeLocalRunRequest(createLocalRunRequestSchema.parse(request.body)),
         parseIdempotencyKey(request),
       );
       response.status(202).json(result);
@@ -266,6 +267,23 @@ export function createLocalRuntimeApp(options: CreateLocalRuntimeAppOptions): ex
   app.use((_request, _response, next) => next(notFoundError('The local endpoint does not exist.')));
   app.use(errorHandler);
   return app;
+}
+
+function normalizeLocalRunRequest(input: CreateRunRequest): LocalRunRequest {
+  if ('workspaceGrant' in input) return input;
+  if (input.workspace.kind !== 'local-path-grant') {
+    throw new RunSupervisorError(400, {
+      code: 'CAPABILITY_UNSUPPORTED',
+      message: `Local Runtime does not support ${input.workspace.kind} workspace sources.`,
+      retryable: false,
+    });
+  }
+  const { workspace, ...shared } = input;
+  return {
+    ...shared,
+    workspaceGrant: workspace.workspaceGrant,
+    ...(workspace.relativeCwd === undefined ? {} : { relativeCwd: workspace.relativeCwd }),
+  };
 }
 
 function asyncRoute(

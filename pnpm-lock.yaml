@@ -214,6 +214,28 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/remote-reference-fixture:
+    dependencies:
+      '@yanbot-harness/adapter-api':
+        specifier: workspace:*
+        version: link:../adapter-api
+      '@yanbot-harness/adapter-reference':
+        specifier: workspace:*
+        version: link:../adapter-reference
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@yanbot-harness/core':
+        specifier: workspace:*
+        version: link:../harness-core
+    devDependencies:
+      '@yanbot-harness/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@yanbot-harness/testing':
+        specifier: workspace:*
+        version: link:../testing
+
   packages/runtime:
     dependencies:
       tar-stream:

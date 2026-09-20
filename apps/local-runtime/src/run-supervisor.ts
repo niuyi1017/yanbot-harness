@@ -5,7 +5,7 @@ import {
   HARNESS_PROTOCOL_VERSION,
   interactionResponseSchema,
   type AdapterEvent,
-  type CreateLocalRunRequest,
+  type CreateRunRequest,
   type CreateLocalSessionRequest,
   type ExtensionSelection,
   type HarnessCapabilities,
@@ -48,6 +48,7 @@ type ActiveRun = {
 
 type PendingInteraction = { runId: string; sessionId: string };
 type RecordedResponse = { serialized: string; operation: Promise<void> };
+export type LocalRunRequest = Extract<CreateRunRequest, { workspaceGrant: string }>;
 
 export type RunSupervisorOptions = {
   store: LocalStateStore;
@@ -144,7 +145,7 @@ export class RunSupervisor {
 
   async createRun(
     sessionId: string,
-    input: CreateLocalRunRequest,
+    input: LocalRunRequest,
     idempotencyKey?: string,
   ): Promise<{ run: LocalRun; reused: boolean }> {
     return this.#serializeCreate(async () => {
@@ -267,7 +268,7 @@ export class RunSupervisor {
     await this.#store.readEvents(runId, afterEventId);
   }
 
-  effectiveConfig(scopes: CreateLocalRunRequest['configScopes']): EffectiveConfig {
+  effectiveConfig(scopes: LocalRunRequest['configScopes']): EffectiveConfig {
     return resolveConfigLayers(this.#configLayers, scopes);
   }
 
@@ -309,7 +310,7 @@ export class RunSupervisor {
   }
 
   #resolveResumeSession(
-    input: CreateLocalRunRequest,
+    input: LocalRunRequest,
     session: LocalSession,
     capabilities: HarnessCapabilities,
   ): string | undefined {

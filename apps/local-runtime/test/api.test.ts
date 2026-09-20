@@ -175,6 +175,68 @@ describe('local runtime API', () => {
     expect(JSON.stringify(summary)).not.toContain('CODEBUDDY_API_KEY');
   });
 
+  it('normalizes neutral local workspace sources and rejects remote sources', async () => {
+    const fixture = await setup();
+    const grant = (await (
+      await fixture.request('/v1/workspaces/grants', {
+        method: 'POST',
+        body: JSON.stringify({ path: fixture.workspace }),
+      })
+    ).json()) as { grant: string };
+    const session = (await (
+      await fixture.request('/v1/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ adapterId: 'cn.yanbot.reference' }),
+      })
+    ).json()) as { sessionId: string };
+
+    const created = await fixture.request(`/v1/sessions/${session.sessionId}/runs`, {
+      method: 'POST',
+      headers: { 'idempotency-key': 'neutral-workspace' },
+      body: JSON.stringify({
+        prompt: 'Neutral workspace',
+        workspace: { kind: 'local-path-grant', workspaceGrant: grant.grant },
+      }),
+    });
+    const createdBody = (await created.json()) as
+      | { run: { runId: string }; reused: boolean }
+      | { error: { code: string; message: string } };
+    expect({ status: created.status, body: createdBody }).toMatchObject({
+      status: 202,
+      body: { reused: false },
+    });
+    if (!('run' in createdBody)) throw new Error(createdBody.error.message);
+    const first = createdBody;
+    const duplicate = await fixture.request(`/v1/sessions/${session.sessionId}/runs`, {
+      method: 'POST',
+      headers: { 'idempotency-key': 'neutral-workspace' },
+      body: JSON.stringify({ prompt: 'Neutral workspace', workspaceGrant: grant.grant }),
+    });
+    expect(duplicate.status).toBe(202);
+    await expect(duplicate.json()).resolves.toMatchObject({ run: { runId: first.run.runId }, reused: true });
+    await (await fixture.request(`/v1/runs/${first.run.runId}/events`)).text();
+
+    const remoteSession = (await (
+      await fixture.request('/v1/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ adapterId: 'cn.yanbot.reference' }),
+      })
+    ).json()) as { sessionId: string };
+    const unsupported = await fixture.request(`/v1/sessions/${remoteSession.sessionId}/runs`, {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: 'Remote workspace',
+        workspace: {
+          kind: 'uploaded-snapshot',
+          uploadId: 'upload-1',
+          digest: `sha256:${'a'.repeat(64)}`,
+        },
+      }),
+    });
+    expect(unsupported.status).toBe(400);
+    await expect(unsupported.json()).resolves.toMatchObject({ error: { code: 'CAPABILITY_UNSUPPORTED' } });
+  });
+
   it('cancels an active run through the authenticated API', async () => {
     const fixture = await setup({ kind: 'wait-for-cancel' });
     const grant = (await (

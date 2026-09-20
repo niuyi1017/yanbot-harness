@@ -1,0 +1,30 @@
+{
+  "name": "@yanbot-harness/remote-reference-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/adapter-reference": "workspace:*",
+    "@yanbot-harness/contracts": "workspace:*",
+    "@yanbot-harness/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@yanbot-harness/sdk": "workspace:*",
+    "@yanbot-harness/testing": "workspace:*"
+  }
+}

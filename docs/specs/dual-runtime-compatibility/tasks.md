@@ -56,7 +56,7 @@
       path grant。依赖：P3.3。验收：四场景通过，公共断言无 execution-mode 分支。
 - [x] **P3.5 Local 专项回归**：从现有 E2E 移除已抽取的重复断言，保留重启恢复、旧 grant 失效、持久化脱敏、
       timeout 和 interrupted recovery；运行全仓门禁。依赖：P3.4。验收：`pnpm check` 通过。
-- [ ] **P3.6 Remote Reference fixture**：在远端工作区请求契约可安全表达后，实现不连接真实模型的最小 fixture，
+- [x] **P3.6 Remote Reference fixture**：在远端工作区请求契约可安全表达后，实现不连接真实模型的最小 fixture，
       复用 P3.3 全部场景，不复制断言。依赖：P3.5 与 Remote workspace 子 Spec。
 - [ ] **P3.7 Remote 安全负例**：覆盖跨租户拒绝、token 过期、持久化事件重放、恶意工作区清单和日志脱敏。
       依赖：P3.6。验收：稳定错误分类和无敏感数据证据。

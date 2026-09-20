@@ -367,19 +367,60 @@ export const relativeWorkspacePathSchema = z
     'The workspace path cannot traverse outside the granted root.',
   );
 
-export const createRunRequestSchema = z
+export const workspaceSourceKindSchema = z.enum(['local-path-grant', 'git-ref', 'uploaded-snapshot']);
+export const localPathWorkspaceSourceSchema = z
   .object({
-    prompt: z.string().min(1).max(1_000_000),
+    kind: z.literal('local-path-grant'),
     workspaceGrant: opaqueIdSchema,
     relativeCwd: relativeWorkspacePathSchema.optional(),
-    model: modelRefSchema.optional(),
-    maxTurns: z.number().int().positive().max(1_000).optional(),
-    permissionPolicy: permissionPolicySchema.default('interactive'),
-    configScopes: z.array(configScopeSchema).default([]),
-    extensions: z.array(extensionSelectionSchema).default([]),
-    resume: z.boolean().default(false),
   })
   .strict();
+export const gitRefWorkspaceSourceSchema = z
+  .object({
+    kind: z.literal('git-ref'),
+    repository: z.string().trim().min(1).max(2_048),
+    ref: z.string().trim().min(1).max(512),
+    credentialRef: opaqueIdSchema.optional(),
+  })
+  .strict();
+export const uploadedSnapshotWorkspaceSourceSchema = z
+  .object({
+    kind: z.literal('uploaded-snapshot'),
+    uploadId: opaqueIdSchema,
+    digest: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+  })
+  .strict();
+export const workspaceSourceSchema = z.discriminatedUnion('kind', [
+  localPathWorkspaceSourceSchema,
+  gitRefWorkspaceSourceSchema,
+  uploadedSnapshotWorkspaceSourceSchema,
+]);
+
+const createRunRequestFields = {
+  prompt: z.string().min(1).max(1_000_000),
+  model: modelRefSchema.optional(),
+  maxTurns: z.number().int().positive().max(1_000).optional(),
+  permissionPolicy: permissionPolicySchema.default('interactive'),
+  configScopes: z.array(configScopeSchema).default([]),
+  extensions: z.array(extensionSelectionSchema).default([]),
+  resume: z.boolean().default(false),
+};
+
+export const createRunRequestSchema = z.union([
+  z
+    .object({
+      ...createRunRequestFields,
+      workspaceGrant: opaqueIdSchema,
+      relativeCwd: relativeWorkspacePathSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...createRunRequestFields,
+      workspace: workspaceSourceSchema,
+    })
+    .strict(),
+]);
 
 export const createWorkspaceGrantRequestSchema = z
   .object({
@@ -421,34 +462,6 @@ export const runtimeHealthSchema = z
 
 export const runtimeExecutionModeSchema = z.enum(['local', 'remote']);
 export const runtimeAuthenticationSchema = z.enum(['local-descriptor', 'bearer']);
-export const workspaceSourceKindSchema = z.enum(['local-path-grant', 'git-ref', 'uploaded-snapshot']);
-export const localPathWorkspaceSourceSchema = z
-  .object({
-    kind: z.literal('local-path-grant'),
-    workspaceGrant: opaqueIdSchema,
-    relativeCwd: relativeWorkspacePathSchema.optional(),
-  })
-  .strict();
-export const gitRefWorkspaceSourceSchema = z
-  .object({
-    kind: z.literal('git-ref'),
-    repository: z.string().trim().min(1).max(2_048),
-    ref: z.string().trim().min(1).max(512),
-    credentialRef: opaqueIdSchema.optional(),
-  })
-  .strict();
-export const uploadedSnapshotWorkspaceSourceSchema = z
-  .object({
-    kind: z.literal('uploaded-snapshot'),
-    uploadId: opaqueIdSchema,
-    digest: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
-  })
-  .strict();
-export const workspaceSourceSchema = z.discriminatedUnion('kind', [
-  localPathWorkspaceSourceSchema,
-  gitRefWorkspaceSourceSchema,
-  uploadedSnapshotWorkspaceSourceSchema,
-]);
 
 export const eventReplayCapabilitySchema = z
   .object({
