@@ -44,11 +44,16 @@
 ## T5. 回归、状态与提交
 
 - [x] 运行生成器、聚合器测试及 `pnpm check`。
-- [ ] 在本 Spec 记录本机证据路径与测试结果。
+- [x] 在本 Spec 记录本机证据路径与测试结果。
 - [x] 更新 `dual-runtime-compatibility`，仅勾选 P3.8 基础设施子项，顶层保持未完成。
-- [ ] 检查 diff/status，保留用户未跟踪临时文件，提交实现。
+- [x] 检查 diff/status，保留用户未跟踪临时文件，提交实现。
 
 验收：本次规划内代码全部完成且全仓门禁通过；未发生 Windows/Remote service 证据夸大。
+
+本机证据（2026-09-20）：从干净的实现提交 `1bd9a4768fe510a621c453c1cb4aa730778bde66` 生成
+`verification-evidence-darwin-arm64.json`。macOS arm64 上 Local loopback HTTP/SSE 与 Remote injected-fetch Fixture
+各通过四项共享 Conformance，报告为 `dirty: false`；`pnpm check` 全量通过。该文件不包含 Windows runner 或正式
+Remote service 证据。
 
 ## P3.8 完成仍需
 
