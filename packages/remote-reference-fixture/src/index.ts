@@ -18,11 +18,34 @@ import {
   type ApiError,
   type CreateRunRequest,
   type HarnessError,
+  type HarnessErrorCode,
   type Run,
   type Session,
   type WorkspaceSource,
 } from '@yanbot-harness/contracts';
 import { createManagedAdapterRun, type ManagedRunController } from '@yanbot-harness/core';
+
+import {
+  FixtureStateStore,
+  RemoteFixtureStateError,
+  type PersistedFixtureState,
+  type PersistedIdempotencyRecord,
+  type PersistedSnapshotRecord,
+} from './state-store.js';
+import {
+  RemoteFixturePreparationError,
+  validateRemoteWorkspaceManifest,
+  type RemoteWorkspaceManifest,
+} from './workspace-manifest.js';
+
+export { RemoteFixtureStateError, fixtureStatePath } from './state-store.js';
+export {
+  REMOTE_WORKSPACE_LIMITS,
+  RemoteFixturePreparationError,
+  validateRemoteWorkspaceManifest,
+  type RemoteWorkspaceManifest,
+  type RemoteWorkspaceManifestEntry,
+} from './workspace-manifest.js';
 
 const origin = 'https://remote.reference.test';
 const adapterId = 'cn.yanbot.reference';
@@ -30,21 +53,48 @@ const terminalTypes = new Set<AdapterEvent['type']>(['run.completed', 'run.faile
 
 type Principal = { tenantId: string; subjectId: string };
 type TokenRecord = Principal & { expiresAt: number };
-type SnapshotRecord = { tenantId: string; uploadId: string; digest: string; workspaceRef: string; cwd: string };
+type SnapshotRecord = PersistedSnapshotRecord & { cwd: string };
 type SessionRecord = { tenantId: string; session: Session };
 type RunRecord = {
   tenantId: string;
   run: Run;
   events: AdapterEvent[];
+  publishedEventCount: number;
   waiters: Set<() => void>;
   controller?: ManagedRunController;
 };
 type InteractionRecord = { tenantId: string; runId: string; controller: ManagedRunController };
 
+export type RemoteReferenceAuditAction =
+  | 'runtime.health'
+  | 'adapter.list'
+  | 'model.list'
+  | 'session.create'
+  | 'session.list'
+  | 'session.get'
+  | 'run.create'
+  | 'run.get'
+  | 'run.cancel'
+  | 'run.events'
+  | 'interaction.respond'
+  | 'workspace.prepare'
+  | 'route.unknown';
+
+export type RemoteReferenceAuditEntry = {
+  timestamp: string;
+  requestId: string;
+  action: RemoteReferenceAuditAction;
+  outcome: 'succeeded' | 'rejected' | 'failed';
+  status: number;
+  errorCode?: HarnessErrorCode;
+};
+
 export type RemoteReferenceFixtureOptions = {
   scenario?: ReferenceScenario;
   now?: () => Date;
   generateId?: () => string;
+  stateRoot?: string;
+  retentionSeconds?: number;
 };
 
 export type RemoteReferenceFixture = {
@@ -53,18 +103,24 @@ export type RemoteReferenceFixture = {
   issueToken(input: { tenantId: string; subjectId: string; expiresAt?: Date }): string;
   prepareSnapshot(input: {
     tenantId: string;
-    digest?: string;
-  }): Extract<WorkspaceSource, { kind: 'uploaded-snapshot' }>;
+    manifest?: RemoteWorkspaceManifest | unknown;
+    expectedDigest?: string;
+  }): Promise<Extract<WorkspaceSource, { kind: 'uploaded-snapshot' }>>;
+  auditEntries(): readonly RemoteReferenceAuditEntry[];
   close(): Promise<void>;
 };
 
 export async function createRemoteReferenceFixture(
   options: RemoteReferenceFixtureOptions = {},
 ): Promise<RemoteReferenceFixture> {
-  const root = await mkdtemp(path.join(tmpdir(), 'yanbot-remote-reference-'));
+  const ownsRoot = options.stateRoot === undefined;
+  const root = options.stateRoot ?? (await mkdtemp(path.join(tmpdir(), 'yanbot-remote-reference-')));
   const workspace = path.join(root, 'workspace');
-  await mkdir(workspace);
-  return new InMemoryRemoteReferenceFixture(root, workspace, options);
+  await mkdir(workspace, { recursive: true, mode: 0o700 });
+  const { store, state } = await FixtureStateStore.open(root);
+  const fixture = new InMemoryRemoteReferenceFixture(root, workspace, ownsRoot, store, state, options);
+  await fixture.initialize();
+  return fixture;
 }
 
 class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
@@ -73,29 +129,45 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
 
   readonly #root: string;
   readonly #workspace: string;
+  readonly #ownsRoot: boolean;
+  readonly #store: FixtureStateStore;
   readonly #adapter: ReferenceAdapter;
   readonly #now: () => Date;
   readonly #generateId: () => string;
   readonly #startedAt: string;
+  readonly #retentionSeconds: number;
   readonly #tokens = new Map<string, TokenRecord>();
   readonly #snapshots = new Map<string, SnapshotRecord>();
   readonly #sessions = new Map<string, SessionRecord>();
   readonly #runs = new Map<string, RunRecord>();
   readonly #interactions = new Map<string, InteractionRecord>();
-  readonly #idempotency = new Map<string, { fingerprint: string; runId: string }>();
+  readonly #idempotency = new Map<string, PersistedIdempotencyRecord>();
+  readonly #audit: RemoteReferenceAuditEntry[] = [];
+  readonly #consumers = new Set<Promise<void>>();
   #closed = false;
 
-  constructor(root: string, workspace: string, options: RemoteReferenceFixtureOptions) {
+  constructor(
+    root: string,
+    workspace: string,
+    ownsRoot: boolean,
+    store: FixtureStateStore,
+    state: PersistedFixtureState,
+    options: RemoteReferenceFixtureOptions,
+  ) {
     this.#root = root;
     this.#workspace = workspace;
+    this.#ownsRoot = ownsRoot;
+    this.#store = store;
     this.#now = options.now ?? (() => new Date());
     this.#generateId = options.generateId ?? randomUUID;
     this.#startedAt = this.#now().toISOString();
+    this.#retentionSeconds = options.retentionSeconds ?? 3_600;
     this.#adapter = new ReferenceAdapter({
       ...(options.scenario === undefined ? {} : { scenario: options.scenario }),
       now: this.#now,
       generateId: this.#generateId,
     });
+    this.#restore(state);
     this.fetch = async (input, init) => this.#route(new Request(input, init));
   }
 
@@ -110,27 +182,53 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
     return token;
   }
 
-  prepareSnapshot(input: {
+  async initialize(): Promise<void> {
+    await this.#persist();
+  }
+
+  async prepareSnapshot(input: {
     tenantId: string;
-    digest?: string;
-  }): Extract<WorkspaceSource, { kind: 'uploaded-snapshot' }> {
-    this.#assertOpen();
-    const tenantId = requiredIdentifier(input.tenantId, 'tenantId');
-    const uploadId = this.#generateId();
-    const digest = input.digest ?? `sha256:${'0'.repeat(64)}`;
-    const source = { kind: 'uploaded-snapshot' as const, uploadId, digest };
-    const parsed = createRunRequestSchema.parse({ prompt: 'Fixture validation.', workspace: source });
-    if (!('workspace' in parsed) || parsed.workspace.kind !== 'uploaded-snapshot') {
-      throw new TypeError('Expected an uploaded snapshot workspace source.');
+    manifest?: RemoteWorkspaceManifest | unknown;
+    expectedDigest?: string;
+  }): Promise<Extract<WorkspaceSource, { kind: 'uploaded-snapshot' }>> {
+    const requestId = this.#generateId();
+    let snapshotKey: string | undefined;
+    try {
+      this.#assertOpen();
+      const tenantId = requiredIdentifier(input.tenantId, 'tenantId');
+      const uploadId = this.#generateId();
+      const { digest } = validateRemoteWorkspaceManifest(input.manifest, input.expectedDigest);
+      const source = { kind: 'uploaded-snapshot' as const, uploadId, digest };
+      const parsed = createRunRequestSchema.parse({ prompt: 'Fixture validation.', workspace: source });
+      if (!('workspace' in parsed) || parsed.workspace.kind !== 'uploaded-snapshot') {
+        throw new RemoteFixturePreparationError();
+      }
+      snapshotKey = resourceKey(tenantId, uploadId);
+      this.#snapshots.set(snapshotKey, {
+        tenantId,
+        uploadId,
+        digest,
+        workspaceRef: this.#generateId(),
+        cwd: this.#workspace,
+      });
+      await this.#persist();
+      this.#recordAudit(requestId, 'workspace.prepare', 'succeeded', 201);
+      return source;
+    } catch (error) {
+      if (snapshotKey !== undefined) this.#snapshots.delete(snapshotKey);
+      if (error instanceof RemoteFixtureStateError) {
+        this.#recordAudit(requestId, 'workspace.prepare', 'failed', 500, 'INTERNAL_ERROR');
+        throw error;
+      }
+      const preparationError =
+        error instanceof RemoteFixturePreparationError ? error : new RemoteFixturePreparationError({ cause: error });
+      this.#recordAudit(requestId, 'workspace.prepare', 'rejected', 400, preparationError.code);
+      throw preparationError;
     }
-    this.#snapshots.set(resourceKey(tenantId, uploadId), {
-      tenantId,
-      uploadId,
-      digest,
-      workspaceRef: this.#generateId(),
-      cwd: this.#workspace,
-    });
-    return source;
+  }
+
+  auditEntries(): readonly RemoteReferenceAuditEntry[] {
+    return this.#audit.map((entry) => Object.freeze({ ...entry }));
   }
 
   async close(): Promise<void> {
@@ -138,98 +236,115 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
     this.#closed = true;
     const active = [...this.#runs.values()].flatMap((record) => (record.controller ? [record.controller] : []));
     await Promise.allSettled(active.map((controller) => controller.dispose()));
+    await Promise.allSettled([...this.#consumers]);
     for (const record of this.#runs.values()) notify(record);
-    await rm(this.#root, { recursive: true, force: true });
+    await this.#store.flush();
+    if (this.#ownsRoot) await rm(this.#root, { recursive: true, force: true });
   }
 
   async #route(request: Request): Promise<Response> {
     const requestId = this.#generateId();
+    const action = auditAction(request);
     try {
-      this.#assertOpen();
-      const url = new URL(request.url);
-      if (url.origin !== origin || !url.pathname.startsWith('/v1/')) throw notFound('The route does not exist.');
-      const principal = this.#authenticate(request);
-
-      if (request.method === 'GET' && url.pathname === '/v1/health') return Response.json(this.#discovery());
-      if (request.method === 'GET' && url.pathname === '/v1/adapters') {
-        const runtime = await this.#adapter.createRuntime();
-        try {
-          return Response.json([
-            { manifest: this.#adapter.manifest, capabilities: await assertRuntimeMatchesCapabilities(runtime) },
-          ]);
-        } finally {
-          await runtime.dispose();
-        }
-      }
-      if (request.method === 'GET' && url.pathname === '/v1/models') {
-        const selectedAdapterId = adapterIdSchema.parse(url.searchParams.get('adapterId'));
-        if (selectedAdapterId !== adapterId) throw notFound('The adapter does not exist.');
-        const runtime = await this.#adapter.createRuntime();
-        try {
-          await assertRuntimeMatchesCapabilities(runtime);
-          if (!runtime.listModels) throw unsupported('The adapter does not support model discovery.');
-          return Response.json(await runtime.listModels());
-        } finally {
-          await runtime.dispose();
-        }
-      }
-      if (request.method === 'POST' && url.pathname === '/v1/sessions') {
-        return Response.json(await this.#createSession(principal, await request.json()), { status: 201 });
-      }
-      if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-        return Response.json(
-          [...this.#sessions.values()]
-            .filter((record) => record.tenantId === principal.tenantId)
-            .map((record) => record.session),
-        );
-      }
-
-      const sessionMatch = /^\/v1\/sessions\/([^/]+)$/u.exec(url.pathname);
-      if (request.method === 'GET' && sessionMatch) {
-        return Response.json(this.#session(principal, decodeURIComponent(sessionMatch[1]!)).session);
-      }
-      const createRunMatch = /^\/v1\/sessions\/([^/]+)\/runs$/u.exec(url.pathname);
-      if (request.method === 'POST' && createRunMatch) {
-        const result = await this.#createRun(
-          principal,
-          decodeURIComponent(createRunMatch[1]!),
-          await request.json(),
-          request.headers.get('idempotency-key') ?? undefined,
-        );
-        return Response.json(result, { status: 202 });
-      }
-      const runMatch = /^\/v1\/runs\/([^/]+)$/u.exec(url.pathname);
-      if (request.method === 'GET' && runMatch) {
-        return Response.json(this.#run(principal, decodeURIComponent(runMatch[1]!)).run);
-      }
-      const cancelMatch = /^\/v1\/runs\/([^/]+)\/cancel$/u.exec(url.pathname);
-      if (request.method === 'POST' && cancelMatch) {
-        const body = (await request.json()) as unknown;
-        const reason = parseCancelReason(body);
-        const record = this.#run(principal, decodeURIComponent(cancelMatch[1]!));
-        await record.controller?.cancel(reason);
-        return Response.json(record.run);
-      }
-      const eventMatch = /^\/v1\/runs\/([^/]+)\/events$/u.exec(url.pathname);
-      if (request.method === 'GET' && eventMatch) {
-        const record = this.#run(principal, decodeURIComponent(eventMatch[1]!));
-        return this.#eventResponse(record, url.searchParams.get('afterEventId') ?? undefined);
-      }
-      const interactionMatch = /^\/v1\/interactions\/([^/]+)\/responses$/u.exec(url.pathname);
-      if (request.method === 'POST' && interactionMatch) {
-        const requestIdValue = decodeURIComponent(interactionMatch[1]!);
-        const interaction = this.#interactions.get(resourceKey(principal.tenantId, requestIdValue));
-        if (!interaction) throw conflict('The interaction is no longer pending.');
-        const body = await request.json();
-        if (!isObject(body)) throw invalid('The interaction response is invalid.');
-        const response = interactionResponseSchema.parse({ ...body, requestId: requestIdValue });
-        await interaction.controller.respond(response);
-        return new Response(null, { status: 204 });
-      }
-      throw notFound('The route does not exist.');
+      const response = await this.#dispatch(request);
+      this.#recordAudit(requestId, action, 'succeeded', response.status);
+      return response;
     } catch (error) {
-      return errorResponse(error, requestId);
+      const fixtureError = normalizeFixtureError(error);
+      this.#recordAudit(
+        requestId,
+        action,
+        fixtureError.status >= 500 ? 'failed' : 'rejected',
+        fixtureError.status,
+        fixtureError.error.code,
+      );
+      return errorResponse(fixtureError, requestId);
     }
+  }
+
+  async #dispatch(request: Request): Promise<Response> {
+    this.#assertOpen();
+    const url = new URL(request.url);
+    if (url.origin !== origin || !url.pathname.startsWith('/v1/')) throw notFound('The route does not exist.');
+    const principal = this.#authenticate(request);
+
+    if (request.method === 'GET' && url.pathname === '/v1/health') return Response.json(this.#discovery());
+    if (request.method === 'GET' && url.pathname === '/v1/adapters') {
+      const runtime = await this.#adapter.createRuntime();
+      try {
+        return Response.json([
+          { manifest: this.#adapter.manifest, capabilities: await assertRuntimeMatchesCapabilities(runtime) },
+        ]);
+      } finally {
+        await runtime.dispose();
+      }
+    }
+    if (request.method === 'GET' && url.pathname === '/v1/models') {
+      const selectedAdapterId = adapterIdSchema.parse(url.searchParams.get('adapterId'));
+      if (selectedAdapterId !== adapterId) throw notFound('The adapter does not exist.');
+      const runtime = await this.#adapter.createRuntime();
+      try {
+        await assertRuntimeMatchesCapabilities(runtime);
+        if (!runtime.listModels) throw unsupported('The adapter does not support model discovery.');
+        return Response.json(await runtime.listModels());
+      } finally {
+        await runtime.dispose();
+      }
+    }
+    if (request.method === 'POST' && url.pathname === '/v1/sessions') {
+      return Response.json(await this.#createSession(principal, await request.json()), { status: 201 });
+    }
+    if (request.method === 'GET' && url.pathname === '/v1/sessions') {
+      return Response.json(
+        [...this.#sessions.values()]
+          .filter((record) => record.tenantId === principal.tenantId)
+          .map((record) => record.session),
+      );
+    }
+
+    const sessionMatch = /^\/v1\/sessions\/([^/]+)$/u.exec(url.pathname);
+    if (request.method === 'GET' && sessionMatch) {
+      return Response.json(this.#session(principal, decodeURIComponent(sessionMatch[1]!)).session);
+    }
+    const createRunMatch = /^\/v1\/sessions\/([^/]+)\/runs$/u.exec(url.pathname);
+    if (request.method === 'POST' && createRunMatch) {
+      const result = await this.#createRun(
+        principal,
+        decodeURIComponent(createRunMatch[1]!),
+        await request.json(),
+        request.headers.get('idempotency-key') ?? undefined,
+      );
+      return Response.json(result, { status: 202 });
+    }
+    const runMatch = /^\/v1\/runs\/([^/]+)$/u.exec(url.pathname);
+    if (request.method === 'GET' && runMatch) {
+      return Response.json(this.#run(principal, decodeURIComponent(runMatch[1]!)).run);
+    }
+    const cancelMatch = /^\/v1\/runs\/([^/]+)\/cancel$/u.exec(url.pathname);
+    if (request.method === 'POST' && cancelMatch) {
+      const body = (await request.json()) as unknown;
+      const reason = parseCancelReason(body);
+      const record = this.#run(principal, decodeURIComponent(cancelMatch[1]!));
+      await record.controller?.cancel(reason);
+      return Response.json(record.run);
+    }
+    const eventMatch = /^\/v1\/runs\/([^/]+)\/events$/u.exec(url.pathname);
+    if (request.method === 'GET' && eventMatch) {
+      const record = this.#run(principal, decodeURIComponent(eventMatch[1]!));
+      return this.#eventResponse(record, url.searchParams.get('afterEventId') ?? undefined);
+    }
+    const interactionMatch = /^\/v1\/interactions\/([^/]+)\/responses$/u.exec(url.pathname);
+    if (request.method === 'POST' && interactionMatch) {
+      const requestIdValue = decodeURIComponent(interactionMatch[1]!);
+      const interaction = this.#interactions.get(resourceKey(principal.tenantId, requestIdValue));
+      if (!interaction) throw notFound('The interaction does not exist.');
+      const body = await request.json();
+      if (!isObject(body)) throw invalid('The interaction response is invalid.');
+      const response = interactionResponseSchema.parse({ ...body, requestId: requestIdValue });
+      await interaction.controller.respond(response);
+      return new Response(null, { status: 204 });
+    }
+    throw notFound('The route does not exist.');
   }
 
   #authenticate(request: Request): Principal {
@@ -253,7 +368,7 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
         authentication: 'bearer' as const,
         capabilities: {
           workspaceSources: ['uploaded-snapshot'] as const,
-          eventReplay: { durability: 'process' as const },
+          eventReplay: { durability: 'durable' as const, retentionSeconds: this.#retentionSeconds },
           interactions: { supported: true, maxWaitSeconds: 300 },
         },
       },
@@ -277,6 +392,12 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
       tenantId: principal.tenantId,
       session,
     });
+    try {
+      await this.#persist();
+    } catch (error) {
+      this.#sessions.delete(resourceKey(principal.tenantId, session.sessionId));
+      throw error;
+    }
     return session;
   }
 
@@ -309,7 +430,14 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
       permissionPolicy: input.permissionPolicy,
       createdAt: timestamp,
     };
-    const record: RunRecord = { tenantId: principal.tenantId, run, events: [], waiters: new Set() };
+    const record: RunRecord = {
+      tenantId: principal.tenantId,
+      run,
+      events: [],
+      publishedEventCount: 0,
+      waiters: new Set(),
+    };
+    const previousSession = sessionRecord.session;
     this.#runs.set(resourceKey(principal.tenantId, run.runId), record);
     sessionRecord.session = {
       ...sessionRecord.session,
@@ -318,9 +446,18 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
       workspaceRef: snapshot.workspaceRef,
       updatedAt: timestamp,
     };
-    if (idempotencyRef !== undefined) this.#idempotency.set(idempotencyRef, { fingerprint, runId: run.runId });
+    if (idempotencyRef !== undefined) {
+      this.#idempotency.set(idempotencyRef, {
+        tenantId: principal.tenantId,
+        sessionId,
+        key: idempotencyKey!,
+        fingerprint,
+        runId: run.runId,
+      });
+    }
 
     try {
+      await this.#persist();
       record.controller = await createManagedAdapterRun(
         this.#adapter,
         { config: {} },
@@ -339,11 +476,14 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
           extensions: input.extensions,
         },
       );
-      void this.#consume(record, sessionRecord, record.controller);
+      const consumer = this.#consume(record, sessionRecord, record.controller);
+      this.#consumers.add(consumer);
+      void consumer.finally(() => this.#consumers.delete(consumer));
     } catch (error) {
       this.#runs.delete(resourceKey(principal.tenantId, run.runId));
       if (idempotencyRef !== undefined) this.#idempotency.delete(idempotencyRef);
-      sessionRecord.session = { ...sessionRecord.session, status: 'idle', updatedAt: this.#now().toISOString() };
+      sessionRecord.session = previousSession;
+      await this.#persist().catch(() => undefined);
       throw error;
     }
     return { run, reused: false };
@@ -376,6 +516,9 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
         } else if (event.type === 'interaction.resolved') {
           this.#interactions.delete(resourceKey(record.tenantId, event.payload.requestId));
         }
+        if (isTerminalEvent(event)) this.#deleteRunInteractions(record.tenantId, record.run.runId);
+        await this.#persist();
+        record.publishedEventCount = record.events.length;
         notify(record);
       }
     } catch (error) {
@@ -384,7 +527,13 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
         record.events.push(event);
         record.run = updateRun(record.run, event);
         sessionRecord.session = updateSession(sessionRecord.session, record.run, event);
-        notify(record);
+        this.#deleteRunInteractions(record.tenantId, record.run.runId);
+        await this.#persist()
+          .then(() => {
+            record.publishedEventCount = record.events.length;
+            notify(record);
+          })
+          .catch(() => undefined);
       }
     } finally {
       await controller.dispose().catch(() => undefined);
@@ -395,7 +544,9 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
   #eventResponse(record: RunRecord, afterEventId?: string): Response {
     let startIndex = 0;
     if (afterEventId !== undefined) {
-      const cursor = record.events.findIndex((event) => event.eventId === afterEventId);
+      const cursor = record.events
+        .slice(0, record.publishedEventCount)
+        .findIndex((event) => event.eventId === afterEventId);
       if (cursor < 0) throw invalid('The event cursor does not exist for this run.');
       startIndex = cursor + 1;
     }
@@ -406,13 +557,17 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
           const encoder = new TextEncoder();
           let index = startIndex;
           while (!cancelled && !this.#closed) {
-            while (index < record.events.length) {
+            while (index < record.publishedEventCount) {
               const event = record.events[index++]!;
               streamController.enqueue(encoder.encode(`id: ${event.eventId}\ndata: ${JSON.stringify(event)}\n\n`));
               if (terminalTypes.has(event.type)) {
                 streamController.close();
                 return;
               }
+            }
+            if (record.run.status === 'interrupted') {
+              streamController.close();
+              return;
             }
             await waitForEvent(record);
           }
@@ -442,6 +597,88 @@ class InMemoryRemoteReferenceFixture implements RemoteReferenceFixture {
     const record = this.#runs.get(resourceKey(principal.tenantId, runId));
     if (!record) throw notFound('The run does not exist.');
     return record;
+  }
+
+  #restore(state: PersistedFixtureState): void {
+    for (const record of state.sessions) {
+      this.#sessions.set(resourceKey(record.tenantId, record.session.sessionId), {
+        tenantId: record.tenantId,
+        session: record.session,
+      });
+    }
+    for (const persisted of state.runs) {
+      const terminal =
+        persisted.run.status === 'completed' ||
+        persisted.run.status === 'failed' ||
+        persisted.run.status === 'cancelled';
+      const run = terminal ? persisted.run : { ...persisted.run, status: 'interrupted' as const };
+      this.#runs.set(resourceKey(persisted.tenantId, run.runId), {
+        tenantId: persisted.tenantId,
+        run,
+        events: [...persisted.events],
+        publishedEventCount: persisted.events.length,
+        waiters: new Set(),
+      });
+      if (!terminal) {
+        const session = this.#sessions.get(resourceKey(persisted.tenantId, run.sessionId));
+        if (session) {
+          session.session = { ...session.session, status: 'idle', updatedAt: this.#now().toISOString() };
+        }
+      }
+    }
+    for (const snapshot of state.snapshots) {
+      this.#snapshots.set(resourceKey(snapshot.tenantId, snapshot.uploadId), {
+        ...snapshot,
+        cwd: this.#workspace,
+      });
+    }
+    for (const record of state.idempotency) {
+      this.#idempotency.set(resourceKey(record.tenantId, record.sessionId, record.key), record);
+    }
+  }
+
+  #persist(): Promise<void> {
+    return this.#store.save({
+      sessions: [...this.#sessions.values()].map((record) => ({
+        tenantId: record.tenantId,
+        session: record.session,
+      })),
+      runs: [...this.#runs.values()].map((record) => ({
+        tenantId: record.tenantId,
+        run: record.run,
+        events: [...record.events],
+      })),
+      snapshots: [...this.#snapshots.values()].map((record) => ({
+        tenantId: record.tenantId,
+        uploadId: record.uploadId,
+        digest: record.digest,
+        workspaceRef: record.workspaceRef,
+      })),
+      idempotency: [...this.#idempotency.values()],
+    });
+  }
+
+  #recordAudit(
+    requestId: string,
+    action: RemoteReferenceAuditAction,
+    outcome: RemoteReferenceAuditEntry['outcome'],
+    status: number,
+    errorCode?: HarnessErrorCode,
+  ): void {
+    this.#audit.push({
+      timestamp: this.#now().toISOString(),
+      requestId,
+      action,
+      outcome,
+      status,
+      ...(errorCode === undefined ? {} : { errorCode }),
+    });
+  }
+
+  #deleteRunInteractions(tenantId: string, runId: string): void {
+    for (const [key, interaction] of this.#interactions) {
+      if (interaction.tenantId === tenantId && interaction.runId === runId) this.#interactions.delete(key);
+    }
   }
 
   #assertOpen(): void {
@@ -547,21 +784,20 @@ function parseCancelReason(value: unknown): string | undefined {
   return reason.trim();
 }
 
-function errorResponse(error: unknown, requestId: string): Response {
-  const fixtureError =
-    error instanceof FixtureError
-      ? error
-      : error instanceof HarnessAdapterError
-        ? new FixtureError(400, error.toHarnessError())
-        : isValidationError(error)
-          ? invalid('The request is invalid.')
-          : new FixtureError(500, {
-              code: 'INTERNAL_ERROR',
-              message: 'The Remote Reference Fixture failed.',
-              retryable: false,
-            });
+function errorResponse(fixtureError: FixtureError, requestId: string): Response {
   const body: ApiError = apiErrorSchema.parse({ error: fixtureError.error, requestId });
   return Response.json(body, { status: fixtureError.status });
+}
+
+function normalizeFixtureError(error: unknown): FixtureError {
+  if (error instanceof FixtureError) return error;
+  if (error instanceof HarnessAdapterError) return new FixtureError(400, error.toHarnessError());
+  if (isValidationError(error)) return invalid('The request is invalid.');
+  return new FixtureError(500, {
+    code: 'INTERNAL_ERROR',
+    message: 'The Remote Reference Fixture failed.',
+    retryable: false,
+  });
 }
 
 function isValidationError(error: unknown): boolean {
@@ -570,6 +806,24 @@ function isValidationError(error: unknown): boolean {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function auditAction(request: Request): RemoteReferenceAuditAction {
+  const pathname = new URL(request.url).pathname;
+  if (request.method === 'GET' && pathname === '/v1/health') return 'runtime.health';
+  if (request.method === 'GET' && pathname === '/v1/adapters') return 'adapter.list';
+  if (request.method === 'GET' && pathname === '/v1/models') return 'model.list';
+  if (request.method === 'POST' && pathname === '/v1/sessions') return 'session.create';
+  if (request.method === 'GET' && pathname === '/v1/sessions') return 'session.list';
+  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+$/u.test(pathname)) return 'session.get';
+  if (request.method === 'POST' && /^\/v1\/sessions\/[^/]+\/runs$/u.test(pathname)) return 'run.create';
+  if (request.method === 'GET' && /^\/v1\/runs\/[^/]+$/u.test(pathname)) return 'run.get';
+  if (request.method === 'POST' && /^\/v1\/runs\/[^/]+\/cancel$/u.test(pathname)) return 'run.cancel';
+  if (request.method === 'GET' && /^\/v1\/runs\/[^/]+\/events$/u.test(pathname)) return 'run.events';
+  if (request.method === 'POST' && /^\/v1\/interactions\/[^/]+\/responses$/u.test(pathname)) {
+    return 'interaction.respond';
+  }
+  return 'route.unknown';
 }
 
 function authenticationFailed(): FixtureError {

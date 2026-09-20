@@ -27,7 +27,7 @@ describe('Remote Reference fixture boundaries', () => {
 
   it('does not resolve another tenant snapshot and rejects local path sources', async () => {
     const fixture = await trackedFixture();
-    const tenantASnapshot = fixture.prepareSnapshot({ tenantId: 'tenant-a' });
+    const tenantASnapshot = await fixture.prepareSnapshot({ tenantId: 'tenant-a' });
     const tenantBToken = fixture.issueToken({ tenantId: 'tenant-b', subjectId: 'user-b' });
     const client = await connect(fixture, tenantBToken);
     const firstSession = await client.createSession({ adapterId: 'cn.yanbot.reference' });

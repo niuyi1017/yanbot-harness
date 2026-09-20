@@ -58,7 +58,7 @@
       timeout 和 interrupted recovery；运行全仓门禁。依赖：P3.4。验收：`pnpm check` 通过。
 - [x] **P3.6 Remote Reference fixture**：在远端工作区请求契约可安全表达后，实现不连接真实模型的最小 fixture，
       复用 P3.3 全部场景，不复制断言。依赖：P3.5 与 Remote workspace 子 Spec。
-- [ ] **P3.7 Remote 安全负例**：覆盖跨租户拒绝、token 过期、持久化事件重放、恶意工作区清单和日志脱敏。
+- [x] **P3.7 Remote 安全负例**：覆盖跨租户拒绝、token 过期、持久化事件重放、恶意工作区清单和日志脱敏。
       依赖：P3.6。验收：稳定错误分类和无敏感数据证据。
 - [ ] **P3.8 矩阵证据**：将 Local macOS/Windows 与 Remote service 作为独立矩阵项输出证据。依赖：P3.7。
 

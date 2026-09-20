@@ -1,5 +1,9 @@
 # Remote Reference Fixture 需求
 
+> 状态说明：本文定义 P3.6 最小基座。P3.7 已在
+> [`remote-reference-safety`](../remote-reference-safety/requirements.md) 将 Fixture 扩展为严格 manifest、结构化审计与
+> Fixture 文件级 durable replay；正式 Remote 控制平面仍未实现。
+
 ## 1. 背景
 
 `dual-runtime-compatibility` Phase 3 已经抽取部署无关的 Runtime Conformance Kit，并让 Local Runtime 的
@@ -38,7 +42,7 @@ Remote 路径仍缺少可执行证据，原因是现有 `CreateRunRequest` 只�
 - Fixture 只暴露注入式 `fetch` 与显式测试控制面，例如签发测试 token、预置上传快照；不监听公网端口。
 - SDK 仍以 `mode: remote` 和 `https://` origin 连接；不得增加跳过 TLS/HTTPS 校验的产品开关。
 - Fixture 的 Runtime Profile 声明 `executionMode = remote`、`authentication = bearer`、仅支持
-  `uploaded-snapshot`，并声明进程内重放而非持久化重放。
+  `uploaded-snapshot`；P3.7 后使用测试文件状态声明有限期 durable replay。
 - Fixture 不连接 MongoDB、Redis、对象存储、Docker、真实 Git 或真实模型服务。
 
 ### RF3. 租户与工作区最小边界
@@ -70,7 +74,7 @@ Remote 路径仍缺少可执行证据，原因是现有 `CreateRunRequest` 只�
 - **边界**：`packages/testing` 继续只依赖 contracts；Fixture 可以依赖 core、Reference Adapter、SDK 和 testing，
   但 SDK/CLI 不反向依赖 Fixture。
 - **确定性**：Fixture 使用可注入时钟和 ID，Reference 场景不访问网络。
-- **诚实声明**：进程内 Map 与内存事件只证明公共语义，不证明持久化、重启恢复、生产认证、队列或沙箱。
+- **诚实声明**：Fixture 文件状态只证明协议级重建重放，不证明生产数据库、HA、认证、队列或沙箱。
 
 ## 5. 本批范围
 

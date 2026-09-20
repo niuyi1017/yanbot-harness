@@ -46,7 +46,7 @@ async function remoteDriver(options: RemoteReferenceFixtureOptions): Promise<Run
   fixtures.push(fixture);
   const tenantId = 'tenant-a';
   const token = fixture.issueToken({ tenantId, subjectId: 'user-a' });
-  const workspace = fixture.prepareSnapshot({ tenantId });
+  const workspace = await fixture.prepareSnapshot({ tenantId });
   const client = await HarnessClient.connect({
     mode: 'remote',
     origin: fixture.origin,

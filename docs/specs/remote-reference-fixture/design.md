@@ -1,5 +1,8 @@
 # Remote Reference Fixture 设计
 
+> 状态说明：本文是 P3.6 基线设计。当前 Fixture 的持久化、manifest 与 audit 安全扩展由
+> [`remote-reference-safety`](../remote-reference-safety/design.md) 定义；后者在对应部分优先。
+
 ## 1. 设计结论
 
 本批用一个私有进程内 Fixture 验证 Remote 公共协议，不建设缩小版生产控制平面。Fixture 通过注入式 `fetch`
