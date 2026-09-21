@@ -135,8 +135,13 @@ SDK MCP object options become CLI argv JSON. To keep secret values out of argv, 
 expansion seam is documented by vendor `mcp-config-env-expand-service.d.ts`; raw command/args placeholders are rejected.
 Live canary scans remain required before capability promotion. No private vendor API is patched.
 
-Offline implementation and probes use an explicit adapter-constructor-only opt-in; production capabilities remain
-unsupported until controlled live evidence passes. This option is not a public SDK request or environment override.
+Offline fixtures use an adapter-constructor-only opt-in. The default launcher remains unsupported until controlled
+live evidence passes. To allow the first public-SDK consumer probe without bypassing Runtime checks, a host-only
+`--experimental-extensions` flag (or `YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS=1` for managed startup) explicitly exposes
+candidate execution as `native` with `limits.experimental=true` and `limits.liveVerified=false`. Here native describes
+the execution mechanism, not certification. The consumer must show an unverified-candidate warning and cannot mark
+R0/R1 readiness from this flag. Renderer requests cannot set or override the host flag. This deliberate exception to
+the initial promotion-only rule enables first validation while preserving fail-closed default behavior.
 
 ### 5.3 Capability declaration
 

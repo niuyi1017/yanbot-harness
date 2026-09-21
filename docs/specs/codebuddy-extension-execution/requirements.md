@@ -49,6 +49,9 @@ logic into Harness or waiting for Remote Runtime work.
 13. A controlled real CodeBuddy suite must prove at least one MCP call, one Skill-guided run, permission allow/deny,
     structured question handling, cancellation, cleanup, and credential redaction before either extension capability is
     declared usable for the Showcase release.
+    An explicit host-only experimental launcher may expose candidate native execution with experimental=true and
+    liveVerified=false for acceptance runs. It must remain visibly unverified and must never satisfy release readiness;
+    default startup remains unsupported. Public Run requests cannot enable this mode.
 14. Produce installable SDK and Local Runtime artifacts from the verified commit, record commit/version/SHA256 and a
     compatibility statement, and pass a clean consumer test without access to the Harness source checkout.
 
