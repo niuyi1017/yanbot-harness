@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { z } from 'zod';
 
@@ -15,6 +15,10 @@ export const remoteRunJobSchema = z
   .strict();
 
 export type RemoteRunJob = z.infer<typeof remoteRunJobSchema>;
+export type RemoteQueueConnection = Redis;
+export type RemoteRunQueue = Queue<RemoteRunJob>;
+export type RemoteRunWorker = Worker<RemoteRunJob>;
+export type RemoteRunProcessor = (job: RemoteRunJob) => Promise<void>;
 
 export function remoteRunJobId(runIdValue: unknown, attemptValue: unknown): string {
   const runId = uuidSchema.parse(runIdValue);
@@ -54,4 +58,24 @@ export function createRemoteRunQueue(queueName: string, connection: Redis): Queu
       removeOnFail: { age: 604_800, count: 10_000 },
     },
   });
+}
+
+export function createRemoteRunWorker(
+  queueName: string,
+  connection: Redis,
+  processor: RemoteRunProcessor,
+  concurrency: number,
+): RemoteRunWorker {
+  if (!/^[A-Za-z0-9_-]{1,64}$/u.test(queueName)) throw new Error('The Remote queue name is invalid.');
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > 64) {
+    throw new Error('The Remote worker concurrency is invalid.');
+  }
+  return new Worker<RemoteRunJob>(
+    queueName,
+    async (job: Job<RemoteRunJob>) => {
+      if (job.name !== REMOTE_RUN_JOB_NAME) throw new Error('The Remote job name is invalid.');
+      await processor(remoteRunJobSchema.parse(job.data));
+    },
+    { connection, concurrency },
+  );
 }

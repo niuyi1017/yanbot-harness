@@ -56,7 +56,7 @@ describe('Dispatch persistence state machine', () => {
         plus(now, 31_000),
       ),
     ).resolves.toBe(false);
-    await expect(store.listRecoverableRunAttempts(plus(now, 30_000), 10)).resolves.toHaveLength(1);
+    await expect(store.listRecoverableRunAttempts(plus(now, 30_000), now, 10)).resolves.toHaveLength(1);
     await expect(
       store.heartbeatRunAttempt(
         record.organizationId,

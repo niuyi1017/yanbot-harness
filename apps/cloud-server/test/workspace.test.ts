@@ -103,6 +103,14 @@ async function setup() {
     workspaceTtlSeconds: 86_400,
     gitAllowedHosts: ['github.com'],
     internalApiEnabled: false,
+    relayEnabled: false,
+    queueName: 'test-remote',
+    relayIntervalMs: 500,
+    relayLeaseMs: 15_000,
+    runLeaseMs: 30_000,
+    attemptRecoveryMs: 60_000,
+    maxAttempts: 3,
+    retryDelayMs: 1_000,
   };
   return { service: new WorkspaceService(store, config), store, root };
 }

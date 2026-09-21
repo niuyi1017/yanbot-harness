@@ -175,10 +175,30 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
 
   async cancelOutbox(organizationId: string, runId: string): Promise<void> {
     for (const record of this.outbox.filter(
-      (entry) => entry.organizationId === organizationId && entry.runId === runId,
+      (entry) =>
+        entry.organizationId === organizationId &&
+        entry.runId === runId &&
+        (entry.status === 'pending' || entry.status === 'publishing'),
     )) {
       record.status = 'cancelled';
+      delete record.leaseOwner;
+      delete record.leaseExpiresAt;
     }
+  }
+
+  async cancelOutboxRecord(organizationId: string, outboxId: string, owner: string): Promise<boolean> {
+    const record = this.outbox.find(
+      (candidate) =>
+        candidate.organizationId === organizationId &&
+        candidate.outboxId === outboxId &&
+        candidate.status === 'publishing' &&
+        candidate.leaseOwner === owner,
+    );
+    if (!record) return false;
+    record.status = 'cancelled';
+    delete record.leaseOwner;
+    delete record.leaseExpiresAt;
+    return true;
   }
 
   async claimDispatchOutbox(owner: string, now: Date, leaseExpiresAt: Date): Promise<OutboxRecord | undefined> {
@@ -208,7 +228,10 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
   async insertOutbox(record: OutboxRecord): Promise<void> {
     if (
       this.outbox.some(
-        (candidate) => candidate.organizationId === record.organizationId && candidate.outboxId === record.outboxId,
+        (candidate) =>
+          candidate.organizationId === record.organizationId &&
+          (candidate.outboxId === record.outboxId ||
+            (candidate.runId === record.runId && candidate.attempt === record.attempt)),
       )
     ) {
       throw new Error('The outbox record already exists.');
@@ -344,16 +367,65 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     return true;
   }
 
-  async listRecoverableRunAttempts(before: Date, limit: number): Promise<RunAttemptRecord[]> {
+  async listRecoverableRunAttempts(now: Date, staleBefore: Date, limit: number): Promise<RunAttemptRecord[]> {
     return this.runAttempts
       .filter(
         (record) =>
           record.active &&
-          ((record.status === 'leased' && record.leaseExpiresAt !== undefined && record.leaseExpiresAt <= before) ||
-            ((record.status === 'dispatching' || record.status === 'queued') && record.updatedAt <= before)),
+          ((record.status === 'leased' && record.leaseExpiresAt !== undefined && record.leaseExpiresAt <= now) ||
+            ((record.status === 'dispatching' || record.status === 'queued') && record.updatedAt <= staleBefore)),
       )
       .slice(0, limit)
       .map(clone);
+  }
+
+  async closeRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    status: Extract<RunAttemptRecord['status'], 'completed' | 'failed' | 'abandoned'>,
+    updatedAt: Date,
+    failureCode?: string,
+    workerId?: string,
+  ): Promise<boolean> {
+    const record = this.runAttempts.find(
+      (candidate) =>
+        candidate.organizationId === organizationId &&
+        candidate.runId === runId &&
+        candidate.attempt === attempt &&
+        candidate.active &&
+        (workerId === undefined || candidate.workerId === workerId),
+    );
+    if (!record) return false;
+    record.status = status;
+    record.active = false;
+    record.updatedAt = new Date(updatedAt);
+    if (failureCode === undefined) delete record.failureCode;
+    else record.failureCode = failureCode;
+    delete record.leaseExpiresAt;
+    return true;
+  }
+
+  async closeActiveRunAttempts(
+    organizationId: string,
+    runId: string,
+    status: Extract<RunAttemptRecord['status'], 'completed' | 'failed' | 'abandoned'>,
+    updatedAt: Date,
+    failureCode?: string,
+  ): Promise<number> {
+    let closed = 0;
+    for (const record of this.runAttempts.filter(
+      (candidate) => candidate.organizationId === organizationId && candidate.runId === runId && candidate.active,
+    )) {
+      record.status = status;
+      record.active = false;
+      record.updatedAt = new Date(updatedAt);
+      if (failureCode === undefined) delete record.failureCode;
+      else record.failureCode = failureCode;
+      delete record.leaseExpiresAt;
+      closed += 1;
+    }
+    return closed;
   }
 
   async insertEvent(record: EventRecord): Promise<void> {
@@ -402,6 +474,38 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
 
   async insertExecutionGrant(record: ExecutionGrantRecord): Promise<void> {
     this.executionGrants.push(clone(record));
+  }
+
+  async claimExecutionGrantAndAttempt(
+    digest: string,
+    workerId: string,
+    claimedAt: Date,
+    leaseExpiresAt: Date,
+  ): Promise<ExecutionGrantRecord | undefined> {
+    const grant = this.executionGrants.find(
+      (candidate) =>
+        candidate.digest === digest && !candidate.claimedAt && !candidate.revokedAt && candidate.expiresAt > claimedAt,
+    );
+    if (!grant) return undefined;
+    const run = this.runs.get(tenantKey(grant.organizationId, grant.runId));
+    if (!run || run.value.terminalEventType) return undefined;
+    const attempt = this.runAttempts.find(
+      (candidate) =>
+        candidate.organizationId === grant.organizationId &&
+        candidate.runId === grant.runId &&
+        candidate.attempt === grant.attempt &&
+        candidate.active &&
+        candidate.status === 'queued',
+    );
+    if (!attempt) return undefined;
+    grant.claimedAt = new Date(claimedAt);
+    grant.claimedBy = workerId;
+    attempt.status = 'leased';
+    attempt.workerId = workerId;
+    attempt.heartbeatAt = new Date(claimedAt);
+    attempt.leaseExpiresAt = new Date(leaseExpiresAt);
+    attempt.updatedAt = new Date(claimedAt);
+    return clone(grant);
   }
 
   async claimExecutionGrant(

@@ -16,23 +16,23 @@
 - `[-]` 已完成内部准备，但被外部条件阻塞。
 - `[ ]` 尚未开始。
 
-**状态快照日期：2026-09-15。**
+**状态快照日期：2026-09-21。**
 
 ## 2. 当前产品基线
 
-| 能力                  | 当前状态 | 已完成范围                                                    | 尚缺内容                                            |
-| --------------------- | -------- | ------------------------------------------------------------- | --------------------------------------------------- |
-| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理       | 后续需迁移到中立 `/v1/*` 协议                       |
-| TypeScript SDK        | `[x]`    | Local Daemon/显式端点/Embedded、Session/Run/Event             | Remote Target、远端 Token Provider                  |
-| 平台 CLI              | `[x]`    | 基于公共 SDK 的运行、会话、取消、JSONL 输出                   | Local/Remote Profile 和远端登录                     |
-| Reference Adapter     | `[x]`    | 离线黑盒测试与发布验收                                        | Remote Reference Conformance                        |
-| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量                  | 工具/权限/提问场景、Windows 实机、Remote Worker     |
-| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档     | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release |
-| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线               | 与 Remote 和 CLI Sidecar 的完整认证                 |
-| CLI Sidecar           | `[~]`    | JSON-RPC/JSONL Schema 与架构设计                              | Client、Supervisor、CLI Host、真实厂商 Adapter      |
-| Remote Runtime        | `[ ]`    | 需求、设计和任务拆分                                          | Control Plane、Worker、Sandbox、远端工作区和认证    |
-| 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过 | 完整 containment、正式业务回滚、正式签名与实机认证  |
-| 产品界面与运营        | `[ ]`    | 总体设计                                                      | Local Web、Electron、Admin、市场与版本管理          |
+| 能力                  | 当前状态 | 已完成范围                                                    | 尚缺内容                                             |
+| --------------------- | -------- | ------------------------------------------------------------- | ---------------------------------------------------- |
+| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理       | 后续需迁移到中立 `/v1/*` 协议                        |
+| TypeScript SDK        | `[x]`    | Local Daemon/显式端点/Embedded、Session/Run/Event             | Remote Target、远端 Token Provider                   |
+| 平台 CLI              | `[x]`    | 基于公共 SDK 的运行、会话、取消、JSONL 输出                   | Local/Remote Profile 和远端登录                      |
+| Reference Adapter     | `[x]`    | 离线黑盒测试与发布验收                                        | Remote Reference Conformance                         |
+| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量                  | 工具/权限/提问场景、Windows 实机、Remote Worker      |
+| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档     | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release  |
+| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线               | 与 Remote 和 CLI Sidecar 的完整认证                  |
+| CLI Sidecar           | `[~]`    | JSON-RPC/JSONL Schema 与架构设计                              | Client、Supervisor、CLI Host、真实厂商 Adapter       |
+| Remote Runtime        | `[~]`    | Control Plane、Redis relay、Reference Worker、本机 E2E        | 生产部署、Sandbox、真实 Mongo/Redis/TLS 与双平台认证 |
+| 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过 | 完整 containment、正式业务回滚、正式签名与实机认证   |
+| 产品界面与运营        | `[ ]`    | 总体设计                                                      | Local Web、Electron、Admin、市场与版本管理           |
 
 当前可以对外准确声明的是：**Local Preview 已形成候选交付；Remote Runtime 和真实 CLI 型厂商尚未交付。**
 
@@ -262,17 +262,17 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ## 6. 当前进度汇总
 
-| 阶段                      | 状态  | 当前结论                                                           | 下一动作                                               |
-| ------------------------- | ----- | ------------------------------------------------------------------ | ------------------------------------------------------ |
-| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                | 固定候选提交和摘要；并行等待 Windows 验收              |
-| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                               | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移       |
-| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过  | 完整 containment/业务回滚、Windows 阻网、正式身份/实机 |
-| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                        | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI        |
-| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                 | 先做能力与许可证探针，不直接写 Wrapper                 |
-| P4 Remote Reference       | `[~]` | Cloud 控制面代码完成；尚无 Worker、真实 Mongo/TLS 与双平台部署证据 | 建设 Reference Worker/Queue 并完成正式 Remote 验收     |
-| P5 Remote CodeBuddy       | `[ ]` | 未实现                                                             | P4 通过后建设 Worker/Sandbox                           |
-| P6 四象限认证             | `[ ]` | 未开始                                                             | 等待 P3、P5 和 Windows 实机条件                        |
-| P7 产品/运营              | `[ ]` | 未脚手架化                                                         | Local Web 可在 P1 后并行，其余按依赖进入               |
+| 阶段                      | 状态  | 当前结论                                                                                                 | 下一动作                                                 |
+| ------------------------- | ----- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                                                      | 固定候选提交和摘要；并行等待 Windows 验收                |
+| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                                                                     | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移         |
+| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                        | 完整 containment/业务回滚、Windows 阻网、正式身份/实机   |
+| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                                                              | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI          |
+| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                                                       | 先做能力与许可证探针，不直接写 Wrapper                   |
+| P4 Remote Reference       | `[~]` | 控制面、Queue、Reference Worker 与本机真实 BullMQ/HTTP E2E 完成；尚无真实 Mongo/TLS/ACL 与双平台部署证据 | 补生产基础设施和 macOS/Windows Remote 客户端验收         |
+| P5 Remote CodeBuddy       | `[ ]` | Reference Worker可复用，真实厂商凭据与 Sandbox 未实现                                                    | 独立 Spec 建设 Docker Sandbox、短期凭据和 CodeBuddy 门禁 |
+| P6 四象限认证             | `[ ]` | 未开始                                                                                                   | 等待 P3、P5 和 Windows 实机条件                          |
+| P7 产品/运营              | `[ ]` | 未脚手架化                                                                                               | Local Web 可在 P1 后并行，其余按依赖进入                 |
 
 ## 7. 最近两个执行节点
 

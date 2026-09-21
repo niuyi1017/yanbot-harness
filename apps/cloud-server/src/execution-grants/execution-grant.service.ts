@@ -91,19 +91,12 @@ export class ExecutionGrantService {
     this.#enabled();
     const workerId = workerIdSchema.parse(workerIdValue);
     const now = new Date();
-    const claimed = await this.#store.transaction(async () => {
-      const grantRecord = await this.#store.claimExecutionGrant(this.#auth.digest(rawGrant), workerId, now);
-      if (!grantRecord) return undefined;
-      const attempt = await this.#store.claimRunAttempt(
-        grantRecord.organizationId,
-        grantRecord.runId,
-        grantRecord.attempt,
-        workerId,
-        now,
-        new Date(now.getTime() + 30_000),
-      );
-      return attempt ? grantRecord : undefined;
-    });
+    const claimed = await this.#store.claimExecutionGrantAndAttempt(
+      this.#auth.digest(rawGrant),
+      workerId,
+      now,
+      new Date(now.getTime() + this.#config.runLeaseMs),
+    );
     if (!claimed) {
       await this.#audit.record({
         requestId: auditRequestId,
@@ -135,26 +128,75 @@ export class ExecutionGrantService {
     };
   }
 
-  async workspace(rawGrant: string, runId: string, attempt: number) {
-    const grant = await this.#authorize(rawGrant, runId, attempt, 'workspace.read');
+  async workspace(rawGrant: string, runId: string, attempt: number, workerIdValue: unknown) {
+    const grant = await this.#authorize(rawGrant, runId, attempt, 'workspace.read', workerIdValue);
     const workspace = await this.#store.findWorkspace(grant.organizationId, grant.workspaceRef);
     if (!workspace || workspace.status !== 'ready' || workspace.expiresAt <= new Date()) throw resourceNotFound();
     return { workspaceRef: workspace.workspaceRef, source: workspace.source, storageKey: workspace.storageKey };
   }
 
-  async interaction(rawGrant: string, runId: string, attempt: number, requestId: string) {
-    const grant = await this.#authorize(rawGrant, runId, attempt, 'interaction.read');
+  async run(rawGrant: string, runId: string, attempt: number, workerIdValue: unknown) {
+    const grant = await this.#authorize(rawGrant, runId, attempt, 'run.read', workerIdValue);
+    const record = await this.#store.findRun(grant.organizationId, runId);
+    if (!record) throw resourceNotFound();
+    return runSchema.parse(record.value);
+  }
+
+  async heartbeat(
+    rawGrant: string,
+    runId: string,
+    attempt: number,
+    workerIdValue: unknown,
+    auditRequestId: string = randomUUID(),
+  ): Promise<void> {
+    const workerId = workerIdSchema.parse(workerIdValue);
+    const grant = await this.#authorize(rawGrant, runId, attempt, 'run.read', workerId);
+    const record = await this.#store.findRun(grant.organizationId, runId);
+    if (!record || record.value.terminalEventType) throw permissionDenied();
+    const now = new Date();
+    if (
+      !(await this.#store.heartbeatRunAttempt(
+        grant.organizationId,
+        runId,
+        attempt,
+        workerId,
+        now,
+        new Date(now.getTime() + this.#config.runLeaseMs),
+      ))
+    ) {
+      throw permissionDenied();
+    }
+    await this.#audit.record({
+      requestId: auditRequestId,
+      organizationId: grant.organizationId,
+      action: 'run.heartbeat',
+      resourceType: 'run',
+      resourceId: runId,
+      outcome: 'succeeded',
+      status: 204,
+    });
+  }
+
+  async interaction(rawGrant: string, runId: string, attempt: number, requestId: string, workerIdValue: unknown) {
+    const grant = await this.#authorize(rawGrant, runId, attempt, 'interaction.read', workerIdValue);
     const interaction = await this.#store.findInteraction(grant.organizationId, requestId);
     if (!interaction || interaction.runId !== runId) throw resourceNotFound();
     return interactionResponseSchema.parse(interaction.response);
   }
 
-  async append(rawGrant: string, runId: string, attempt: number, value: unknown): Promise<AdapterEvent> {
+  async append(
+    rawGrant: string,
+    runId: string,
+    attempt: number,
+    value: unknown,
+    workerIdValue: unknown,
+    auditRequestId: string = randomUUID(),
+  ): Promise<AdapterEvent> {
     const event = adapterEventSchema.parse(value);
     const requiredAction: ExecutionGrantAction = terminalTypes.has(event.type) ? 'run.complete' : 'events.append';
-    const grant = await this.#authorize(rawGrant, runId, attempt, requiredAction);
+    const grant = await this.#authorize(rawGrant, runId, attempt, requiredAction, workerIdValue);
     if (event.runId !== runId) throw permissionDenied();
-    return this.#store.transaction(async () => {
+    const saved = await this.#store.transaction(async () => {
       const run = await this.#store.findRun(grant.organizationId, runId);
       if (!run || run.sessionId !== event.sessionId) throw permissionDenied();
       if (run.value.terminalEventType) throw conflict('The run is already terminal.');
@@ -188,13 +230,43 @@ export class ExecutionGrantService {
       });
       await this.#store.insertEvent(this.#controlPlane.eventRecord(grant.organizationId, event));
       await this.#store.replaceRunAndSession({ ...run, value: nextRun }, { ...session, value: nextSession });
-      if (terminal) await this.#store.revokeRunGrants(grant.organizationId, runId, new Date());
+      if (terminal) {
+        await this.#store.closeRunAttempt(
+          grant.organizationId,
+          runId,
+          attempt,
+          event.type === 'run.failed' ? 'failed' : 'completed',
+          new Date(),
+          event.type === 'run.failed' ? event.payload.error.code : undefined,
+          grant.claimedBy,
+        );
+        await this.#store.revokeRunGrants(grant.organizationId, runId, new Date());
+      }
       return event;
     });
+    if (terminalTypes.has(event.type)) {
+      await this.#audit.record({
+        requestId: auditRequestId,
+        organizationId: grant.organizationId,
+        action: 'run.terminal',
+        resourceType: 'run',
+        resourceId: runId,
+        outcome: 'succeeded',
+        status: 201,
+      });
+    }
+    return saved;
   }
 
-  async #authorize(rawGrant: string, runId: string, attempt: number, action: ExecutionGrantAction) {
+  async #authorize(
+    rawGrant: string,
+    runId: string,
+    attempt: number,
+    action: ExecutionGrantAction,
+    workerIdValue: unknown,
+  ) {
     this.#enabled();
+    const workerId = workerIdSchema.parse(workerIdValue);
     const record = await this.#store.findExecutionGrant(this.#auth.digest(rawGrant));
     if (
       !record ||
@@ -203,6 +275,7 @@ export class ExecutionGrantService {
       record.expiresAt <= new Date() ||
       record.runId !== runId ||
       record.attempt !== attempt ||
+      record.claimedBy !== workerId ||
       !record.actions.includes(action)
     ) {
       throw permissionDenied();

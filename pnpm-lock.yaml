@@ -69,6 +69,9 @@ importers:
       '@nestjs/platform-express':
         specifier: 11.1.27
         version: 11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)
+      '@yanbot-harness/cloud-queue':
+        specifier: workspace:*
+        version: link:../../packages/cloud-queue
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -97,6 +100,30 @@ importers:
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6
+      '@yanbot-harness/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+
+  apps/cloud-worker:
+    dependencies:
+      '@yanbot-harness/adapter-api':
+        specifier: workspace:*
+        version: link:../../packages/adapter-api
+      '@yanbot-harness/adapter-reference':
+        specifier: workspace:*
+        version: link:../../packages/adapter-reference
+      '@yanbot-harness/cloud-queue':
+        specifier: workspace:*
+        version: link:../../packages/cloud-queue
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@yanbot-harness/core':
+        specifier: workspace:*
+        version: link:../../packages/harness-core
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   apps/local-runtime:
     dependencies:

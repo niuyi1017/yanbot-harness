@@ -25,6 +25,7 @@ import { MongoService } from './mongo.service.js';
 
 type DocumentRecord = Record<string, unknown>;
 type SessionOptions = { session?: ClientSession };
+class ClaimRejected extends Error {}
 
 @Injectable()
 export class MongoControlPlaneStore implements ControlPlaneStore {
@@ -207,10 +208,19 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
 
   async cancelOutbox(organizationId: string, runId: string): Promise<void> {
     await this.#model('Outbox').updateMany(
-      { organizationId, runId, status: 'pending' },
-      { $set: { status: 'cancelled' } },
+      { organizationId, runId, status: { $in: ['pending', 'publishing'] } },
+      { $set: { status: 'cancelled' }, $unset: { leaseOwner: 1, leaseExpiresAt: 1 } },
       this.#options(),
     );
+  }
+
+  async cancelOutboxRecord(organizationId: string, outboxId: string, owner: string): Promise<boolean> {
+    const result = await this.#model('Outbox').updateOne(
+      { organizationId, outboxId, status: 'publishing', leaseOwner: owner },
+      { $set: { status: 'cancelled' }, $unset: { leaseOwner: 1, leaseExpiresAt: 1 } },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
   }
 
   async claimDispatchOutbox(owner: string, now: Date, leaseExpiresAt: Date): Promise<OutboxRecord | undefined> {
@@ -327,14 +337,14 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
     return result.modifiedCount === 1;
   }
 
-  async listRecoverableRunAttempts(before: Date, limit: number): Promise<RunAttemptRecord[]> {
+  async listRecoverableRunAttempts(now: Date, staleBefore: Date, limit: number): Promise<RunAttemptRecord[]> {
     return this.#model('RunAttempt')
       .find(
         {
           active: true,
           $or: [
-            { status: 'leased', leaseExpiresAt: { $lte: before } },
-            { status: { $in: ['dispatching', 'queued'] }, updatedAt: { $lte: before } },
+            { status: 'leased', leaseExpiresAt: { $lte: now } },
+            { status: { $in: ['dispatching', 'queued'] }, updatedAt: { $lte: staleBefore } },
           ],
         },
         null,
@@ -345,6 +355,44 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
       .lean()
       .exec()
       .then((records) => records.map((record) => clean<RunAttemptRecord>(record)));
+  }
+
+  async closeRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    status: Extract<RunAttemptRecord['status'], 'completed' | 'failed' | 'abandoned'>,
+    updatedAt: Date,
+    failureCode?: string,
+    workerId?: string,
+  ): Promise<boolean> {
+    const result = await this.#model('RunAttempt').updateOne(
+      { organizationId, runId, attempt, active: true, ...(workerId === undefined ? {} : { workerId }) },
+      {
+        $set: { status, active: false, updatedAt, ...(failureCode === undefined ? {} : { failureCode }) },
+        $unset: { leaseExpiresAt: 1, ...(failureCode === undefined ? { failureCode: 1 } : {}) },
+      },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
+  }
+
+  async closeActiveRunAttempts(
+    organizationId: string,
+    runId: string,
+    status: Extract<RunAttemptRecord['status'], 'completed' | 'failed' | 'abandoned'>,
+    updatedAt: Date,
+    failureCode?: string,
+  ): Promise<number> {
+    const result = await this.#model('RunAttempt').updateMany(
+      { organizationId, runId, active: true },
+      {
+        $set: { status, active: false, updatedAt, ...(failureCode === undefined ? {} : { failureCode }) },
+        $unset: { leaseExpiresAt: 1, ...(failureCode === undefined ? { failureCode: 1 } : {}) },
+      },
+      this.#options(),
+    );
+    return result.modifiedCount;
   }
 
   insertEvent(record: EventRecord): Promise<void> {
@@ -387,6 +435,37 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
 
   insertExecutionGrant(record: ExecutionGrantRecord): Promise<void> {
     return this.#insert('ExecutionGrant', record);
+  }
+
+  claimExecutionGrantAndAttempt(
+    digest: string,
+    workerId: string,
+    claimedAt: Date,
+    leaseExpiresAt: Date,
+  ): Promise<ExecutionGrantRecord | undefined> {
+    return this.transaction(async () => {
+      const grant = await this.claimExecutionGrant(digest, workerId, claimedAt);
+      if (!grant) return undefined;
+      const run = await this.#findOne<RunRecord>('HarnessRun', {
+        organizationId: grant.organizationId,
+        runId: grant.runId,
+        'value.terminalEventType': { $exists: false },
+      });
+      if (!run) throw new ClaimRejected();
+      const attempt = await this.claimRunAttempt(
+        grant.organizationId,
+        grant.runId,
+        grant.attempt,
+        workerId,
+        claimedAt,
+        leaseExpiresAt,
+      );
+      if (!attempt) throw new ClaimRejected();
+      return grant;
+    }).catch((error: unknown) => {
+      if (error instanceof ClaimRejected) return undefined;
+      throw error;
+    });
   }
 
   async claimExecutionGrant(

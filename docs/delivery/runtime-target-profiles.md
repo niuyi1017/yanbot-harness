@@ -1,8 +1,9 @@
 # Runtime target and CLI profile migration
 
-The preview.3 development candidate keeps one SDK and CLI surface for Local and Remote Runtime targets. Phase 4
-adds the Cloud control-plane source and explicit Remote workspace preparation; it still does not ship a hosted
-Remote deployment, Worker/Adapter execution, or interactive login. Current release certification remains Local-only.
+The preview.3 development candidate keeps one SDK and CLI surface for Local and Remote Runtime targets. Phase 4 now
+contains the Cloud control plane, explicit Remote workspace preparation, Redis relay, and an independent credential-free
+Reference Worker. These are source/test candidates, not a hosted Remote deployment or interactive login. Current
+release certification remains Local-only.
 
 ## SDK migration
 
@@ -72,7 +73,8 @@ yanbot-harness run "Check this commit" --remote https://runtime.example.com \
 `--snapshot` serializes regular files only, omits `.git`, rejects symlinks and secret-key paths, and is subject to the
 public snapshot limits. Git registration accepts only a server-allowlisted credential-free HTTPS origin and an
 immutable commit. The implicit cwd, Local `--workspace`, and Local `--cwd` are never sent to a Remote target. A
-control-plane-only deployment leaves the resulting Run queued until a Phase 5 Worker is attached.
+control-plane-only deployment leaves the resulting Run queued until the Phase 4 Reference Worker is attached. Git
+execution remains rejected by that Worker until the Phase 5 isolated Sandbox exists.
 
 Missing profiles, invalid Schema, unavailable credential references, non-HTTPS Remote origins, failed negotiation,
 and incompatible protocol versions are terminal errors. The CLI never tries descriptor discovery or managed Local

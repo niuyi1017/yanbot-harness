@@ -13,10 +13,30 @@ const base = {
 
 describe('Cloud Server configuration', () => {
   it('parses safe defaults and a normalized Git allowlist', () => {
-    const config = parseCloudConfig({ ...base, CLOUD_GIT_ALLOWED_HOSTS: 'GitHub.com, gitlab.example.com' });
+    const config = parseCloudConfig({
+      ...base,
+      PATH: '/usr/bin',
+      CLOUD_GIT_ALLOWED_HOSTS: 'GitHub.com, gitlab.example.com',
+    });
     expect(config.host).toBe('127.0.0.1');
     expect(config.gitAllowedHosts).toEqual(['github.com', 'gitlab.example.com']);
     expect(config.eventRetentionSeconds).toBe(604_800);
+    expect(() => parseCloudConfig({ ...base, CLOUD_RELARY_ENABLED: 'true' })).toThrow();
+  });
+
+  it('requires the internal API and TLS Redis when the production relay is enabled', () => {
+    expect(() => parseCloudConfig({ ...base, CLOUD_RELAY_ENABLED: 'true' })).toThrow(/internal API/u);
+    expect(() =>
+      parseCloudConfig({
+        ...base,
+        NODE_ENV: 'production',
+        CLOUD_TLS_TERMINATED: 'true',
+        CLOUD_TRUST_PROXY: 'true',
+        CLOUD_INTERNAL_API_ENABLED: 'true',
+        CLOUD_RELAY_ENABLED: 'true',
+        CLOUD_REDIS_URL: 'redis://127.0.0.1:6379',
+      }),
+    ).toThrow(/TLS/u);
   });
 
   it('fails closed for missing secrets, filesystem root and production without trusted TLS', () => {

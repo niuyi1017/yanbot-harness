@@ -3,7 +3,12 @@ export {
   assertRedisUrl,
   createQueueConnection,
   createRemoteRunQueue,
+  createRemoteRunWorker,
   remoteRunJobId,
   remoteRunJobSchema,
+  type RemoteQueueConnection,
   type RemoteRunJob,
+  type RemoteRunProcessor,
+  type RemoteRunQueue,
+  type RemoteRunWorker,
 } from './queue.js';

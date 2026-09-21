@@ -41,13 +41,13 @@ see the repository's `docs/specs/unified-local-distribution/`. No production ins
 
 ## Certified environments
 
-| Environment                | Status                  | Evidence                                                                                        |
-| -------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
-| macOS arm64, Node 22       | Preview certified       | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI |
-| Linux x64, Node 22         | Delivery target         | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                           |
-| Windows 10/11 x64, Node 22 | Candidate               | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending   |
-| Browser                    | Not supported           | The Preview SDK includes Node-only Runtime discovery and process management                     |
-| Remote Runtime             | Control plane candidate | Phase 4 source exists; Worker, production deployment and dual-mode certification remain pending |
+| Environment                | Status                     | Evidence                                                                                                                                              |
+| -------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS arm64, Node 22       | Preview certified          | Local packaged CodeBuddy initial/resume/cancel/CLI gate plus `macos-15` Reference clean-room CI                                                       |
+| Linux x64, Node 22         | Delivery target            | `ubuntu-24.04` managed/Daemon clean-room Reference CI                                                                                                 |
+| Windows 10/11 x64, Node 22 | Candidate                  | Windows Server 2022 Reference CI passed; desktop and real CodeBuddy acceptance remain pending                                                         |
+| Browser                    | Not supported              | The Preview SDK includes Node-only Runtime discovery and process management                                                                           |
+| Remote Runtime             | Reference source candidate | Phase 4 control plane, Redis relay and Reference Worker pass local E2E; production deployment, Sandbox and dual-platform certification remain pending |
 
 The product must support both Local and Remote Runtime through one SDK/CLI surface. This release certifies Local Runtime only:
 an explicit `origin` and bearer token are transport primitives, not evidence that remote authentication, tenant isolation,

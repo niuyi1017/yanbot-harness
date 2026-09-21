@@ -23,8 +23,31 @@ export class ExecutionGrantController {
     @Param('runId') runId: string,
     @Query('attempt') attempt: string,
     @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-id') workerId: string | undefined,
   ) {
-    return this.grants.workspace(grant(authorization), runId, integer(attempt));
+    return this.grants.workspace(grant(authorization), runId, integer(attempt), workerId);
+  }
+
+  @Get('/runs/:runId')
+  run(
+    @Param('runId') runId: string,
+    @Query('attempt') attempt: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-id') workerId: string | undefined,
+  ) {
+    return this.grants.run(grant(authorization), runId, integer(attempt), workerId);
+  }
+
+  @Post('/runs/:runId/heartbeat')
+  async heartbeat(
+    @Param('runId') runId: string,
+    @Query('attempt') attempt: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: { workerId?: unknown },
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.grants.heartbeat(grant(authorization), runId, integer(attempt), body.workerId, requestId(response));
+    response.status(204);
   }
 
   @Get('/runs/:runId/interactions/:requestId')
@@ -33,8 +56,9 @@ export class ExecutionGrantController {
     @Param('requestId') requestId: string,
     @Query('attempt') attempt: string,
     @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-id') workerId: string | undefined,
   ) {
-    return this.grants.interaction(grant(authorization), runId, integer(attempt), requestId);
+    return this.grants.interaction(grant(authorization), runId, integer(attempt), requestId, workerId);
   }
 
   @Post('/runs/:runId/events')
@@ -42,9 +66,11 @@ export class ExecutionGrantController {
     @Param('runId') runId: string,
     @Query('attempt') attempt: string,
     @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-id') workerId: string | undefined,
     @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.grants.append(grant(authorization), runId, integer(attempt), body);
+    return this.grants.append(grant(authorization), runId, integer(attempt), body, workerId, requestId(response));
   }
 }
 

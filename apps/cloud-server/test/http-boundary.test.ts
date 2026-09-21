@@ -71,13 +71,36 @@ describe('Cloud HTTP boundary', () => {
       updatedAt: now,
     });
     const issued = await grants.issue(record!);
-    const executionAuthorization = { authorization: `Bearer ${issued.executionGrant}` };
+    const accessTokenSubstitution = await fetch(`${origin}/internal/v1/runs/${run.runId}?attempt=1`, {
+      headers: { authorization: `Bearer ${String(tokens.accessToken)}`, 'x-worker-id': 'http-worker' },
+    });
+    expect(accessTokenSubstitution.status).toBe(401);
+    const executionAuthorization = {
+      authorization: `Bearer ${issued.executionGrant}`,
+      'x-worker-id': 'http-worker',
+    };
     const claim = await fetch(`${origin}/internal/v1/execution-grants/claim`, {
       method: 'POST',
       headers: { ...executionAuthorization, 'content-type': 'application/json' },
       body: JSON.stringify({ workerId: 'http-worker' }),
     });
     expect(claim.status).toBe(201);
+    const claimedRun = await fetch(`${origin}/internal/v1/runs/${run.runId}?attempt=1`, {
+      headers: executionAuthorization,
+    });
+    expect(claimedRun.status).toBe(200);
+    const wrongHeartbeat = await fetch(`${origin}/internal/v1/runs/${run.runId}/heartbeat?attempt=1`, {
+      method: 'POST',
+      headers: { ...executionAuthorization, 'content-type': 'application/json' },
+      body: JSON.stringify({ workerId: 'wrong-worker' }),
+    });
+    expect(wrongHeartbeat.status).toBe(403);
+    const heartbeat = await fetch(`${origin}/internal/v1/runs/${run.runId}/heartbeat?attempt=1`, {
+      method: 'POST',
+      headers: { ...executionAuthorization, 'content-type': 'application/json' },
+      body: JSON.stringify({ workerId: 'http-worker' }),
+    });
+    expect(heartbeat.status).toBe(204);
     const started = adapterEvent(run, 1, 'run.started', { adapterId: 'cn.yanbot.reference' });
     const completed = adapterEvent(run, 2, 'run.completed', {});
     for (const event of [started, completed]) {
@@ -96,6 +119,13 @@ describe('Cloud HTTP boundary', () => {
     expect(text).toContain(`id: ${completed.eventId}`);
     expect(text).toContain('event: run.completed');
     expect(text).not.toContain(issued.executionGrant);
+    await expect(store.findRunAttempt(identity.organizationId, run.runId, 1)).resolves.toMatchObject({
+      status: 'completed',
+      active: false,
+    });
+    expect(store.audits.map((entry) => entry.action)).toEqual(
+      expect.arrayContaining(['execution-grant.claim', 'run.heartbeat', 'run.terminal']),
+    );
   });
 });
 
@@ -117,6 +147,14 @@ async function startApplication() {
     workspaceTtlSeconds: 86_400,
     gitAllowedHosts: ['github.com'],
     internalApiEnabled: true,
+    relayEnabled: false,
+    queueName: 'test-remote',
+    relayIntervalMs: 500,
+    relayLeaseMs: 15_000,
+    runLeaseMs: 30_000,
+    attemptRecoveryMs: 60_000,
+    maxAttempts: 3,
+    retryDelayMs: 1_000,
   };
   const module = await Test.createTestingModule({
     controllers: [AuthController, WorkspaceController, ControlPlaneController, ExecutionGrantController],

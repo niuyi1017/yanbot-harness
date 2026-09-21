@@ -82,26 +82,68 @@ describe('cloud queue Redis integration', () => {
       await connection.quit();
     }
   });
+
+  it('reconnects cleanly after a data-loss restart so the control plane can rebuild jobs', async () => {
+    const firstConnection = createQueueConnection(redis.url);
+    await firstConnection.connect();
+    const firstQueue = createRemoteRunQueue(`restart-test-${process.pid}`, firstConnection);
+    const data = remoteRunJobSchema.parse({
+      schemaVersion: 1,
+      runId: '33333333-3333-4333-8333-333333333333',
+      attempt: 1,
+      executionGrant: `yhe_${'c'.repeat(43)}`,
+    });
+    await firstQueue.add(REMOTE_RUN_JOB_NAME, data, { jobId: remoteRunJobId(data.runId, data.attempt) });
+    await firstQueue.close();
+    await firstConnection.quit();
+
+    await redis.restart();
+
+    const secondConnection = createQueueConnection(redis.url);
+    await secondConnection.connect();
+    const secondQueue = createRemoteRunQueue(`restart-test-${process.pid}`, secondConnection);
+    try {
+      expect(await secondQueue.getJobCounts('wait', 'active', 'delayed')).toMatchObject({
+        wait: 0,
+        active: 0,
+        delayed: 0,
+      });
+    } finally {
+      await secondQueue.obliterate({ force: true });
+      await secondQueue.close();
+      await secondConnection.quit();
+    }
+  });
 });
 
-async function startRedis(): Promise<{ url: string; close(): Promise<void> }> {
+async function startRedis(): Promise<{ url: string; restart(): Promise<void>; close(): Promise<void> }> {
   const port = await availablePort();
   const directory = await mkdtemp(path.join(tmpdir(), 'yanbot-cloud-queue-'));
-  const child = spawn(
-    'redis-server',
-    ['--bind', '127.0.0.1', '--port', String(port), '--save', '', '--appendonly', 'no', '--dir', directory],
-    { stdio: ['ignore', 'pipe', 'pipe'] },
-  );
   const url = `redis://127.0.0.1:${port}/0`;
+  let child = launchRedis(port, directory);
   await waitForRedis(child, url);
   return {
     url,
+    async restart() {
+      child.kill('SIGTERM');
+      await new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      child = launchRedis(port, directory);
+      await waitForRedis(child, url);
+    },
     async close() {
       child.kill('SIGTERM');
       await new Promise<void>((resolve) => child.once('exit', () => resolve()));
       await rm(directory, { recursive: true, force: true });
     },
   };
+}
+
+function launchRedis(port: number, directory: string): ChildProcess {
+  return spawn(
+    'redis-server',
+    ['--bind', '127.0.0.1', '--port', String(port), '--save', '', '--appendonly', 'no', '--dir', directory],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  );
 }
 
 async function waitForRedis(child: ChildProcess, url: string): Promise<void> {

@@ -61,6 +61,7 @@ export interface ControlPlaneStore {
   findIdempotentRun(organizationId: string, sessionId: string, key: string): Promise<RunRecord | undefined>;
   replaceRunAndSession(run: RunRecord, session: SessionRecord): Promise<void>;
   cancelOutbox(organizationId: string, runId: string): Promise<void>;
+  cancelOutboxRecord(organizationId: string, outboxId: string, owner: string): Promise<boolean>;
   claimDispatchOutbox(owner: string, now: Date, leaseExpiresAt: Date): Promise<OutboxRecord | undefined>;
   findOutbox(organizationId: string, outboxId: string): Promise<OutboxRecord | undefined>;
   insertOutbox(record: OutboxRecord): Promise<void>;
@@ -91,7 +92,23 @@ export interface ControlPlaneStore {
     now: Date,
     leaseExpiresAt: Date,
   ): Promise<boolean>;
-  listRecoverableRunAttempts(before: Date, limit: number): Promise<RunAttemptRecord[]>;
+  listRecoverableRunAttempts(now: Date, staleBefore: Date, limit: number): Promise<RunAttemptRecord[]>;
+  closeRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    status: Extract<RunAttemptRecord['status'], 'completed' | 'failed' | 'abandoned'>,
+    updatedAt: Date,
+    failureCode?: string,
+    workerId?: string,
+  ): Promise<boolean>;
+  closeActiveRunAttempts(
+    organizationId: string,
+    runId: string,
+    status: Extract<RunAttemptRecord['status'], 'completed' | 'failed' | 'abandoned'>,
+    updatedAt: Date,
+    failureCode?: string,
+  ): Promise<number>;
   insertEvent(record: EventRecord): Promise<void>;
   listEvents(organizationId: string, runId: string, afterSequence: number): Promise<EventRecord[]>;
   findEvent(organizationId: string, runId: string, eventId: string): Promise<EventRecord | undefined>;
@@ -100,6 +117,12 @@ export interface ControlPlaneStore {
   findInteraction(organizationId: string, requestId: string): Promise<InteractionRecord | undefined>;
 
   insertExecutionGrant(record: ExecutionGrantRecord): Promise<void>;
+  claimExecutionGrantAndAttempt(
+    digest: string,
+    workerId: string,
+    claimedAt: Date,
+    leaseExpiresAt: Date,
+  ): Promise<ExecutionGrantRecord | undefined>;
   claimExecutionGrant(digest: string, workerId: string, claimedAt: Date): Promise<ExecutionGrantRecord | undefined>;
   findExecutionGrant(digest: string): Promise<ExecutionGrantRecord | undefined>;
   revokeRunGrants(organizationId: string, runId: string, revokedAt: Date): Promise<void>;

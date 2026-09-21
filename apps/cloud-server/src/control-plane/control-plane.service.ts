@@ -15,6 +15,7 @@ import {
   uuidSchema,
   type AdapterEvent,
   type CreateRunResult,
+  type HarnessErrorCode,
   type Run,
   type Session,
 } from '@yanbot-harness/contracts';
@@ -231,6 +232,13 @@ export class ControlPlaneService {
       await this.#store.insertEvent(this.#eventRecord(principal.organizationId, event));
       await this.#store.replaceRunAndSession({ ...record, value: nextRun }, { ...session, value: nextSession });
       await this.#store.cancelOutbox(principal.organizationId, runId);
+      await this.#store.closeActiveRunAttempts(
+        principal.organizationId,
+        runId,
+        'abandoned',
+        this.#now(),
+        'RUN_CANCELLED',
+      );
       await this.#store.revokeRunGrants(principal.organizationId, runId, this.#now());
       return nextRun;
     });
@@ -267,6 +275,50 @@ export class ControlPlaneService {
       const existing = await this.#store.findInteraction(principal.organizationId, response.requestId);
       if (!existing || JSON.stringify(existing.response) !== JSON.stringify(response)) throw conflict();
     }
+  }
+
+  async failDispatch(organizationId: string, runId: string, attempt: number, code: HarnessErrorCode): Promise<void> {
+    await this.#store.transaction(async () => {
+      const record = await this.#store.findRun(organizationId, runId);
+      if (!record || terminalStatuses.has(record.value.status)) {
+        await this.#store.closeRunAttempt(organizationId, runId, attempt, 'abandoned', this.#now(), 'RUN_TERMINAL');
+        return;
+      }
+      const session = await this.#store.findSession(organizationId, record.sessionId);
+      if (!session) throw resourceNotFound();
+      const timestamp = this.#now().toISOString();
+      const sequence = (record.value.lastSequence ?? 0) + 1;
+      const event = adapterEventSchema.parse({
+        protocolVersion: HARNESS_PROTOCOL_VERSION,
+        eventId: this.#generateId(),
+        runId,
+        sessionId: record.sessionId,
+        sequence,
+        timestamp,
+        type: 'run.failed',
+        payload: {
+          error: {
+            code,
+            message: 'Remote execution could not be recovered.',
+            retryable: false,
+          },
+        },
+      });
+      const nextRun = runSchema.parse({
+        ...record.value,
+        status: 'failed',
+        firstSequence: record.value.firstSequence ?? sequence,
+        lastSequence: sequence,
+        terminalEventType: 'run.failed',
+        completedAt: timestamp,
+      });
+      const nextSession = sessionSchema.parse({ ...session.value, status: 'failed', updatedAt: timestamp });
+      await this.#store.insertEvent(this.#eventRecord(organizationId, event));
+      await this.#store.replaceRunAndSession({ ...record, value: nextRun }, { ...session, value: nextSession });
+      await this.#store.closeRunAttempt(organizationId, runId, attempt, 'failed', this.#now(), code);
+      await this.#store.cancelOutbox(organizationId, runId);
+      await this.#store.revokeRunGrants(organizationId, runId, this.#now());
+    });
   }
 
   eventRecord(organizationId: string, value: AdapterEvent): EventRecord {

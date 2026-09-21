@@ -140,7 +140,8 @@ export const outboxSchema = tenantDocumentSchema({
   publishedAt: Date,
 })
   .index({ organizationId: 1, outboxId: 1 }, { unique: true })
-  .index({ status: 1, availableAt: 1 });
+  .index({ status: 1, availableAt: 1 })
+  .index({ organizationId: 1, runId: 1, attempt: 1 }, { unique: true });
 export const runAttemptSchema = tenantDocumentSchema({
   runId: identity,
   attempt: { type: Number, required: true },

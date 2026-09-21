@@ -11,6 +11,7 @@ import { ControlPlaneService } from './control-plane/control-plane.service.js';
 import { ExecutionGrantController } from './execution-grants/execution-grant.controller.js';
 import { ExecutionGrantService } from './execution-grants/execution-grant.service.js';
 import { HealthController } from './health.controller.js';
+import { DispatchService } from './dispatch/dispatch.service.js';
 import { CONTROL_PLANE_STORE } from './persistence/control-plane.store.js';
 import { CLOUD_CONFIG, MongoService } from './persistence/mongo.service.js';
 import { MongoControlPlaneStore } from './persistence/mongo.store.js';
@@ -40,6 +41,7 @@ export class AppModule implements NestModule {
         WorkspaceService,
         ControlPlaneService,
         ExecutionGrantService,
+        DispatchService,
         ProductionHttpsMiddleware,
       ],
     };
