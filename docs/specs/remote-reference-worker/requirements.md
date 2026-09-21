@@ -83,4 +83,3 @@ Run 的所有公开状态和 Event 仍只通过 Cloud Server 内部 execution-gr
 - 本机存在 Redis 可执行文件，可用于短生命周期集成测试；生产 Redis ACL/TLS 需部署验证。
 - 当前环境无 Docker CLI，容器隔离必须在后续具备 Docker/受控 Linux 环境时验证。
 - 真实 Mongo replica set、生产 TLS、正式 Remote hostname、Windows/macOS 客户端证据仍未提供。
-

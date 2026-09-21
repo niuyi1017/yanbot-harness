@@ -143,18 +143,18 @@ URL credentials、prompt 和 path。
 
 ## 10. 威胁模型
 
-| 威胁                       | 控制                                                               |
-| -------------------------- | ------------------------------------------------------------------ |
-| duplicate delivery         | deterministic job ID、active attempt 唯一、grant 单次 claim        |
-| stolen/replayed grant      | digest-only DB、短 TTL、attempt/worker binding、terminal revoke    |
-| Worker ID spoofing         | token possession + first claim binding；后续由私网/mTLS继续加固    |
-| queue payload leakage      | 最小 job schema；无 prompt/path/vendor key；Redis ACL/TLS部署门禁  |
+| 威胁                       | 控制                                                                |
+| -------------------------- | ------------------------------------------------------------------- |
+| duplicate delivery         | deterministic job ID、active attempt 唯一、grant 单次 claim         |
+| stolen/replayed grant      | digest-only DB、短 TTL、attempt/worker binding、terminal revoke     |
+| Worker ID spoofing         | token possession + first claim binding；后续由私网/mTLS继续加固     |
+| queue payload leakage      | 最小 job schema；无 prompt/path/vendor key；Redis ACL/TLS部署门禁   |
 | Worker crash after claim   | Mongo lease/reaper、新 attempt/new grant、不复用 token              |
 | forged/cross-run event     | public schema、grant scope、run/session/sequence transaction checks |
-| cancellation race          | terminal Mongo state为事实源，grant revoke使迟到 Event fail closed |
-| host path escape           | storageKey来自控制面，shared-root containment；job不接受 path      |
-| Git SSRF                   | 本阶段 Worker不 clone；留给 network-isolated Sandbox               |
-| vendor credential exposure | 本阶段无 vendor credential；CodeBuddy另立 Spec                     |
+| cancellation race          | terminal Mongo state为事实源，grant revoke使迟到 Event fail closed  |
+| host path escape           | storageKey来自控制面，shared-root containment；job不接受 path       |
+| Git SSRF                   | 本阶段 Worker不 clone；留给 network-isolated Sandbox                |
+| vendor credential exposure | 本阶段无 vendor credential；CodeBuddy另立 Spec                      |
 | Docker socket takeover     | 本阶段不接 Docker；后续 sandbox launcher不得挂载 socket             |
 
 ## 11. 复用与拒绝方案
@@ -174,4 +174,3 @@ URL credentials、prompt 和 path。
 - **queue body 携带 prompt/workspace bytes**：增加 Redis 泄漏面，Worker应按 grant读取。
 - **在无 Docker 环境用普通子进程冒充 Sandbox**：只能称 Reference Worker，不能称 P5 隔离完成。
 - **Worker 主机直接 Git clone**：缺少 DNS/egress/resource 隔离。
-
