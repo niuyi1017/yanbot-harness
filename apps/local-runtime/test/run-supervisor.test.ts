@@ -102,7 +102,7 @@ describe('RunSupervisor', () => {
         version: '1.0.0',
         displayName: 'Example',
         source: 'project',
-        requiredCapabilities: ['extensions.skills'],
+        requiredCapabilities: ['extensions.hooks'],
         credentialRefs: [],
       },
       resourcePath: '/private/extension/SKILL.md',

@@ -1,12 +1,12 @@
 # CodeBuddy Extension Execution Tasks
 
-Implementation status: planning complete; implementation has not started. The clean implementation base is pushed
+Implementation status: CEE-T1 through CEE-T4 implemented and offline-verified on macOS arm64; CEE-T5 through CEE-T8 remain open. Evidence: [offline-evidence.md](offline-evidence.md). The clean implementation base is pushed
 `zb-dev@c8d4084`. This feature must use a dedicated worktree/branch and must not share uncommitted files with the Remote
 Worker development line.
 
 ## CEE-T1 — Freeze the extension execution contract
 
-- Status: `[ ]`
+- Status: `[x]` — private immutable in-memory union; public protocol unchanged; Sidecar explicitly rejects unsupported private transport.
 - Files: this Spec; `packages/adapter-api/src/index.ts`; package boundary tests.
 - Dependency: Spec review.
 - Work: define the private vendor-neutral `AdapterExtensionSnapshot` discriminated union, limits, lifecycle ownership,
@@ -16,17 +16,17 @@ Worker development line.
 
 ## CEE-T2 — Harden discovery and build immutable snapshots
 
-- Status: `[ ]`
+- Status: `[x]` — bounded UTF-8 snapshots, portable names, root/symlink/stability checks, strict stdio records. No Runtime projection files; ownership moved to CEE-T6.
 - Files: `packages/extension-kit/src/index.ts`, extension-kit tests, Local Runtime snapshot helpers.
 - Dependency: CEE-T1.
 - Work: add bounded recursive Skill snapshots, normalized MCP parsing, Schema validation, realpath/root/symlink checks,
-  content digests, before/after stability checks, sensitive-value rejection, and read-only run projection creation.
+  content digests, before/after stability checks, sensitive-value rejection, and frozen in-memory resources. Per-run config is currently empty-only and unsupported transports fail closed.
 - Verification: tests reject traversal, escaping symlinks, mutation during read, duplicate IDs, bad digest/version,
   oversized/deep/file-count payloads, unknown fields, plaintext secrets, and unsupported transports.
 
 ## CEE-T3 — Thread resolved resources through Local Runtime
 
-- Status: `[ ]`
+- Status: `[x]` — Core forwarding, credential presence and event redaction, persistent private resume digest pin, terminal publication after disposal, standalone trusted registry entry point and launcher passthrough.
 - Files: `apps/local-runtime/src/run-supervisor.ts`, `apps/local-runtime/src/adapters.ts`, Local Runtime tests.
 - Dependency: CEE-T2.
 - Work: use one resolved collection for capability validation and adapter execution; bind logical credentials through the
@@ -36,7 +36,7 @@ Worker development line.
 
 ## CEE-T4 — Add deterministic Reference extension conformance
 
-- Status: `[ ]`
+- Status: `[x]` — emulated digest markers and permission/tool lifecycle; allow/deny/cancel/question tests; never executes configured commands or Skill text.
 - Files: `packages/adapter-reference/src/index.ts`, adapter conformance fixtures/tests, Local Runtime E2E.
 - Dependency: CEE-T3.
 - Work: implement explicitly `emulated` Skill/MCP fixtures for selection proof, tool lifecycle, permission, question,

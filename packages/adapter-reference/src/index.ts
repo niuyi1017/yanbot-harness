@@ -31,6 +31,14 @@ const capabilities: HarnessCapabilities = {
   'streaming.tool-events': { level: 'native' },
   'interactions.permissions': { level: 'native' },
   'interactions.questions': { level: 'native' },
+  'extensions.mcp': {
+    level: 'emulated',
+    reason: 'Deterministic permission/tool fixture only; never starts a process or network connection.',
+  },
+  'extensions.skills': {
+    level: 'emulated',
+    reason: 'Selected snapshot digest marker only; does not execute Skill instructions.',
+  },
   'models.list': { level: 'native' },
   'usage.tokens': { level: 'emulated' },
   'usage.cost': { level: 'unsupported', reason: 'The offline reference adapter never incurs cost.' },
@@ -66,6 +74,7 @@ class ReferenceRuntime implements AdapterRuntime {
   readonly #now: (() => Date) | undefined;
   readonly #generateId: (() => string) | undefined;
   #disposed = false;
+  #cancelled = false;
   #activeRunId: string | undefined;
   #cancelReason = 'Run cancelled.';
   #resolveCancellation: (() => void) | undefined;
@@ -116,6 +125,7 @@ class ReferenceRuntime implements AdapterRuntime {
 
   async cancel(input: { runId: string; reason?: string }): Promise<void> {
     if (this.#activeRunId !== input.runId) return;
+    this.#cancelled = true;
     this.#cancelReason = input.reason ?? this.#cancelReason;
     this.#resolveCancellation?.();
     if (this.#pendingInteraction) {
@@ -160,6 +170,72 @@ class ReferenceRuntime implements AdapterRuntime {
         adapterSessionId: input.adapterSessionId ?? `reference:${input.sessionId}`,
         capabilities,
       });
+
+      const snapshots = input.extensionSnapshots ?? [];
+      const selected = input.extensions.filter((item) => item.enabled);
+      if (
+        selected.length !== snapshots.length ||
+        selected.some((item) => !snapshots.some((snapshot) => snapshot.extensionId === item.extensionId))
+      ) {
+        yield factory.create('run.failed', {
+          error: {
+            code: 'CONFIGURATION_INVALID',
+            message: 'Selected extensions require resolved snapshots.',
+            retryable: false,
+          },
+        });
+        return;
+      }
+      for (const snapshot of snapshots) {
+        if (this.#cancelled) {
+          yield factory.create('run.cancelled', { reason: 'Reference run cancelled.' });
+          return;
+        }
+        if (snapshot.kind === 'skill') {
+          yield factory.create('assistant.delta', {
+            channel: 'output',
+            text: `Reference Skill ${snapshot.extensionId}@${snapshot.version}:${snapshot.contentDigest}`,
+          });
+          continue;
+        }
+        const requestId = `extension-permission:${input.runId}:${snapshot.extensionId}`;
+        const responsePromise = this.#waitForInteraction(requestId);
+        yield factory.create('interaction.requested', {
+          kind: 'permission',
+          requestId,
+          toolName: `reference.${snapshot.extensionId}`,
+          risk: 'high',
+        });
+        const response = await responsePromise;
+        yield factory.create('interaction.resolved', {
+          requestId,
+          outcome: response.action === 'allow' ? 'allowed' : 'denied',
+        });
+        if (this.#cancelled) {
+          yield factory.create('run.cancelled', { reason: 'Reference run cancelled.' });
+          return;
+        }
+        if (response.action !== 'allow') {
+          yield factory.create('run.failed', {
+            error: { code: 'PERMISSION_DENIED', message: 'Reference extension permission denied.', retryable: false },
+          });
+          return;
+        }
+        const toolUseId = `extension-tool:${input.runId}:${snapshot.extensionId}`;
+        yield factory.create('tool.started', { toolUseId, name: `reference.${snapshot.extensionId}` });
+        if (this.#cancelled) {
+          yield factory.create('tool.failed', {
+            toolUseId,
+            error: { code: 'RUN_CANCELLED', message: 'Reference tool cancelled.', retryable: false },
+          });
+          yield factory.create('run.cancelled', { reason: 'Reference run cancelled.' });
+          return;
+        }
+        yield factory.create('tool.completed', {
+          toolUseId,
+          outputSummary: { emulated: true, extensionId: snapshot.extensionId, digest: snapshot.contentDigest },
+        });
+      }
 
       switch (this.#scenario.kind) {
         case 'text': {
@@ -244,6 +320,7 @@ class ReferenceRuntime implements AdapterRuntime {
           break;
       }
     } finally {
+      this.#cancelled = false;
       this.#activeRunId = undefined;
       this.#resolveCancellation = undefined;
       this.#pendingInteraction = undefined;
