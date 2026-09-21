@@ -27,10 +27,10 @@ The common envelope contains:
 - a discriminated resource payload for MCP or Skill;
 - limits and provenance needed for adapter validation, without development-machine paths in serializable diagnostics.
 
-The MCP payload contains normalized server name, transport, command/arguments or endpoint, logical environment/header
-bindings, and declared limits. The Skill payload contains a run-private snapshot root plus a manifest of relative file
-paths, sizes, modes, and digests. Only the in-process adapter call may carry an ephemeral path to the snapshot; it must
-never enter public records or events.
+The MCP payload contains normalized server name, stdio command/arguments, logical environment credential bindings,
+and declared limits. The Skill payload contains bounded UTF-8 file contents with portable relative paths, byte sizes,
+and SHA256 digests in a deeply frozen in-memory object. Runtime owns the immutable content; the vendor adapter alone
+owns any temporary projection and its disposal. No source or projection path is added to public records or events.
 
 `AdapterRunInput` becomes the public-neutral `RunRequest` plus an optional readonly `extensionSnapshots` collection and
 the existing abort signal. Remote transports are not changed in this milestone; Remote Runtime must later define its
@@ -59,12 +59,23 @@ merge selections
 ```
 
 Resolution uses `realpath`, root containment, file-count/per-file/aggregate byte limits, explicit file types, and a
-before/after identity check to reduce time-of-check/time-of-use races. Symlinks that escape the registered extension
-root are rejected. Skill copies are read-only and owned by a `0700` run directory. The same resolved collection is used
+before/after identity check to reduce time-of-check/time-of-use races. All symlinks/junctions within Skill trees are
+rejected. Files are opened and closed before adapter execution. Portable filename validation rejects Windows reserved
+names and case-insensitive collisions. No security property depends on POSIX chmod. The same resolved collection is used
 for capability proof and adapter input so validation cannot diverge from execution.
 
 The effective extension digest is pinned to the Harness session when the vendor session is first created. Resume with a
 different security-relevant snapshot is rejected as `CONFIGURATION_INVALID`; the caller starts a new Session instead.
+The initial pin is process-local: after restart, an extension-bearing resume without a known pin fails closed. Legacy
+empty-extension sessions may resume. Persistent private pins are deferred until a migration format is reviewed.
+
+The initial MCP schema rejects literal environment values, shell interpreters and Windows batch launchers (`.cmd`/`.bat`).
+Windows callers use an executable such as `node.exe` and separate argv, never concatenate shell command strings.
+Selection config is empty-only in this release: nonempty configuration is rejected instead of silently ignored until
+per-extension schema and override semantics are defined. MCP JSON accepts only `mcpServers` containing strict stdio
+records (`command`, `args`, optional `type: stdio`, and `envCredentialRefs`).
+Sidecar transport has no snapshot schema yet and must reject extension fields/selections explicitly; only the current
+in-process seam is enabled, avoiding silent stripping during JSON schema parsing.
 
 ## 4. Credentials and configuration
 
