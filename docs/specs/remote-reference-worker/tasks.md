@@ -15,8 +15,8 @@
 
 ## T2. Queue 公共包
 
-- [ ] 新增 `packages/cloud-queue`，定义 strict job schema、确定性 job ID 和 BullMQ factory。
-- [ ] 配置 Redis URL/queue prefix，不允许把连接 secret 写入 job/log/error。
+- [x] 新增 `packages/cloud-queue`，定义 strict job schema、确定性 job ID 和 BullMQ factory。
+- [x] 配置 Redis URL/queue prefix，不允许把连接 secret 写入 job/log/error。
 - [ ] 增加 schema、重复 job、Redis restart/cleanup 定向测试。
 
 验收：queue payload 只有 schemaVersion/runId/attempt/executionGrant；重复 add 只存在一个 job。
