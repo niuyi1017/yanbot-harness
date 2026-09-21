@@ -1,5 +1,6 @@
 import {
   HARNESS_PROTOCOL_VERSION,
+  adapterEventSchema,
   type AdapterEvent,
   type AdapterManifest,
   type ConfigScope,
@@ -19,6 +20,7 @@ import { HarnessAdapterError } from '@yanbot-harness/adapter-api';
 import { AdapterEventFactory } from '@yanbot-harness/adapter-kit';
 
 import { AsyncQueue } from './async-queue.js';
+import { prepareExtensions, type CodeBuddyExtensionProjection } from './extensions.js';
 import {
   defaultCodeBuddySdkFacade,
   type CodeBuddyCanUseTool,
@@ -52,8 +54,16 @@ const capabilities: HarnessCapabilities = {
   'streaming.tool-events': { level: 'native' },
   'interactions.permissions': { level: 'native' },
   'interactions.questions': { level: 'native' },
-  'extensions.mcp': { level: 'unsupported', reason: 'Extension translation is deferred.' },
-  'extensions.skills': { level: 'unsupported', reason: 'Extension translation is deferred.' },
+  'extensions.mcp': {
+    level: 'unsupported',
+    reason: 'Candidate stdio mapping implemented; controlled live evidence pending.',
+    limits: { transports: ['stdio'], isolatedWorkspaceRequired: true },
+  },
+  'extensions.skills': {
+    level: 'unsupported',
+    reason: 'Candidate selected-only projection implemented; controlled live evidence pending.',
+    limits: { isolatedWorkspaceRequired: true, maxFileBytes: 262144 },
+  },
   'extensions.agents': { level: 'unsupported', reason: 'Extension translation is deferred.' },
   'extensions.hooks': { level: 'unsupported', reason: 'Extension translation is deferred.' },
   'models.list': {
@@ -72,6 +82,14 @@ export type CodeBuddyAdapterOptions = {
   idleTimeoutMs?: number;
   shutdownGraceMs?: number;
   terminalSignalGraceMs?: number;
+  /** Internal injected fixture/live-probe opt-in; never exposed by public run configuration. */
+  allowUnverifiedExtensions?: boolean;
+  /** Explicit host candidate mode: advertises experimental native execution, never certification. */
+  experimentalExtensions?: boolean;
+  /** Host-owned persistent vendor session state, separate from disposable run projections. */
+  extensionStateRoot?: string;
+  /** Optional host-side budget for controlled probes. */
+  maxBudgetUsd?: number;
 };
 
 export class CodeBuddyAdapter implements HarnessAdapter {
@@ -152,12 +170,17 @@ class CodeBuddyRuntime implements AdapterRuntime {
   readonly #idleTimeoutMs: number;
   readonly #shutdownGraceMs: number;
   readonly #terminalSignalGraceMs: number;
+  readonly #extensionOptions: Pick<
+    CodeBuddyAdapterOptions,
+    'allowUnverifiedExtensions' | 'experimentalExtensions' | 'extensionStateRoot' | 'maxBudgetUsd'
+  >;
   readonly #pendingInteractions = new Map<string, PendingInteraction>();
   #active: ActiveRun | undefined;
   #disposed = false;
 
   constructor(context: AdapterRuntimeContext, options: CodeBuddyAdapterOptions) {
     this.#context = context;
+    this.#extensionOptions = options;
     this.#sdk = options.sdk ?? defaultCodeBuddySdkFacade;
     this.#now = options.now;
     this.#generateId = options.generateId;
@@ -177,7 +200,14 @@ class CodeBuddyRuntime implements AdapterRuntime {
   }
 
   async capabilities(): Promise<HarnessCapabilities> {
-    return capabilities;
+    if (!this.#extensionOptions.experimentalExtensions) return capabilities;
+    const candidate = {
+      level: 'native' as const,
+      version: '0.3.254-candidate',
+      reason: 'Explicit experimental execution; not live-verified or release-certified.',
+      limits: { experimental: true, liveVerified: false, isolatedWorkspaceRequired: true, transports: ['stdio'] },
+    };
+    return { ...capabilities, 'extensions.mcp': candidate, 'extensions.skills': candidate };
   }
 
   startRun(input: AdapterRunInput): AsyncIterable<AdapterEvent> {
@@ -253,6 +283,22 @@ class CodeBuddyRuntime implements AdapterRuntime {
         retryable: false,
       });
     }
+    const hasExtensions = input.extensions.some(({ enabled }) => enabled) || Boolean(input.extensionSnapshots?.length);
+    if (
+      hasExtensions &&
+      !this.#extensionOptions.allowUnverifiedExtensions &&
+      !this.#extensionOptions.experimentalExtensions
+    ) {
+      throw new HarnessAdapterError({
+        code: 'CAPABILITY_UNSUPPORTED',
+        message: 'CodeBuddy extension execution awaits controlled live certification.',
+        retryable: false,
+      });
+    }
+    const baseEnv = this.#buildEnv();
+    let projection: CodeBuddyExtensionProjection | undefined;
+    if (hasExtensions)
+      projection = await prepareExtensions(input, this.#context, this.#extensionOptions.extensionStateRoot);
 
     const factory = new AdapterEventFactory({
       runId: input.runId,
@@ -269,13 +315,18 @@ class CodeBuddyRuntime implements AdapterRuntime {
     const queryInput: CodeBuddyQueryInput = {
       prompt: input.prompt,
       permissionMode: this.#permissionMode(input.permissionPolicy),
-      settingSources: this.#settingSources(input.configScopes),
-      env: this.#buildEnv(),
+      settingSources: projection ? [] : this.#settingSources(input.configScopes),
+      env: { ...baseEnv, ...projection?.env },
+      strictMcpConfig: true,
+      ...(projection ? { mcpServers: projection.mcpServers, tools: ['Read', 'Skill', 'AskUserQuestion'] } : {}),
       abortController,
       canUseTool: this.#createPermissionHandler(queue, factory, input.permissionPolicy),
       ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
       ...(input.model === undefined ? {} : { model: input.model.modelId }),
       ...(input.maxTurns === undefined ? {} : { maxTurns: input.maxTurns }),
+      ...(this.#extensionOptions.maxBudgetUsd === undefined
+        ? {}
+        : { maxBudgetUsd: this.#extensionOptions.maxBudgetUsd }),
       ...(input.adapterSessionId === undefined ? {} : { resume: input.adapterSessionId }),
       ...(systemPrompt === undefined ? {} : { systemPrompt }),
       ...this.#optionalSdkConfig(),
@@ -290,6 +341,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
       stream = this.#sdk.query(queryInput);
     } catch (error) {
       input.abortSignal?.removeEventListener('abort', onAbort);
+      await projection?.dispose();
       yield startedEvent;
       yield factory.create('run.failed', { error: this.#classifyError(errorMessage(error)) });
       return;
@@ -316,12 +368,22 @@ class CodeBuddyRuntime implements AdapterRuntime {
 
     try {
       yield startedEvent;
-      for await (const event of queue) yield event;
+      let terminalEvent: AdapterEvent | undefined;
+      for await (const event of queue) {
+        const safe = safeAdapterEvent(event, Object.values(this.#context.credentials ?? {}), projection?.paths ?? []);
+        if (event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled')
+          terminalEvent = safe;
+        else yield safe;
+      }
       await settleWithin(producer, this.#shutdownGraceMs);
+      await this.#stopVendor(active);
+      await projection?.dispose();
+      if (terminalEvent) yield terminalEvent;
     } finally {
       input.abortSignal?.removeEventListener('abort', onAbort);
       if (!producerDone) await this.cancel({ runId: input.runId, reason: 'Event consumer closed.' });
       await this.#stopVendor(active);
+      await projection?.dispose();
       if (this.#active === active) this.#active = undefined;
       for (const [requestId, pending] of this.#pendingInteractions) {
         this.#pendingInteractions.delete(requestId);
@@ -385,7 +447,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
             queue.push(
               factory.create('session.initialized', {
                 ...(stringValue(message.session_id) ? { adapterSessionId: stringValue(message.session_id) } : {}),
-                capabilities,
+                capabilities: await this.capabilities(),
               }),
             );
           }
@@ -431,7 +493,22 @@ class CodeBuddyRuntime implements AdapterRuntime {
               : 'CodeBuddy run failed.';
             this.#emitTerminal(active, factory.create('run.failed', { error: this.#classifyError(errors) }));
           } else {
-            this.#settleRunningTools(runningTools, settledTools, queue, factory, false);
+            // A result message alone cannot prove that unfinished tools succeeded.
+            const unfinishedTools = runningTools.size;
+            this.#settleRunningTools(runningTools, settledTools, queue, factory, true);
+            if (unfinishedTools > 0) {
+              this.#emitTerminal(
+                active,
+                factory.create('run.failed', {
+                  error: {
+                    code: 'HARNESS_PROTOCOL_ERROR',
+                    message: 'CodeBuddy ended with unfinished tool calls.',
+                    retryable: false,
+                  },
+                }),
+              );
+              continue;
+            }
             if (Object.keys(usage).length > 0) queue.push(factory.create('usage.updated', usage));
             this.#emitTerminal(active, factory.create('run.completed', Object.keys(usage).length > 0 ? { usage } : {}));
           }
@@ -501,6 +578,8 @@ class CodeBuddyRuntime implements AdapterRuntime {
     policy: AdapterRunInput['permissionPolicy'],
   ): CodeBuddyCanUseTool {
     return async (toolName, input, options) => {
+      if (this.#disposed || this.#active?.terminal)
+        return { behavior: 'deny', message: 'The run is no longer active.' };
       if (toolName !== 'AskUserQuestion' && policy === 'read-only') {
         return { behavior: 'deny', message: 'The read-only policy denies tool execution.' };
       }
@@ -822,4 +901,34 @@ function redact(message: string, secrets: readonly string[]): string {
   return secrets
     .reduce((safe, secret) => (secret ? safe.split(secret).join('[REDACTED]') : safe), message)
     .slice(0, 2_048);
+}
+
+function safeAdapterEvent(event: AdapterEvent, secrets: readonly string[], paths: readonly string[]): AdapterEvent {
+  const clean = (value: unknown, depth: number): unknown => {
+    if (typeof value === 'string') {
+      let safe = secrets.reduce((result, secret) => (secret ? result.split(secret).join('[REDACTED]') : result), value);
+      for (const resource of [...paths].sort((a, b) => b.length - a.length))
+        safe = safe.split(resource).join('[PRIVATE_EXTENSION]');
+      return safe
+        .replace(/(?:[A-Za-z]:[\\/][^\s"']+|\/(?:Users|home|private|tmp|var)\/[^\s"']+)/g, '[REDACTED_PATH]')
+        .slice(0, 16384);
+    }
+    if (depth > 12) return '[TRUNCATED]';
+    if (Array.isArray(value)) return value.slice(0, 128).map((item) => clean(item, depth + 1));
+    if (value && typeof value === 'object')
+      return Object.fromEntries(
+        Object.entries(value)
+          .slice(0, 64)
+          .map(([key, item]) => [
+            key,
+            /^(?:api[-_]?key|authorization|cookie|credentials?|password|secret|(?:access|auth|refresh)?[-_]?token)$/i.test(
+              key,
+            )
+              ? '[REDACTED]'
+              : clean(item, depth + 1),
+          ]),
+      );
+    return value;
+  };
+  return adapterEventSchema.parse(clean(event, 0));
 }

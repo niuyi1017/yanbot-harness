@@ -17,6 +17,7 @@ export type CodeBuddyQueryInput = {
   cwd?: string;
   model?: string;
   maxTurns?: number;
+  maxBudgetUsd?: number;
   systemPrompt?: string;
   permissionMode: PermissionMode;
   settingSources: SettingSource[];
@@ -25,6 +26,9 @@ export type CodeBuddyQueryInput = {
   pathToCodebuddyCode?: string;
   abortController: AbortController;
   canUseTool: CodeBuddyCanUseTool;
+  mcpServers?: Record<string, { type: 'stdio'; command: string; args: string[]; env: Record<string, string> }>;
+  strictMcpConfig?: boolean;
+  tools?: string[];
 };
 
 export interface CodeBuddyQueryStream extends AsyncIterable<unknown> {
@@ -82,9 +86,13 @@ export const defaultCodeBuddySdkFacade: CodeBuddySdkFacade = {
       abortController: input.abortController,
       includePartialMessages: true,
       canUseTool: input.canUseTool as CanUseTool,
+      ...(input.mcpServers === undefined ? {} : { mcpServers: input.mcpServers }),
+      ...(input.strictMcpConfig === undefined ? {} : { strictMcpConfig: input.strictMcpConfig }),
+      ...(input.tools === undefined ? {} : { tools: input.tools }),
       ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
       ...(input.model === undefined ? {} : { model: input.model }),
       ...(input.maxTurns === undefined ? {} : { maxTurns: input.maxTurns }),
+      ...(input.maxBudgetUsd === undefined ? {} : { maxBudgetUsd: input.maxBudgetUsd }),
       ...(input.systemPrompt === undefined ? {} : { systemPrompt: input.systemPrompt }),
       ...(input.resume === undefined ? {} : { resume: input.resume }),
       ...(input.pathToCodebuddyCode === undefined ? {} : { pathToCodebuddyCode: input.pathToCodebuddyCode }),

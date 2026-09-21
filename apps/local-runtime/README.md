@@ -41,6 +41,14 @@ and context provider; standalone registration intentionally supplies no extensio
 are explicitly emulated and never start the configured command. CodeBuddy extension execution remains gated until
 its independent live verification passes. Private digest pins survive Runtime restarts and never appear in API sessions.
 
+For an explicitly unverified acceptance run, the host may pass `--experimental-extensions` or set
+`YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS=1` before startup. Only this mode advertises candidate native MCP/Skill execution
+with `limits.experimental=true` and `limits.liveVerified=false`; the consumer must display an unverified warning and
+must not count this as R0/R1 certification. Renderer Run requests cannot enable the flag. The CodeBuddy workspace must
+be host-created and free of ambient `.codebuddy`, MCP and vendor instruction files. Vendor transcripts are retained in
+the Runtime state directory for resume; per-run selected Skill projections are deleted before terminal delivery.
+Crash-stale vendor session leases fail closed and require host recovery or a new Harness session.
+
 The Runtime listens only on loopback and writes `runtime.json` with mode `0600` beneath
 `YANBOT_HARNESS_STATE_DIR` (default `~/.yanbot-harness`). It deletes the descriptor on normal SIGINT/SIGTERM shutdown.
 SDK/CLI clients receive only the Runtime origin and short-scope bearer token stored in that descriptor.

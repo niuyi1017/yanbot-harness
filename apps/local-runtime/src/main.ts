@@ -26,7 +26,9 @@ async function main(): Promise<void> {
     process.stdout.write(helpText);
     return;
   }
-  const unknownArguments = arguments_.filter((argument) => argument !== '--reference');
+  const unknownArguments = arguments_.filter(
+    (argument) => argument !== '--reference' && argument !== '--experimental-extensions',
+  );
   if (unknownArguments.length > 0) throw new Error('Unsupported Runtime argument.');
   managedControl = createManagedControl();
   await managedControl?.hello;
@@ -54,7 +56,12 @@ async function main(): Promise<void> {
     runtimeDescriptorPath: path.join(stateRoot, 'runtime.json'),
     adapters: [
       usesCodeBuddy
-        ? new CodeBuddyAdapter()
+        ? new CodeBuddyAdapter({
+            extensionStateRoot: path.join(stateRoot, 'codebuddy-extension-state'),
+            experimentalExtensions:
+              arguments_.includes('--experimental-extensions') ||
+              process.env.YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS === '1',
+          })
         : new ReferenceAdapter(
             configuredReferenceScenario === undefined ? {} : { scenario: configuredReferenceScenario },
           ),
@@ -146,6 +153,7 @@ Environment:
   YANBOT_HARNESS_ALLOWED_ORIGINS     Optional comma-separated Origin allowlist.
   YANBOT_HARNESS_REFERENCE_SCENARIO  text, permission, question, or wait-for-cancel.
   YANBOT_HARNESS_EXTENSIONS_DIR      Absolute trusted directory containing skills/ and mcp.json.
+  YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS  Set to 1 for unverified candidate extension acceptance only.
 `;
 
 function parseOrigins(value: string | undefined): string[] {

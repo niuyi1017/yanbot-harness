@@ -8,6 +8,7 @@ test('standalone launcher retains file credentials and OS configuration but drop
       PATH: '/node',
       YANBOT_HARNESS_STATE_DIR: '/private/state',
       YANBOT_HARNESS_EXTENSIONS_DIR: '/private/extensions',
+      YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS: '1',
       CODEBUDDY_API_KEY_FILE: '/private/key',
       NODE_AUTH_TOKEN: 'fixture',
       NPM_TOKEN: 'fixture',
@@ -22,6 +23,7 @@ test('standalone launcher retains file credentials and OS configuration but drop
       PATH: '/node',
       YANBOT_HARNESS_STATE_DIR: '/private/state',
       YANBOT_HARNESS_EXTENSIONS_DIR: '/private/extensions',
+      YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS: '1',
       CODEBUDDY_API_KEY_FILE: '/private/key',
     },
   );

@@ -46,7 +46,7 @@ Worker development line.
 
 ## CEE-T5 — Map MCP into CodeBuddy
 
-- Status: `[ ]`
+- Status: `[x]` — offline candidate mapping and lifecycle tests passed; default capability remains unsupported. Explicit host experimental mode is labeled liveVerified=false.
 - Files: `packages/adapter-codebuddy/src/index.ts`, `sdk-facade.ts`, CodeBuddy adapter tests.
 - Dependency: CEE-T3.
 - Work: add typed neutral-to-`Options.mcpServers` mapping, `strictMcpConfig`, stdio allowlist, logical env binding,
@@ -57,7 +57,7 @@ Worker development line.
 
 ## CEE-T6 — Isolate and map selected Skills into CodeBuddy
 
-- Status: `[ ]`
+- Status: `[ ]` — candidate projection, pinned-SDK static seam review, transcript retention and cleanup fixtures implemented. Controlled real selected/unselected isolation proof remains pending.
 - Files: `packages/adapter-codebuddy/src/index.ts`, `sdk-facade.ts`, Skill projection helpers/tests.
 - Dependency: CEE-T3 and a controlled pinned-SDK projection probe.
 - Work: prove the pinned SDK's selected-only Skill loading seam; build a run-private CodeBuddy configuration projection;
@@ -68,7 +68,7 @@ Worker development line.
 
 ## CEE-T7 — Promote capabilities with controlled real evidence
 
-- Status: `[ ]`
+- Status: `[ ]` — opt-in bounded live probe and harmless stdio fixture ready; no test credential has been supplied. Default capabilities are not promoted.
 - Files: opt-in live tests, `docs/architecture/codebuddy-capability-matrix.md`, redacted evidence summary.
 - Dependency: CEE-T4–CEE-T6.
 - Work: run a harmless local MCP and minimal Skill against a valid CodeBuddy credential; cover MCP result, Skill effect,
@@ -78,7 +78,7 @@ Worker development line.
 
 ## CEE-T8 — Build, verify, and hand off the locked release
 
-- Status: `[ ]`
+- Status: `[ ]` — development candidate artifact build in progress; Windows host-native and real CodeBuddy certification remain pending.
 - Files: release metadata, `docs/delivery/compatibility.md`, SDK/Runtime artifacts and checksums.
 - Dependency: CEE-T7 and the existing release pipeline.
 - Work: run the full repository gate, build same-commit artifacts, generate SHA256, document supported OS/architecture,

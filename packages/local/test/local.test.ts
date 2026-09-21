@@ -10,6 +10,7 @@ it('uses a fixed minimum environment and excludes credentials and loader injecti
     localRuntimeEnvironment({
       PATH: '/fixture',
       YANBOT_HARNESS_EXTENSIONS_DIR: '/fixture/extensions',
+      YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS: '1',
       CODEBUDDY_API_KEY_FILE: '/protected/file',
       NODE_OPTIONS: '--require=evil',
       NODE_PATH: '/evil',
@@ -21,6 +22,7 @@ it('uses a fixed minimum environment and excludes credentials and loader injecti
   ).toEqual({
     PATH: '/fixture',
     YANBOT_HARNESS_EXTENSIONS_DIR: '/fixture/extensions',
+    YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS: '1',
     CODEBUDDY_API_KEY_FILE: '/protected/file',
   });
 });

@@ -93,7 +93,7 @@ export async function snapshotExtensions(
           /^(?:cmd|powershell|pwsh|sh|bash|zsh|fish)(?:\.exe)?$/.test(commandName)
         )
           invalid();
-        if ([parsed.command, ...parsed.args].some((value) => /[\0\r\n]/.test(value))) invalid();
+        if ([parsed.command, ...parsed.args].some((value) => /[\0\r\n]/.test(value) || value.includes('${'))) invalid();
         if (
           parsed.args.some((value) =>
             /^(?:--?)?(?:api[-_]?key|token|secret|password|authorization)(?:=|$)/i.test(value),
