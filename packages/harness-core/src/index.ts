@@ -11,6 +11,7 @@ import {
   assertRuntimeMatchesCapabilities,
   type AdapterRuntime,
   type AdapterRuntimeContext,
+  type AdapterRunInput,
   type HarnessAdapter,
 } from '@yanbot-harness/adapter-api';
 
@@ -26,7 +27,7 @@ export interface ManagedRunController {
 export async function createManagedAdapterRun(
   adapter: HarnessAdapter,
   context: AdapterRuntimeContext,
-  request: RunRequest,
+  request: AdapterRunInput,
 ): Promise<ManagedRunController> {
   const runtime = await adapter.createRuntime(context);
   try {
@@ -51,7 +52,7 @@ export async function createManagedAdapterRun(
 export async function* executeAdapterRun(
   adapter: HarnessAdapter,
   context: AdapterRuntimeContext,
-  request: RunRequest,
+  request: AdapterRunInput,
 ): AsyncIterable<AdapterEvent> {
   const controller = await createManagedAdapterRun(adapter, context, request);
   yield* controller.events;

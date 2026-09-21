@@ -9,6 +9,7 @@ it('uses a fixed minimum environment and excludes credentials and loader injecti
   expect(
     localRuntimeEnvironment({
       PATH: '/fixture',
+      YANBOT_HARNESS_EXTENSIONS_DIR: '/fixture/extensions',
       CODEBUDDY_API_KEY_FILE: '/protected/file',
       NODE_OPTIONS: '--require=evil',
       NODE_PATH: '/evil',
@@ -17,7 +18,11 @@ it('uses a fixed minimum environment and excludes credentials and loader injecti
       CODEBUDDY_API_KEY: 'fixture',
       DYLD_INSERT_LIBRARIES: 'evil',
     }),
-  ).toEqual({ PATH: '/fixture', CODEBUDDY_API_KEY_FILE: '/protected/file' });
+  ).toEqual({
+    PATH: '/fixture',
+    YANBOT_HARNESS_EXTENSIONS_DIR: '/fixture/extensions',
+    CODEBUDDY_API_KEY_FILE: '/protected/file',
+  });
 });
 it('explicit path failure never falls back to the local resolver', async () => {
   let called = false;

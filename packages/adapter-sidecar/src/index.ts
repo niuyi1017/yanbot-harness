@@ -44,12 +44,19 @@ export const listModelsRequestSchema = z.object({
 export const startRunRequestSchema = z.object({
   ...requestBase,
   method: z.literal('startRun'),
-  params: runRequestSchema,
+  params: runRequestSchema.extend({
+    extensionSnapshots: z.never().optional(),
+    extensions: z.array(z.never()).default([]),
+  }),
 });
 export const resumeRunRequestSchema = z.object({
   ...requestBase,
   method: z.literal('resumeRun'),
-  params: runRequestSchema.extend({ adapterSessionId: opaqueIdSchema }),
+  params: runRequestSchema.extend({
+    adapterSessionId: opaqueIdSchema,
+    extensionSnapshots: z.never().optional(),
+    extensions: z.array(z.never()).default([]),
+  }),
 });
 export const respondToInteractionRequestSchema = z.object({
   ...requestBase,

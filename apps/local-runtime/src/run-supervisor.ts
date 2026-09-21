@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { HarnessAdapterError } from '@yanbot-harness/adapter-api';
+import { HarnessAdapterError, type AdapterRunInput } from '@yanbot-harness/adapter-api';
 import {
   HARNESS_PROTOCOL_VERSION,
   interactionResponseSchema,
@@ -13,7 +13,6 @@ import {
   type InteractionResponse,
   type LocalRun,
   type LocalSession,
-  type RunRequest,
   harnessErrorSchema,
 } from '@yanbot-harness/contracts';
 import {
@@ -23,7 +22,12 @@ import {
   type ConfigLayer,
   type EffectiveConfig,
 } from '@yanbot-harness/config-loader';
-import { resolveExtensions, type DiscoveredExtension } from '@yanbot-harness/extension-kit';
+import {
+  snapshotExtensions,
+  extensionSnapshotIdentity,
+  ExtensionKitError,
+  type DiscoveredExtension,
+} from '@yanbot-harness/extension-kit';
 import type { ManagedRunController } from '@yanbot-harness/core';
 import { decidePermission } from '@yanbot-harness/permission-engine';
 
@@ -44,6 +48,7 @@ type ActiveRun = {
   cancelReason?: string;
   runTimer: ReturnType<typeof setTimeout>;
   interactionTimers: Map<string, ReturnType<typeof setTimeout>>;
+  extensionIdentity: string;
 };
 
 type PendingInteraction = { runId: string; sessionId: string };
@@ -171,13 +176,41 @@ export class RunSupervisor {
       for (const selection of input.extensions) {
         if (selection.config) assertNoInlineCredentialValues(selection.config);
       }
+      if (new Set(input.extensions.map((item) => item.extensionId)).size !== input.extensions.length) {
+        throw new HarnessAdapterError({
+          code: 'CONFIGURATION_INVALID',
+          message: 'Duplicate extension selections.',
+          retryable: false,
+        });
+      }
       const workspace = await this.#workspaceGrants.resolve(input.workspaceGrant, input.relativeCwd);
       const effectiveConfig = this.effectiveConfig(input.configScopes);
       validateAdapterConfig(effectiveConfig.adapterConfig, this.#adapters.manifest(session.adapterId).configSchema);
       const capabilities = await this.#adapters.capabilities(session.adapterId, effectiveConfig);
       const adapterSessionId = this.#resolveResumeSession(input, session, capabilities);
       const extensionSelections = mergeExtensionSelections(effectiveConfig.extensionSelections, input.extensions);
-      resolveExtensions(extensionSelections, this.#extensions, capabilities);
+      const extensionSnapshots = await snapshotExtensions(extensionSelections, this.#extensions, capabilities).catch(
+        (error: unknown) => {
+          if (error instanceof ExtensionKitError)
+            throw new HarnessAdapterError({
+              code: error.code === 'CAPABILITY_UNSUPPORTED' ? 'CAPABILITY_UNSUPPORTED' : 'CONFIGURATION_INVALID',
+              message: 'Extension selection or resources are invalid.',
+              retryable: false,
+            });
+          throw error;
+        },
+      );
+      const extensionIdentity = extensionSnapshotIdentity(extensionSnapshots, effectiveConfig.credentialRefs);
+      if (adapterSessionId) {
+        const pin = await this.#store.getExtensionPin?.(sessionId);
+        if (pin?.adapterSessionId !== adapterSessionId || pin.identity !== extensionIdentity) {
+          throw new HarnessAdapterError({
+            code: 'CONFIGURATION_INVALID',
+            message: 'The extension identity changed or could not be verified. Start a new session.',
+            retryable: false,
+          });
+        }
+      }
 
       const timestamp = this.#now().toISOString();
       const run: LocalRun = {
@@ -206,12 +239,13 @@ export class RunSupervisor {
         sessionId,
         runTimer: this.#runTimer(run.runId),
         interactionTimers: new Map(),
+        extensionIdentity,
       };
       this.#activeRuns.set(run.runId, active);
       this.#activeSessionRuns.set(sessionId, run.runId);
       if (idempotencyRef !== undefined) this.#idempotency.set(idempotencyRef, { fingerprint, runId: run.runId });
 
-      const request: RunRequest = {
+      const request: AdapterRunInput = {
         runId: run.runId,
         sessionId,
         ...(adapterSessionId === undefined ? {} : { adapterSessionId }),
@@ -222,6 +256,7 @@ export class RunSupervisor {
         permissionPolicy: input.permissionPolicy,
         configScopes: input.configScopes,
         extensions: extensionSelections,
+        extensionSnapshots,
       };
       void this.#execute(run, request, effectiveConfig, active).catch(() => undefined);
       return { run, reused: false };
@@ -329,7 +364,7 @@ export class RunSupervisor {
 
   async #execute(
     originalRun: LocalRun,
-    request: RunRequest,
+    request: AdapterRunInput,
     configuration: EffectiveConfig,
     active: ActiveRun,
   ): Promise<void> {
@@ -337,15 +372,31 @@ export class RunSupervisor {
       const controller = await this.#adapters.startRun(originalRun.adapterId, request, configuration);
       active.controller = controller;
       if (active.cancelReason) await controller.cancel(active.cancelReason);
+      let terminal: AdapterEvent | undefined;
       for await (const event of controller.events) {
+        if (event.type === 'session.initialized' && event.payload.adapterSessionId) {
+          await this.#store.setExtensionPin?.(originalRun.sessionId, {
+            adapterSessionId: event.payload.adapterSessionId,
+            identity: active.extensionIdentity,
+          });
+        }
         if (event.type === 'interaction.requested')
           await this.#handleInteraction(active, originalRun, controller, event);
+        if (isTerminalEvent(event)) {
+          terminal = event;
+          continue;
+        }
         await this.#eventHub.publish(event, async (persisted) => {
           await this.#updateFromEvent(originalRun.runId, persisted);
-          if (isTerminalEvent(persisted)) this.#releaseActive(active);
         });
         if (event.type === 'interaction.resolved') this.#clearInteraction(active, event.payload.requestId);
       }
+      await controller.dispose();
+      if (terminal)
+        await this.#eventHub.publish(terminal, async (persisted) => {
+          await this.#updateFromEvent(originalRun.runId, persisted);
+          this.#releaseActive(active);
+        });
     } catch (error) {
       await this.#finishWithFailure(originalRun, error);
     } finally {

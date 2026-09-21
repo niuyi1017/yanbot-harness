@@ -66,8 +66,9 @@ for capability proof and adapter input so validation cannot diverge from executi
 
 The effective extension digest is pinned to the Harness session when the vendor session is first created. Resume with a
 different security-relevant snapshot is rejected as `CONFIGURATION_INVALID`; the caller starts a new Session instead.
-The initial pin is process-local: after restart, an extension-bearing resume without a known pin fails closed. Legacy
-empty-extension sessions may resume. Persistent private pins are deferred until a migration format is reviewed.
+Pins are persisted in a private versioned session sidecar containing only adapter session ID and effective digest.
+After restart, compatible pins resume; absent or incompatible pins fail closed and require a new adapter session.
+Pins are written before publishing session initialization, so interrupted writes cannot authorize stale resume.
 
 The initial MCP schema rejects literal environment values, shell interpreters and Windows batch launchers (`.cmd`/`.bat`).
 Windows callers use an executable such as `node.exe` and separate argv, never concatenate shell command strings.
@@ -76,6 +77,13 @@ per-extension schema and override semantics are defined. MCP JSON accepts only `
 records (`command`, `args`, optional `type: stdio`, and `envCredentialRefs`).
 Sidecar transport has no snapshot schema yet and must reject extension fields/selections explicitly; only the current
 in-process seam is enabled, avoiding silent stripping during JSON schema parsing.
+
+The standalone Runtime loads host-registered resources from `YANBOT_HARNESS_EXTENSIONS_DIR` (`skills/*/SKILL.md`,
+`mcp.json`). The SDK managed launcher, local facade and packaged launcher preserve this explicit setting. Runtime
+startup performs discovery; consumers use the public extension discovery endpoint and submit ID/version selections.
+Registration never uses a sibling Harness checkout or accepts arbitrary paths in an API request. No extension secret
+provider is exposed by this standalone directory format; embedders bind reviewed logical references using the existing
+configuration layers/context provider. Discovery metadata changes require restart.
 
 ## 4. Credentials and configuration
 

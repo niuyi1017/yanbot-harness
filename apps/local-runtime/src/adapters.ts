@@ -1,13 +1,13 @@
-import type { AdapterRuntimeContext, HarnessAdapter, ListModelsInput } from '@yanbot-harness/adapter-api';
-import { AdapterRegistry, HarnessAdapterError, assertRuntimeMatchesCapabilities } from '@yanbot-harness/adapter-api';
 import type {
-  AdapterManifest,
-  HarnessCapabilities,
-  JsonValue,
-  ModelDescriptor,
-  RunRequest,
-} from '@yanbot-harness/contracts';
+  AdapterRuntimeContext,
+  AdapterRunInput,
+  HarnessAdapter,
+  ListModelsInput,
+} from '@yanbot-harness/adapter-api';
+import { AdapterRegistry, HarnessAdapterError, assertRuntimeMatchesCapabilities } from '@yanbot-harness/adapter-api';
+import type { AdapterManifest, HarnessCapabilities, JsonValue, ModelDescriptor } from '@yanbot-harness/contracts';
 import { createManagedAdapterRun, type ManagedRunController } from '@yanbot-harness/core';
+import { redactEventForPersistence } from './redaction.js';
 
 export type AdapterContextProviderInput = {
   adapterId: string;
@@ -100,7 +100,7 @@ export class LocalAdapterService {
 
   async startRun(
     adapterId: string,
-    request: RunRequest,
+    request: AdapterRunInput,
     configuration: AdapterConfiguration,
   ): Promise<ManagedRunController> {
     const adapter = this.#registry.get(adapterId);
@@ -116,7 +116,49 @@ export class LocalAdapterService {
       adapterConfig: configuration.adapterConfig,
       credentialRefs: configuration.credentialRefs,
     });
-    return createManagedAdapterRun(adapter, context, request);
+    const snapshots = request.extensionSnapshots ?? [];
+    for (const snapshot of snapshots) {
+      if (snapshot.kind !== 'mcp') continue;
+      for (const key of Object.values(snapshot.resource.envCredentialRefs)) {
+        if (!configuration.credentialRefs[key] || !context.credentials?.[key]) {
+          throw new HarnessAdapterError({
+            code: 'CONFIGURATION_INVALID',
+            message: 'An extension credential could not be resolved.',
+            retryable: false,
+          });
+        }
+      }
+    }
+    const secrets = Object.values(context.credentials ?? {});
+    const controller = await createManagedAdapterRun(adapter, context, request).catch((error: unknown) => {
+      if (secrets.some((secret) => secret && String(error).includes(secret))) {
+        throw new HarnessAdapterError({
+          code: 'HARNESS_FAILED',
+          message: 'The adapter could not start.',
+          retryable: false,
+        });
+      }
+      throw error;
+    });
+    return {
+      events: (async function* () {
+        try {
+          for await (const event of controller.events) yield redactEventForPersistence(event, { secrets });
+        } catch (error) {
+          if (secrets.some((secret) => secret && String(error).includes(secret))) {
+            throw new HarnessAdapterError({
+              code: 'HARNESS_FAILED',
+              message: 'The adapter run failed.',
+              retryable: false,
+            });
+          }
+          throw error;
+        }
+      })(),
+      respond: (response) => controller.respond(response),
+      cancel: (reason) => controller.cancel(reason),
+      dispose: () => controller.dispose(),
+    };
   }
 
   async #withRuntime<T>(

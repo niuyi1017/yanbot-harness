@@ -7,6 +7,7 @@ test('standalone launcher retains file credentials and OS configuration but drop
     launcherEnvironment({
       PATH: '/node',
       YANBOT_HARNESS_STATE_DIR: '/private/state',
+      YANBOT_HARNESS_EXTENSIONS_DIR: '/private/extensions',
       CODEBUDDY_API_KEY_FILE: '/private/key',
       NODE_AUTH_TOKEN: 'fixture',
       NPM_TOKEN: 'fixture',
@@ -17,6 +18,11 @@ test('standalone launcher retains file credentials and OS configuration but drop
       LD_PRELOAD: '/untrusted',
       DYLD_INSERT_LIBRARIES: '/untrusted',
     }),
-    { PATH: '/node', YANBOT_HARNESS_STATE_DIR: '/private/state', CODEBUDDY_API_KEY_FILE: '/private/key' },
+    {
+      PATH: '/node',
+      YANBOT_HARNESS_STATE_DIR: '/private/state',
+      YANBOT_HARNESS_EXTENSIONS_DIR: '/private/extensions',
+      CODEBUDDY_API_KEY_FILE: '/private/key',
+    },
   );
 });

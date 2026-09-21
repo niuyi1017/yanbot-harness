@@ -19,6 +19,7 @@ const MAX_EVENT_LINE_BYTES = 1_048_576;
 
 type Stored<T> = { schemaVersion: number; data: T };
 type RunLocation = { sessionId: string; directory: string };
+export type ExtensionSessionPin = { adapterSessionId: string; identity: string };
 
 export interface LocalStateStore {
   initialize(): Promise<void>;
@@ -26,6 +27,8 @@ export interface LocalStateStore {
   updateSession(session: LocalSession): Promise<void>;
   getSession(sessionId: string): Promise<LocalSession | undefined>;
   listSessions(): Promise<LocalSession[]>;
+  getExtensionPin?(sessionId: string): Promise<ExtensionSessionPin | undefined>;
+  setExtensionPin?(sessionId: string, pin: ExtensionSessionPin): Promise<void>;
   createRun(run: LocalRun): Promise<void>;
   updateRun(run: LocalRun): Promise<void>;
   getRun(runId: string): Promise<LocalRun | undefined>;
@@ -105,6 +108,38 @@ export class FileLocalStateStore implements LocalStateStore {
   async listSessions(): Promise<LocalSession[]> {
     this.#assertInitialized();
     return [...this.#sessions.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async getExtensionPin(sessionId: string): Promise<ExtensionSessionPin | undefined> {
+    this.#assertInitialized();
+    if (!this.#sessions.has(sessionId)) throw notFound('Session does not exist.');
+    const file = path.join(this.#sessionDirectory(sessionId), 'extension-pin.json');
+    let content: string;
+    try {
+      content = await readFile(file, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw corrupt('Extension identity could not be read.');
+    }
+    try {
+      const value = JSON.parse(content) as Stored<ExtensionSessionPin>;
+      if (
+        value.schemaVersion !== STORE_SCHEMA_VERSION ||
+        typeof value.data?.adapterSessionId !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(value.data.identity)
+      )
+        throw new Error();
+      return { adapterSessionId: value.data.adapterSessionId, identity: value.data.identity };
+    } catch {
+      throw corrupt('Extension identity is corrupt.');
+    }
+  }
+
+  async setExtensionPin(sessionId: string, pin: ExtensionSessionPin): Promise<void> {
+    this.#assertInitialized();
+    if (!this.#sessions.has(sessionId)) throw notFound('Session does not exist.');
+    if (!/^[a-f0-9]{64}$/.test(pin.identity) || !pin.adapterSessionId) throw corrupt('Extension identity is invalid.');
+    await this.#writeStored(path.join(this.#sessionDirectory(sessionId), 'extension-pin.json'), pin);
   }
 
   async createRun(run: LocalRun): Promise<void> {

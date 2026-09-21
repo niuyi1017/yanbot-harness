@@ -10,6 +10,7 @@ import { createEnvironmentContextProvider } from './adapters.js';
 import { createManagedControl } from './managed-control.js';
 import { resolveRuntimeCredential, RuntimeCredentialError } from './runtime-credential.js';
 import { startLocalRuntime } from './server.js';
+import { loadRegisteredExtensions } from './extension-registration.js';
 
 const credentialEnvironmentKey = 'CODEBUDDY_API_KEY';
 const RUNTIME_VERSION = HARNESS_RELEASE_VERSION;
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
   const configuredReferenceScenario = referenceScenario();
   const adapterConfig = codeBuddyAdapterConfig();
   const runtime = await startLocalRuntime({
+    extensions: await loadRegisteredExtensions(process.env.YANBOT_HARNESS_EXTENSIONS_DIR),
     stateRoot,
     runtimeDescriptorPath: path.join(stateRoot, 'runtime.json'),
     adapters: [
@@ -143,6 +145,7 @@ Environment:
   YANBOT_HARNESS_ACCESS_TOKEN        Optional fixed Runtime bearer token.
   YANBOT_HARNESS_ALLOWED_ORIGINS     Optional comma-separated Origin allowlist.
   YANBOT_HARNESS_REFERENCE_SCENARIO  text, permission, question, or wait-for-cancel.
+  YANBOT_HARNESS_EXTENSIONS_DIR      Absolute trusted directory containing skills/ and mcp.json.
 `;
 
 function parseOrigins(value: string | undefined): string[] {
