@@ -56,8 +56,8 @@ type RemoteRunJob = {
 };
 ```
 
-禁止 organizationId、prompt、workspace path、Mongo/Redis URL、厂商配置和 access token。queue name 由部署配置提供；job ID
-固定为 `run:<runId>:attempt:<attempt>`。BullMQ `attempts=1`，业务 retry 由 Mongo reaper 创建新 attempt 和新 grant，避免重复使用
+禁止 organizationId、prompt、workspace path、Mongo/Redis URL、厂商配置和 access token。queue name 由部署配置提供；BullMQ
+自定义 job ID 禁止冒号，因此固定为 `run-<runId>-attempt-<attempt>`。BullMQ `attempts=1`，业务 retry 由 Mongo reaper 创建新 attempt 和新 grant，避免重复使用
 已经 claim 的单次 token。
 
 ## 4. Outbox 与 attempt 模型
