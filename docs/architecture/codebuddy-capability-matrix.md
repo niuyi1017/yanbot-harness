@@ -5,25 +5,30 @@ declarations or official SDK documentation expose the behavior. “Fixture” me
 normalization path without network access. “Real” requires the explicit `pnpm smoke:codebuddy` probe in a controlled
 credentialed environment.
 
-| Capability                 | Adapter level                     | Documented evidence                                    | Fixture evidence                                   | Real probe                  |
-| -------------------------- | --------------------------------- | ------------------------------------------------------ | -------------------------------------------------- | --------------------------- |
-| Text streaming             | native                            | `stream_event` and text/thinking delta types           | covered                                            | real-verified               |
-| Complete assistant message | native                            | assistant content blocks                               | covered                                            | real-verified               |
-| Tool lifecycle             | native                            | assistant `tool_use` and embedded `tool_result` blocks | embedded, top-level, and duplicate results covered | unverified                  |
-| Session resume             | native                            | `query({ options: { resume } })`                       | option mapping covered                             | real-verified               |
-| Cancellation               | native                            | `Query.interrupt()` and `AbortController`              | bounded non-responsive path covered                | real-verified               |
-| Permission interaction     | native                            | `canUseTool` callback                                  | allow, deny policy, and correlation covered        | unverified                  |
-| Question interaction       | native                            | `AskUserQuestion` through `canUseTool`                 | answer mapping covered                             | unverified                  |
-| Model list                 | unsupported in Preview            | SDK exposes two model discovery APIs                   | response mapping covered                           | returned 15; cleanup failed |
-| Token usage                | native                            | result `usage` fields                                  | covered                                            | real-verified               |
-| Cost usage                 | native                            | result `total_cost_usd`                                | covered                                            | real-verified               |
-| Configuration sources      | native                            | `user`, `project`, and `local` setting sources         | platform-scope mapping covered                     | internal route verified     |
-| MCP                        | unsupported in foundation adapter | SDK exposes MCP options/status                         | intentionally deferred                             | pending                     |
-| Skills/commands            | unsupported in foundation adapter | SDK exposes command discovery                          | intentionally deferred                             | pending                     |
-| Agents                     | unsupported in foundation adapter | SDK exposes agent options                              | intentionally deferred                             | pending                     |
-| Hooks                      | unsupported in foundation adapter | SDK exposes hook callbacks                             | intentionally deferred                             | pending                     |
+| Capability                 | Adapter level                                        | Documented evidence                                    | Fixture evidence                                   | Real probe                  |
+| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------- | --------------------------- |
+| Text streaming             | native                                               | `stream_event` and text/thinking delta types           | covered                                            | real-verified               |
+| Complete assistant message | native                                               | assistant content blocks                               | covered                                            | real-verified               |
+| Tool lifecycle             | native                                               | assistant `tool_use` and embedded `tool_result` blocks | embedded, top-level, and duplicate results covered | unverified                  |
+| Session resume             | native                                               | `query({ options: { resume } })`                       | option mapping covered                             | real-verified               |
+| Cancellation               | native                                               | `Query.interrupt()` and `AbortController`              | bounded non-responsive path covered                | real-verified               |
+| Permission interaction     | native                                               | `canUseTool` callback                                  | allow, deny policy, and correlation covered        | unverified                  |
+| Question interaction       | native                                               | `AskUserQuestion` through `canUseTool`                 | answer mapping covered                             | unverified                  |
+| Model list                 | unsupported in Preview                               | SDK exposes two model discovery APIs                   | response mapping covered                           | returned 15; cleanup failed |
+| Token usage                | native                                               | result `usage` fields                                  | covered                                            | real-verified               |
+| Cost usage                 | native                                               | result `total_cost_usd`                                | covered                                            | real-verified               |
+| Configuration sources      | native                                               | `user`, `project`, and `local` setting sources         | platform-scope mapping covered                     | internal route verified     |
+| MCP                        | unsupported by default; explicit experimental native | SDK stdio config and env placeholders                  | candidate mapping/lifecycle covered                | pending                     |
+| Skills/commands            | unsupported by default; explicit experimental native | SDK config/session Skill roots                         | candidate isolation/projection covered             | pending                     |
+| Agents                     | unsupported in foundation adapter                    | SDK exposes agent options                              | intentionally deferred                             | pending                     |
+| Hooks                      | unsupported in foundation adapter                    | SDK exposes hook callbacks                             | intentionally deferred                             | pending                     |
 
 ## Compatibility notes
+
+- The extension candidate may be enabled only by the host launcher `--experimental-extensions` or
+  `YANBOT_HARNESS_EXPERIMENTAL_EXTENSIONS=1`. Its native entries include `limits.experimental=true` and
+  `limits.liveVerified=false`. They describe execution mechanism only, never release readiness. Default startup
+  remains unsupported. See the [candidate evidence](../specs/codebuddy-extension-execution/candidate-evidence.md).
 
 - Public policies map inside the adapter: `interactive` → `default`, `auto-edit` → `acceptEdits`, and `read-only` →
   `plan`. The adapter never enables `bypassPermissions`.
