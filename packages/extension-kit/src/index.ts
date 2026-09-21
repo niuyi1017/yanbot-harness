@@ -1,4 +1,5 @@
 import { readFile, realpath, readdir, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import {
@@ -12,7 +13,13 @@ import {
 const MAX_EXTENSION_FILE_BYTES = 262_144;
 export { extensionDescriptorSchema } from '@yanbot-harness/contracts';
 export type { ExtensionDescriptor } from '@yanbot-harness/contracts';
-export type DiscoveredExtension = { descriptor: ExtensionDescriptor; resourcePath: string };
+export type DiscoveredExtension = {
+  descriptor: ExtensionDescriptor;
+  resourcePath: string;
+  allowedRoot?: string;
+  resourceDigest?: string;
+};
+export { snapshotExtensions, extensionSnapshotIdentity } from './snapshots.js';
 
 export class ExtensionKitError extends Error {
   readonly code: 'EXTENSION_INVALID' | 'EXTENSION_NOT_FOUND' | 'CAPABILITY_UNSUPPORTED' | 'EXTENSION_OUTSIDE_ROOT';
@@ -48,7 +55,7 @@ export async function discoverSkills(
           requiredCapabilities: ['extensions.skills'],
           credentialRefs: [],
         });
-        discovered.push({ descriptor, resourcePath });
+        discovered.push({ descriptor, resourcePath, allowedRoot: root, resourceDigest: digest(content) });
       }
     }
     return assertUnique(discovered);
@@ -68,7 +75,8 @@ export async function discoverMcpServers(options: {
     if (!isWithin(root, resourcePath)) {
       throw new ExtensionKitError('EXTENSION_OUTSIDE_ROOT', 'The MCP configuration is outside its allowed root.');
     }
-    const parsed: unknown = JSON.parse(await readLimitedFile(resourcePath));
+    const content = await readLimitedFile(resourcePath);
+    const parsed: unknown = JSON.parse(content);
     if (!isRecord(parsed) || !isRecord(parsed.mcpServers)) {
       throw new ExtensionKitError('EXTENSION_INVALID', 'Invalid MCP configuration.');
     }
@@ -78,6 +86,10 @@ export async function discoverMcpServers(options: {
         const credentialRefs = Object.keys(raw).filter((key) =>
           /(?:token|secret|password|api[-_]?key|headers)/i.test(key),
         );
+        if (isRecord(raw.envCredentialRefs)) {
+          for (const value of Object.values(raw.envCredentialRefs))
+            if (typeof value === 'string') credentialRefs.push(value);
+        }
         return {
           descriptor: extensionDescriptorSchema.parse({
             extensionId: `mcp.${normalizeId(name)}`,
@@ -89,6 +101,8 @@ export async function discoverMcpServers(options: {
             credentialRefs,
           }),
           resourcePath,
+          allowedRoot: root,
+          resourceDigest: digest(content),
         };
       }),
     );
@@ -102,6 +116,9 @@ export function resolveExtensions(
   discovered: readonly DiscoveredExtension[],
   capabilities: HarnessCapabilities,
 ): DiscoveredExtension[] {
+  assertUnique([...discovered]);
+  if (new Set(selections.map((item) => item.extensionId)).size !== selections.length)
+    throw new ExtensionKitError('EXTENSION_INVALID', 'Duplicate extension selections.');
   const byId = new Map(discovered.map((extension) => [extension.descriptor.extensionId, extension]));
   return selections.flatMap((selection) => {
     if (!selection.enabled) return [];
@@ -202,4 +219,8 @@ function isWithin(root: string, candidate: string): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function digest(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }

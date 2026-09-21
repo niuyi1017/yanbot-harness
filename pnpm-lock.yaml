@@ -265,6 +265,9 @@ importers:
 
   packages/extension-kit:
     dependencies:
+      '@yanbot-harness/adapter-api':
+        specifier: workspace:*
+        version: link:../adapter-api
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../contracts

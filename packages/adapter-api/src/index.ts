@@ -28,7 +28,35 @@ export type AdapterProbeResult = {
 
 export type AdapterRunInput = RunRequest & {
   abortSignal?: AbortSignal;
+  /** Private in-process data. Never serialize into public requests, runs or events. */
+  extensionSnapshots?: readonly AdapterExtensionSnapshot[];
 };
+
+export type AdapterExtensionSnapshot = Readonly<{
+  extensionId: string;
+  version: string;
+  source: 'bundled' | 'user' | 'project';
+  descriptorDigest: string;
+  contentDigest: string;
+}> &
+  (
+    | Readonly<{
+        kind: 'mcp';
+        resource: Readonly<{
+          name: string;
+          transport: 'stdio';
+          command: string;
+          args: readonly string[];
+          envCredentialRefs: Readonly<Record<string, string>>;
+        }>;
+      }>
+    | Readonly<{
+        kind: 'skill';
+        resource: Readonly<{
+          files: readonly Readonly<{ path: string; content: string; bytes: number; digest: string }>[];
+        }>;
+      }>
+  );
 
 export type ListModelsInput = {
   refresh?: boolean;

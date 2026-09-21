@@ -18,6 +18,7 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@yanbot-harness/adapter-api": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
     "zod": "4.4.3"
   }
