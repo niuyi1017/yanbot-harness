@@ -8,6 +8,7 @@ import {
   sessionSchema,
   type AdapterEvent,
 } from '@yanbot-harness/contracts';
+import { z } from 'zod';
 
 import { AuthService } from '../auth/auth.service.js';
 import { conflict, permissionDenied, resourceNotFound } from '../common/cloud-error.js';
@@ -18,7 +19,17 @@ import { CLOUD_CONFIG } from '../persistence/mongo.service.js';
 import { ControlPlaneService } from '../control-plane/control-plane.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
-const allActions: ExecutionGrantAction[] = ['workspace.read', 'events.append', 'interaction.read', 'run.complete'];
+const allActions: ExecutionGrantAction[] = [
+  'run.read',
+  'workspace.read',
+  'events.append',
+  'interaction.read',
+  'run.complete',
+];
+const workerIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9_-]{1,128}$/u);
 const terminalTypes = new Set<AdapterEvent['type']>(['run.completed', 'run.failed', 'run.cancelled']);
 
 @Injectable()
@@ -72,9 +83,27 @@ export class ExecutionGrantService {
     return { executionGrant, expiresAt: expiresAt.toISOString() };
   }
 
-  async claim(rawGrant: string, auditRequestId: string = randomUUID()): Promise<Omit<ExecutionGrantRecord, 'digest'>> {
+  async claim(
+    rawGrant: string,
+    workerIdValue: unknown,
+    auditRequestId: string = randomUUID(),
+  ): Promise<Omit<ExecutionGrantRecord, 'digest'>> {
     this.#enabled();
-    const claimed = await this.#store.claimExecutionGrant(this.#auth.digest(rawGrant), new Date());
+    const workerId = workerIdSchema.parse(workerIdValue);
+    const now = new Date();
+    const claimed = await this.#store.transaction(async () => {
+      const grantRecord = await this.#store.claimExecutionGrant(this.#auth.digest(rawGrant), workerId, now);
+      if (!grantRecord) return undefined;
+      const attempt = await this.#store.claimRunAttempt(
+        grantRecord.organizationId,
+        grantRecord.runId,
+        grantRecord.attempt,
+        workerId,
+        now,
+        new Date(now.getTime() + 30_000),
+      );
+      return attempt ? grantRecord : undefined;
+    });
     if (!claimed) {
       await this.#audit.record({
         requestId: auditRequestId,
@@ -100,6 +129,7 @@ export class ExecutionGrantService {
       attempt: claimed.attempt,
       actions: claimed.actions,
       expiresAt: claimed.expiresAt,
+      ...(claimed.claimedBy === undefined ? {} : { claimedBy: claimed.claimedBy }),
       ...(claimed.claimedAt === undefined ? {} : { claimedAt: claimed.claimedAt }),
       ...(claimed.revokedAt === undefined ? {} : { revokedAt: claimed.revokedAt }),
     };

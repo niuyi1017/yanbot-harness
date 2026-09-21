@@ -8,6 +8,7 @@ import type {
   OrganizationRecord,
   OutboxRecord,
   RunRecord,
+  RunAttemptRecord,
   SessionRecord,
   TokenGrantRecord,
   UserRecord,
@@ -29,6 +30,7 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
   readonly events: EventRecord[] = [];
   readonly interactions = new Map<string, InteractionRecord>();
   readonly outbox: OutboxRecord[] = [];
+  readonly runAttempts: RunAttemptRecord[] = [];
   readonly executionGrants: ExecutionGrantRecord[] = [];
 
   async transaction<T>(operation: () => Promise<T>): Promise<T> {
@@ -179,6 +181,181 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     }
   }
 
+  async claimDispatchOutbox(owner: string, now: Date, leaseExpiresAt: Date): Promise<OutboxRecord | undefined> {
+    const record = this.outbox
+      .filter(
+        (candidate) =>
+          candidate.availableAt <= now &&
+          (candidate.status === 'pending' ||
+            (candidate.status === 'publishing' &&
+              candidate.leaseExpiresAt !== undefined &&
+              candidate.leaseExpiresAt <= now)),
+      )
+      .sort((left, right) => left.availableAt.getTime() - right.availableAt.getTime())[0];
+    if (!record) return undefined;
+    record.status = 'publishing';
+    record.leaseOwner = owner;
+    record.leaseExpiresAt = new Date(leaseExpiresAt);
+    return clone(record);
+  }
+
+  async findOutbox(organizationId: string, outboxId: string): Promise<OutboxRecord | undefined> {
+    return cloneOptional(
+      this.outbox.find((record) => record.organizationId === organizationId && record.outboxId === outboxId),
+    );
+  }
+
+  async insertOutbox(record: OutboxRecord): Promise<void> {
+    if (
+      this.outbox.some(
+        (candidate) => candidate.organizationId === record.organizationId && candidate.outboxId === record.outboxId,
+      )
+    ) {
+      throw new Error('The outbox record already exists.');
+    }
+    this.outbox.push(clone(record));
+  }
+
+  async markOutboxPublished(
+    organizationId: string,
+    outboxId: string,
+    owner: string,
+    queueJobId: string,
+    publishedAt: Date,
+  ): Promise<boolean> {
+    const record = this.outbox.find(
+      (candidate) =>
+        candidate.organizationId === organizationId &&
+        candidate.outboxId === outboxId &&
+        candidate.status === 'publishing' &&
+        candidate.leaseOwner === owner,
+    );
+    if (!record) return false;
+    record.status = 'published';
+    record.queueJobId = queueJobId;
+    record.publishedAt = new Date(publishedAt);
+    delete record.leaseOwner;
+    delete record.leaseExpiresAt;
+    return true;
+  }
+
+  async releaseOutbox(organizationId: string, outboxId: string, owner: string, availableAt: Date): Promise<boolean> {
+    const record = this.outbox.find(
+      (candidate) =>
+        candidate.organizationId === organizationId &&
+        candidate.outboxId === outboxId &&
+        candidate.status === 'publishing' &&
+        candidate.leaseOwner === owner,
+    );
+    if (!record) return false;
+    record.status = 'pending';
+    record.availableAt = new Date(availableAt);
+    delete record.leaseOwner;
+    delete record.leaseExpiresAt;
+    return true;
+  }
+
+  async insertRunAttempt(record: RunAttemptRecord): Promise<void> {
+    if (
+      this.runAttempts.some(
+        (candidate) =>
+          (candidate.organizationId === record.organizationId &&
+            candidate.runId === record.runId &&
+            candidate.attempt === record.attempt) ||
+          candidate.queueJobId === record.queueJobId ||
+          (candidate.organizationId === record.organizationId &&
+            candidate.runId === record.runId &&
+            candidate.active &&
+            record.active),
+      )
+    ) {
+      throw new Error('The Run attempt conflicts with an existing attempt.');
+    }
+    this.runAttempts.push(clone(record));
+  }
+
+  async findRunAttempt(organizationId: string, runId: string, attempt: number): Promise<RunAttemptRecord | undefined> {
+    return cloneOptional(
+      this.runAttempts.find(
+        (record) => record.organizationId === organizationId && record.runId === runId && record.attempt === attempt,
+      ),
+    );
+  }
+
+  async replaceRunAttempt(record: RunAttemptRecord): Promise<void> {
+    const index = this.runAttempts.findIndex(
+      (candidate) =>
+        candidate.organizationId === record.organizationId &&
+        candidate.runId === record.runId &&
+        candidate.attempt === record.attempt,
+    );
+    if (index < 0) throw new Error('The Run attempt does not exist.');
+    this.runAttempts[index] = clone(record);
+  }
+
+  async claimRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    workerId: string,
+    now: Date,
+    leaseExpiresAt: Date,
+  ): Promise<RunAttemptRecord | undefined> {
+    const record = this.runAttempts.find(
+      (candidate) =>
+        candidate.organizationId === organizationId &&
+        candidate.runId === runId &&
+        candidate.attempt === attempt &&
+        candidate.active &&
+        candidate.status === 'queued',
+    );
+    if (!record) return undefined;
+    record.status = 'leased';
+    record.workerId = workerId;
+    record.heartbeatAt = new Date(now);
+    record.leaseExpiresAt = new Date(leaseExpiresAt);
+    record.updatedAt = new Date(now);
+    return clone(record);
+  }
+
+  async heartbeatRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    workerId: string,
+    now: Date,
+    leaseExpiresAt: Date,
+  ): Promise<boolean> {
+    const record = this.runAttempts.find(
+      (candidate) =>
+        candidate.organizationId === organizationId &&
+        candidate.runId === runId &&
+        candidate.attempt === attempt &&
+        candidate.active &&
+        candidate.status === 'leased' &&
+        candidate.workerId === workerId &&
+        candidate.leaseExpiresAt !== undefined &&
+        candidate.leaseExpiresAt > now,
+    );
+    if (!record) return false;
+    record.heartbeatAt = new Date(now);
+    record.leaseExpiresAt = new Date(leaseExpiresAt);
+    record.updatedAt = new Date(now);
+    return true;
+  }
+
+  async listRecoverableRunAttempts(before: Date, limit: number): Promise<RunAttemptRecord[]> {
+    return this.runAttempts
+      .filter(
+        (record) =>
+          record.active &&
+          ((record.status === 'leased' && record.leaseExpiresAt !== undefined && record.leaseExpiresAt <= before) ||
+            ((record.status === 'dispatching' || record.status === 'queued') && record.updatedAt <= before)),
+      )
+      .slice(0, limit)
+      .map(clone);
+  }
+
   async insertEvent(record: EventRecord): Promise<void> {
     this.events.push(clone(record));
   }
@@ -227,13 +404,18 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     this.executionGrants.push(clone(record));
   }
 
-  async claimExecutionGrant(digest: string, claimedAt: Date): Promise<ExecutionGrantRecord | undefined> {
+  async claimExecutionGrant(
+    digest: string,
+    workerId: string,
+    claimedAt: Date,
+  ): Promise<ExecutionGrantRecord | undefined> {
     const record = this.executionGrants.find(
       (candidate) =>
         candidate.digest === digest && !candidate.claimedAt && !candidate.revokedAt && candidate.expiresAt > claimedAt,
     );
     if (!record) return undefined;
     record.claimedAt = new Date(claimedAt);
+    record.claimedBy = workerId;
     return clone(record);
   }
 

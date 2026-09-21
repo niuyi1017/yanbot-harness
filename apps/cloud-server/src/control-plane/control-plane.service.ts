@@ -180,6 +180,7 @@ export class ControlPlaneService {
           organizationId: principal.organizationId,
           outboxId: this.#generateId(),
           runId: run.runId,
+          attempt: 1,
           kind: 'run.requested',
           status: 'pending',
           availableAt: this.#now(),

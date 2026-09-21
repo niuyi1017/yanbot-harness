@@ -10,8 +10,12 @@ export class ExecutionGrantController {
   constructor(@Inject(ExecutionGrantService) private readonly grants: ExecutionGrantService) {}
 
   @Post('/execution-grants/claim')
-  claim(@Headers('authorization') authorization: string | undefined, @Res({ passthrough: true }) response: Response) {
-    return this.grants.claim(grant(authorization), requestId(response));
+  claim(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: { workerId?: unknown },
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.grants.claim(grant(authorization), body.workerId, requestId(response));
   }
 
   @Get('/runs/:runId/workspace')

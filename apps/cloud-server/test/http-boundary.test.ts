@@ -59,11 +59,23 @@ describe('Cloud HTTP boundary', () => {
     );
     const run = created.run as { runId: string; sessionId: string };
     const record = await store.findRun(identity.organizationId, run.runId);
+    const now = new Date();
+    await store.insertRunAttempt({
+      organizationId: identity.organizationId,
+      runId: run.runId,
+      attempt: 1,
+      queueJobId: `run-${run.runId}-attempt-1`,
+      status: 'queued',
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    });
     const issued = await grants.issue(record!);
     const executionAuthorization = { authorization: `Bearer ${issued.executionGrant}` };
     const claim = await fetch(`${origin}/internal/v1/execution-grants/claim`, {
       method: 'POST',
-      headers: executionAuthorization,
+      headers: { ...executionAuthorization, 'content-type': 'application/json' },
+      body: JSON.stringify({ workerId: 'http-worker' }),
     });
     expect(claim.status).toBe(201);
     const started = adapterEvent(run, 1, 'run.started', { adapterId: 'cn.yanbot.reference' });

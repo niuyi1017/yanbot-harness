@@ -13,6 +13,7 @@ import type {
   OrganizationRecord,
   OutboxRecord,
   RunRecord,
+  RunAttemptRecord,
   SessionRecord,
   TokenGrantRecord,
   UserRecord,
@@ -212,6 +213,140 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
     );
   }
 
+  async claimDispatchOutbox(owner: string, now: Date, leaseExpiresAt: Date): Promise<OutboxRecord | undefined> {
+    const query = this.#model('Outbox').findOneAndUpdate(
+      {
+        availableAt: { $lte: now },
+        $or: [{ status: 'pending' }, { status: 'publishing', leaseExpiresAt: { $lte: now } }],
+      },
+      { $set: { status: 'publishing', leaseOwner: owner, leaseExpiresAt } },
+      { ...this.#options(), new: true, sort: { availableAt: 1, createdAt: 1 } },
+    );
+    return optionalClean<OutboxRecord>(await query.lean().exec());
+  }
+
+  findOutbox(organizationId: string, outboxId: string): Promise<OutboxRecord | undefined> {
+    return this.#findOne('Outbox', { organizationId, outboxId });
+  }
+
+  insertOutbox(record: OutboxRecord): Promise<void> {
+    return this.#insert('Outbox', record);
+  }
+
+  async markOutboxPublished(
+    organizationId: string,
+    outboxId: string,
+    owner: string,
+    queueJobId: string,
+    publishedAt: Date,
+  ): Promise<boolean> {
+    const result = await this.#model('Outbox').updateOne(
+      { organizationId, outboxId, status: 'publishing', leaseOwner: owner },
+      {
+        $set: { status: 'published', queueJobId, publishedAt },
+        $unset: { leaseOwner: 1, leaseExpiresAt: 1 },
+      },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
+  }
+
+  async releaseOutbox(organizationId: string, outboxId: string, owner: string, availableAt: Date): Promise<boolean> {
+    const result = await this.#model('Outbox').updateOne(
+      { organizationId, outboxId, status: 'publishing', leaseOwner: owner },
+      {
+        $set: { status: 'pending', availableAt },
+        $unset: { leaseOwner: 1, leaseExpiresAt: 1 },
+      },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
+  }
+
+  insertRunAttempt(record: RunAttemptRecord): Promise<void> {
+    return this.#insert('RunAttempt', record);
+  }
+
+  findRunAttempt(organizationId: string, runId: string, attempt: number): Promise<RunAttemptRecord | undefined> {
+    return this.#findOne('RunAttempt', { organizationId, runId, attempt });
+  }
+
+  replaceRunAttempt(record: RunAttemptRecord): Promise<void> {
+    return this.#replace(
+      'RunAttempt',
+      { organizationId: record.organizationId, runId: record.runId, attempt: record.attempt },
+      record,
+    );
+  }
+
+  async claimRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    workerId: string,
+    now: Date,
+    leaseExpiresAt: Date,
+  ): Promise<RunAttemptRecord | undefined> {
+    const query = this.#model('RunAttempt').findOneAndUpdate(
+      { organizationId, runId, attempt, active: true, status: 'queued' },
+      {
+        $set: {
+          status: 'leased',
+          workerId,
+          heartbeatAt: now,
+          leaseExpiresAt,
+          updatedAt: now,
+        },
+      },
+      { ...this.#options(), new: true },
+    );
+    return optionalClean<RunAttemptRecord>(await query.lean().exec());
+  }
+
+  async heartbeatRunAttempt(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    workerId: string,
+    now: Date,
+    leaseExpiresAt: Date,
+  ): Promise<boolean> {
+    const result = await this.#model('RunAttempt').updateOne(
+      {
+        organizationId,
+        runId,
+        attempt,
+        active: true,
+        status: 'leased',
+        workerId,
+        leaseExpiresAt: { $gt: now },
+      },
+      { $set: { heartbeatAt: now, leaseExpiresAt, updatedAt: now } },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
+  }
+
+  async listRecoverableRunAttempts(before: Date, limit: number): Promise<RunAttemptRecord[]> {
+    return this.#model('RunAttempt')
+      .find(
+        {
+          active: true,
+          $or: [
+            { status: 'leased', leaseExpiresAt: { $lte: before } },
+            { status: { $in: ['dispatching', 'queued'] }, updatedAt: { $lte: before } },
+          ],
+        },
+        null,
+        this.#options(),
+      )
+      .sort({ updatedAt: 1 })
+      .limit(limit)
+      .lean()
+      .exec()
+      .then((records) => records.map((record) => clean<RunAttemptRecord>(record)));
+  }
+
   insertEvent(record: EventRecord): Promise<void> {
     return this.#insert('RunEvent', record);
   }
@@ -254,10 +389,14 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
     return this.#insert('ExecutionGrant', record);
   }
 
-  async claimExecutionGrant(digest: string, claimedAt: Date): Promise<ExecutionGrantRecord | undefined> {
+  async claimExecutionGrant(
+    digest: string,
+    workerId: string,
+    claimedAt: Date,
+  ): Promise<ExecutionGrantRecord | undefined> {
     const query = this.#model('ExecutionGrant').findOneAndUpdate(
       { digest, claimedAt: { $exists: false }, revokedAt: { $exists: false }, expiresAt: { $gt: claimedAt } },
-      { $set: { claimedAt } },
+      { $set: { claimedAt, claimedBy: workerId } },
       { ...this.#options(), new: true },
     );
     return optionalClean<ExecutionGrantRecord>(await query.lean().exec());

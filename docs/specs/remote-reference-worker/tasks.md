@@ -23,9 +23,9 @@
 
 ## T3. Outbox 与 RunAttempt 持久化
 
-- [ ] 扩展 outbox lease/attempt/queue 字段，新增 `run_attempts` Schema 和索引。
-- [ ] 增加 tenant-first dispatch store：claim/release/publish/reconcile/attempt terminal。
-- [ ] memory 与 Mongo 实现保持同一状态机；新增并发、lease expiry 和唯一 active attempt 测试。
+- [x] 扩展 outbox lease/attempt/queue 字段，新增 `run_attempts` Schema 和索引。
+- [x] 增加 tenant-first dispatch store：claim/release/publish/reconcile/attempt terminal。
+- [x] memory 与 Mongo 实现保持同一状态机；新增并发、lease expiry 和唯一 active attempt 测试。
 
 验收：relay 崩溃点可判定恢复；Mongo transaction/index 真实证据仍单列外部门禁。
 

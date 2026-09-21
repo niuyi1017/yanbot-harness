@@ -12,6 +12,7 @@ export const collectionNames = Object.freeze({
   tokenGrants: 'yanbot_harness_token_grants',
   sessions: 'yanbot_harness_sessions',
   runs: 'yanbot_harness_runs',
+  runAttempts: 'yanbot_harness_run_attempts',
   runEvents: 'yanbot_harness_run_events',
   interactions: 'yanbot_harness_interactions',
   workspaces: 'yanbot_harness_workspaces',
@@ -120,6 +121,7 @@ export const executionGrantSchema = tenantDocumentSchema({
   actions: { type: [String], required: true },
   expiresAt: date,
   claimedAt: Date,
+  claimedBy: String,
   revokedAt: Date,
 })
   .index({ digest: 1 }, { unique: true })
@@ -127,13 +129,39 @@ export const executionGrantSchema = tenantDocumentSchema({
 export const outboxSchema = tenantDocumentSchema({
   outboxId: identity,
   runId: identity,
+  attempt: { type: Number, required: true },
   kind: identity,
-  status: { type: String, enum: ['pending', 'published', 'cancelled'], required: true },
+  status: { type: String, enum: ['pending', 'publishing', 'published', 'cancelled'], required: true },
   availableAt: date,
   createdAt: date,
+  leaseOwner: String,
+  leaseExpiresAt: Date,
+  queueJobId: String,
+  publishedAt: Date,
 })
   .index({ organizationId: 1, outboxId: 1 }, { unique: true })
   .index({ status: 1, availableAt: 1 });
+export const runAttemptSchema = tenantDocumentSchema({
+  runId: identity,
+  attempt: { type: Number, required: true },
+  queueJobId: identity,
+  status: {
+    type: String,
+    enum: ['dispatching', 'queued', 'leased', 'completed', 'failed', 'abandoned'],
+    required: true,
+  },
+  active: { type: Boolean, required: true },
+  workerId: String,
+  heartbeatAt: Date,
+  leaseExpiresAt: Date,
+  failureCode: String,
+  createdAt: date,
+  updatedAt: date,
+})
+  .index({ organizationId: 1, runId: 1, attempt: 1 }, { unique: true })
+  .index({ queueJobId: 1 }, { unique: true })
+  .index({ organizationId: 1, runId: 1, active: 1 }, { unique: true, partialFilterExpression: { active: true } })
+  .index({ active: 1, status: 1, leaseExpiresAt: 1, updatedAt: 1 });
 export const auditLogSchema = new Schema(
   {
     timestamp: date,
@@ -162,6 +190,7 @@ export const modelDefinitions = Object.freeze([
   ['TokenGrant', tokenGrantSchema, collectionNames.tokenGrants],
   ['HarnessSession', sessionSchema, collectionNames.sessions],
   ['HarnessRun', runSchema, collectionNames.runs],
+  ['RunAttempt', runAttemptSchema, collectionNames.runAttempts],
   ['RunEvent', runEventSchema, collectionNames.runEvents],
   ['Interaction', interactionSchema, collectionNames.interactions],
   ['Workspace', workspaceSchema, collectionNames.workspaces],

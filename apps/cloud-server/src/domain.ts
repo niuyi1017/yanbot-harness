@@ -78,12 +78,37 @@ export type OutboxRecord = {
   organizationId: string;
   outboxId: string;
   runId: string;
+  attempt: number;
   kind: 'run.requested';
-  status: 'pending' | 'published' | 'cancelled';
+  status: 'pending' | 'publishing' | 'published' | 'cancelled';
   availableAt: Date;
   createdAt: Date;
+  leaseOwner?: string;
+  leaseExpiresAt?: Date;
+  queueJobId?: string;
+  publishedAt?: Date;
 };
-export type ExecutionGrantAction = 'workspace.read' | 'events.append' | 'interaction.read' | 'run.complete';
+export type RunAttemptStatus = 'dispatching' | 'queued' | 'leased' | 'completed' | 'failed' | 'abandoned';
+export type RunAttemptRecord = {
+  organizationId: string;
+  runId: string;
+  attempt: number;
+  queueJobId: string;
+  status: RunAttemptStatus;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  workerId?: string;
+  heartbeatAt?: Date;
+  leaseExpiresAt?: Date;
+  failureCode?: string;
+};
+export type ExecutionGrantAction =
+  | 'run.read'
+  | 'workspace.read'
+  | 'events.append'
+  | 'interaction.read'
+  | 'run.complete';
 export type ExecutionGrantRecord = {
   organizationId: string;
   runId: string;
@@ -93,6 +118,7 @@ export type ExecutionGrantRecord = {
   actions: ExecutionGrantAction[];
   expiresAt: Date;
   claimedAt?: Date;
+  claimedBy?: string;
   revokedAt?: Date;
 };
 export type AuditRecord = {

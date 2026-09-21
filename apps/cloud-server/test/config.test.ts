@@ -27,7 +27,7 @@ describe('Cloud Server configuration', () => {
 
   it('defines only prefixed collections and required unique/TTL indexes', () => {
     expect(Object.values(collectionNames).every((name) => name.startsWith('yanbot_harness_'))).toBe(true);
-    expect(modelDefinitions).toHaveLength(13);
+    expect(modelDefinitions).toHaveLength(14);
     const tokenIndexes = modelDefinitions.find(([name]) => name === 'TokenGrant')?.[1].indexes() ?? [];
     expect(tokenIndexes).toEqual(
       expect.arrayContaining([

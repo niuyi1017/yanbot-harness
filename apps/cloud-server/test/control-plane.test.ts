@@ -77,10 +77,15 @@ describe('Execution grants', () => {
     const record = await store.findRun(principal.organizationId, created.run.runId);
     expect(record).toBeDefined();
     const grants = new ExecutionGrantService(store, auth, service, config, new AuditService(store, config));
+    await insertAttempt(store, principal.organizationId, created.run.runId);
     const issued = await grants.issue(record!);
     expect(JSON.stringify(store)).not.toContain(issued.executionGrant);
-    await expect(grants.claim(issued.executionGrant)).resolves.toMatchObject({ runId: created.run.runId, attempt: 1 });
-    await expect(grants.claim(issued.executionGrant)).rejects.toMatchObject({ status: 403 });
+    await expect(grants.claim(issued.executionGrant, 'worker-a')).resolves.toMatchObject({
+      runId: created.run.runId,
+      attempt: 1,
+      claimedBy: 'worker-a',
+    });
+    await expect(grants.claim(issued.executionGrant, 'worker-b')).rejects.toMatchObject({ status: 403 });
     await expect(grants.workspace(issued.executionGrant, randomUUID(), 1)).rejects.toMatchObject({ status: 403 });
     await expect(grants.workspace(issued.executionGrant, created.run.runId, 2)).rejects.toMatchObject({ status: 403 });
   });
@@ -94,8 +99,9 @@ describe('Execution grants', () => {
     });
     const record = await store.findRun(principal.organizationId, created.run.runId);
     const grants = new ExecutionGrantService(store, auth, service, config, new AuditService(store, config));
+    await insertAttempt(store, principal.organizationId, created.run.runId);
     const issued = await grants.issue(record!);
-    await grants.claim(issued.executionGrant);
+    await grants.claim(issued.executionGrant, 'worker-a');
     const started = event(created.run.runId, session.sessionId, 1, 'run.started', {
       adapterId: 'cn.yanbot.reference',
     });
@@ -129,7 +135,7 @@ describe('Execution grants', () => {
       disabledConfig,
       new AuditService(store, disabledConfig),
     );
-    await expect(grants.claim('yhe_' + 'x'.repeat(43))).rejects.toMatchObject({ status: 404 });
+    await expect(grants.claim('yhe_' + 'x'.repeat(43), 'worker-a')).rejects.toMatchObject({ status: 404 });
   });
 });
 
@@ -161,6 +167,24 @@ async function setup() {
   };
   await store.insertWorkspace(workspace);
   return { store, workspaces, service, auth, principal, workspace };
+}
+
+async function insertAttempt(
+  store: MemoryControlPlaneStore,
+  organizationId: string,
+  runId: string,
+): Promise<void> {
+  const now = new Date();
+  await store.insertRunAttempt({
+    organizationId,
+    runId,
+    attempt: 1,
+    queueJobId: `run-${runId}-attempt-1`,
+    status: 'queued',
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 function event(
