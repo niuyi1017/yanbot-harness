@@ -122,6 +122,22 @@ pinned SDK before implementation is considered complete. If the pinned SDK canno
 loading ambient configuration, `extensions.skills` remains `unsupported`; copying Skills into the consumer workspace or
 enabling ambient settings is not an acceptable fallback.
 
+Pinned SDK 0.3.254 inspection found that the Skill loader reads project Skills regardless of settingSources. The
+candidate therefore requires a host-created workspace without `.codebuddy`, redirects `CODEBUDDY_CONFIG_DIR` to a
+Harness-session-private persistent directory, sets `CODEBUDDY_SESSION_SKILL_DIRS` to a disposable run projection,
+clears builtin Skill roots, and uses no setting sources. The persistent directory retains vendor session transcripts
+for resume; selected Skill files live only in the disposable projection. A per-session exclusive lease prevents
+concurrent projections. Fresh per-run projections never copy or link ambient settings into this directory. Only
+Read/Skill/AskUserQuestion built-in tools and selected MCP tools are exposed on this candidate path.
+
+SDK MCP object options become CLI argv JSON. To keep secret values out of argv, logical env bindings become generated
+`${HARNESS_MCP_<digest>}` placeholders and secret values enter only the child environment. The pinned stdio environment
+expansion seam is documented by vendor `mcp-config-env-expand-service.d.ts`; raw command/args placeholders are rejected.
+Live canary scans remain required before capability promotion. No private vendor API is patched.
+
+Offline implementation and probes use an explicit adapter-constructor-only opt-in; production capabilities remain
+unsupported until controlled live evidence passes. This option is not a public SDK request or environment override.
+
 ### 5.3 Capability declaration
 
 - CodeBuddy `extensions.mcp` changes from `unsupported` only after offline lifecycle tests and the controlled real MCP
