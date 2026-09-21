@@ -133,7 +133,7 @@ export function extensionSnapshotIdentity(
   );
 }
 
-async function readStable(file: string, root: string): Promise<string> {
+export async function readStable(file: string, root: string): Promise<string> {
   const before = await lstat(file);
   if (!before.isFile() || before.isSymbolicLink() || before.size > MAX_FILE_BYTES) invalid();
   const canonical = await realpath(file);
@@ -162,7 +162,9 @@ async function readStable(file: string, root: string): Promise<string> {
       (await realpath(file)) !== canonical
     )
       invalid();
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, used));
+    const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, used));
+    if (content.includes('\0')) invalid();
+    return content;
   } finally {
     await handle.close();
   }
@@ -173,7 +175,8 @@ function within(root: string, file: string): boolean {
 }
 function portableName(name: string): boolean {
   return (
-    !/[<>:"\\|?*\x00-\x1f]/.test(name) &&
+    !/[<>:"\\|?*]/.test(name) &&
+    ![...name].some((character) => character.charCodeAt(0) < 32) &&
     !/[. ]$/.test(name) &&
     !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)
   );

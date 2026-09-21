@@ -21,6 +21,35 @@ async function fixture() {
 }
 const selection = [{ extensionId: 'sample', enabled: true }];
 describe('immutable extension snapshots', () => {
+  it('discovers Windows CRLF frontmatter with the same ID and version', async () => {
+    const root = await fixture();
+    await writeFile(
+      path.join(root, 'skill', 'SKILL.md'),
+      '---\r\nname: windows-skill\r\nversion: 2.0.0\r\n---\r\nText',
+    );
+    expect((await discoverSkills([{ path: root, source: 'project' }]))[0]?.descriptor).toMatchObject({
+      extensionId: 'windows-skill',
+      version: '2.0.0',
+    });
+  });
+  it('rejects aggregate size and nesting limits before adapter execution', async () => {
+    const root = await fixture();
+    const discovered = await discoverSkills([{ path: root, source: 'project' }]);
+    let nested = path.join(root, 'skill');
+    for (let index = 0; index < 9; index += 1) {
+      nested = path.join(nested, 'deep');
+      await mkdir(nested);
+    }
+    await expect(snapshotExtensions(selection, discovered, capabilities)).rejects.toMatchObject({
+      code: 'EXTENSION_INVALID',
+    });
+    await rm(path.join(root, 'skill', 'deep'), { recursive: true });
+    for (let index = 0; index < 9; index += 1)
+      await writeFile(path.join(root, 'skill', `${index}.txt`), 'x'.repeat(262144));
+    await expect(snapshotExtensions(selection, discovered, capabilities)).rejects.toMatchObject({
+      code: 'EXTENSION_INVALID',
+    });
+  });
   it('owns bounded portable content, remains stable after source edits, and exposes no source path', async () => {
     const root = await fixture();
     await writeFile(path.join(root, 'skill', 'guide.txt'), 'supporting content');

@@ -1,6 +1,7 @@
-import { readFile, realpath, readdir, stat } from 'node:fs/promises';
+import { realpath, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { readStable } from './snapshots.js';
 
 import {
   extensionDescriptorSchema,
@@ -160,10 +161,11 @@ async function readLimitedFile(file: string): Promise<string> {
   if (!info.isFile() || info.size > MAX_EXTENSION_FILE_BYTES) {
     throw new ExtensionKitError('EXTENSION_INVALID', 'The extension file is invalid or too large.');
   }
-  return readFile(file, 'utf8');
+  return readStable(file, path.dirname(file));
 }
 
 function parseFrontmatter(content: string): Record<string, string> {
+  content = content.replace(/\r\n/g, '\n');
   if (!content.startsWith('---\n')) return {};
   const end = content.indexOf('\n---', 4);
   if (end < 0) return {};
