@@ -221,6 +221,10 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     attemptRecoveryMs: 1_000,
     maxAttempts: 3,
     retryDelayMs: 20,
+    runAllowedRoles: ['owner', 'admin'],
+    allowedPermissionPolicies: ['interactive', 'read-only'],
+    maxActiveRunsPerOrganization: 10,
+    maxRunsPerUtcDay: 1_000,
   };
   const module = await Test.createTestingModule({
     controllers: [

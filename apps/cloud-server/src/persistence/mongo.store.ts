@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ClientSession, Model, QueryFilter, UpdateQuery } from 'mongoose';
 
 import type {
+  AdmissionStateRecord,
   AuditRecord,
   DeviceRecord,
   EventRecord,
@@ -20,7 +21,7 @@ import type {
   WorkspaceRecord,
 } from '../domain.js';
 import type { WorkspaceSource } from '@yanbot-harness/contracts';
-import type { ControlPlaneStore } from './control-plane.store.js';
+import type { AdmissionLimits, AdmissionResult, ControlPlaneStore } from './control-plane.store.js';
 import { MongoService } from './mongo.service.js';
 
 type DocumentRecord = Record<string, unknown>;
@@ -187,10 +188,128 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
     );
   }
 
-  async insertRunAndOutbox(run: RunRecord, outbox: OutboxRecord, session: SessionRecord): Promise<void> {
+  async insertAdmittedRunAndOutbox(
+    run: RunRecord,
+    outbox: OutboxRecord,
+    session: SessionRecord,
+    limits: AdmissionLimits,
+  ): Promise<AdmissionResult> {
+    const activeRuns = await this.countActiveRuns(run.organizationId);
+    await this.#model('AdmissionState').updateOne(
+      { organizationId: run.organizationId },
+      {
+        $setOnInsert: {
+          organizationId: run.organizationId,
+          activeRuns,
+          admittedRuns: 0,
+          periodStart: limits.periodStart,
+          activeLimit: limits.activeLimit,
+          periodLimit: limits.periodLimit,
+          updatedAt: limits.now,
+        },
+      },
+      { ...this.#options(), upsert: true },
+    );
+    await this.#model('AdmissionState').updateOne(
+      { organizationId: run.organizationId, periodStart: { $lt: limits.periodStart } },
+      {
+        $set: {
+          periodStart: limits.periodStart,
+          admittedRuns: 0,
+          activeLimit: limits.activeLimit,
+          periodLimit: limits.periodLimit,
+          updatedAt: limits.now,
+        },
+      },
+      this.#options(),
+    );
+    const reserved = await this.#model('AdmissionState')
+      .findOneAndUpdate(
+        {
+          organizationId: run.organizationId,
+          activeRuns: { $lt: limits.activeLimit },
+          admittedRuns: { $lt: limits.periodLimit },
+        },
+        {
+          $inc: { activeRuns: 1, admittedRuns: 1 },
+          $set: {
+            activeLimit: limits.activeLimit,
+            periodLimit: limits.periodLimit,
+            updatedAt: limits.now,
+          },
+        },
+        { ...this.#options(), new: true },
+      )
+      .lean()
+      .exec();
+    if (!reserved) {
+      const state = await this.findAdmissionState(run.organizationId);
+      if (!state) throw new Error('The admission state disappeared concurrently.');
+      return state.activeRuns >= limits.activeLimit ? 'concurrency' : 'quota';
+    }
     await this.#insert('HarnessRun', run);
     await this.#insert('Outbox', outbox);
     await this.replaceSession(session);
+    return 'created';
+  }
+
+  async releaseRunAdmission(organizationId: string, runId: string, releasedAt: Date): Promise<boolean> {
+    const run = await this.#model('HarnessRun')
+      .findOneAndUpdate(
+        {
+          organizationId,
+          runId,
+          'value.terminalEventType': { $exists: true },
+          admissionReleasedAt: { $exists: false },
+        },
+        { $set: { admissionReleasedAt: releasedAt } },
+        { ...this.#options(), new: true },
+      )
+      .lean()
+      .exec();
+    if (!run) return false;
+    const state = await this.#model('AdmissionState').updateOne(
+      { organizationId, activeRuns: { $gt: 0 } },
+      { $inc: { activeRuns: -1 }, $set: { updatedAt: releasedAt } },
+      this.#options(),
+    );
+    if (state.modifiedCount !== 1) throw new Error('The admission state is inconsistent.');
+    return true;
+  }
+
+  findAdmissionState(organizationId: string): Promise<AdmissionStateRecord | undefined> {
+    return this.#findOne('AdmissionState', { organizationId });
+  }
+
+  async listAdmissionStates(limit: number): Promise<AdmissionStateRecord[]> {
+    return this.#model('AdmissionState')
+      .find({}, null, this.#options())
+      .sort({ organizationId: 1 })
+      .limit(limit)
+      .lean()
+      .exec()
+      .then((records) => records.map((record) => clean<AdmissionStateRecord>(record)));
+  }
+
+  countActiveRuns(organizationId: string): Promise<number> {
+    return this.#model('HarnessRun').countDocuments(
+      { organizationId, 'value.terminalEventType': { $exists: false } },
+      this.#options(),
+    );
+  }
+
+  async reconcileAdmissionActiveRuns(
+    organizationId: string,
+    previousActiveRuns: number,
+    activeRuns: number,
+    updatedAt: Date,
+  ): Promise<boolean> {
+    const result = await this.#model('AdmissionState').updateOne(
+      { organizationId, activeRuns: previousActiveRuns },
+      { $set: { activeRuns, updatedAt } },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
   }
 
   findRun(organizationId: string, runId: string): Promise<RunRecord | undefined> {

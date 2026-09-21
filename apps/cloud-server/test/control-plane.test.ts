@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { HARNESS_PROTOCOL_VERSION } from '@yanbot-harness/contracts';
 import { describe, expect, it } from 'vitest';
 
+import { AdmissionService } from '../src/admission/admission.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { AuditService } from '../src/audit/audit.service.js';
 import type { CloudConfig } from '../src/config.js';
@@ -36,6 +37,10 @@ const config: CloudConfig = {
   attemptRecoveryMs: 60_000,
   maxAttempts: 3,
   retryDelayMs: 1_000,
+  runAllowedRoles: ['owner', 'admin'],
+  allowedPermissionPolicies: ['interactive', 'read-only'],
+  maxActiveRunsPerOrganization: 10,
+  maxRunsPerUtcDay: 1_000,
 };
 
 describe('Cloud control plane', () => {
@@ -56,10 +61,14 @@ describe('Cloud control plane', () => {
       { status: 404 },
     );
     expect(store.outbox).toHaveLength(1);
+    await expect(store.findAdmissionState(principal.organizationId)).resolves.toMatchObject({
+      activeRuns: 1,
+      admittedRuns: 1,
+    });
   });
 
   it('cancels once, persists a terminal event and resumes from an event cursor', async () => {
-    const { service, principal, workspace } = await setup();
+    const { service, store, principal, workspace } = await setup();
     const session = await service.createSession(principal, { adapterId: 'cn.yanbot.reference' });
     const created = await service.createRun(principal, session.sessionId, {
       prompt: 'test',
@@ -71,6 +80,128 @@ describe('Cloud control plane', () => {
     expect(events).toHaveLength(1);
     await expect(service.listEvents(principal, created.run.runId, events[0]!.eventId)).resolves.toEqual([]);
     await expect(service.cancelRun(principal, created.run.runId)).resolves.toEqual(cancelled);
+    await expect(store.findAdmissionState(principal.organizationId)).resolves.toMatchObject({
+      activeRuns: 0,
+      admittedRuns: 1,
+    });
+    await expect(store.findRun(principal.organizationId, created.run.runId)).resolves.toMatchObject({
+      admissionReleasedAt: expect.any(Date),
+    });
+  });
+
+  it('fails closed for disallowed roles and permission policies before reserving admission', async () => {
+    const member = await setup({}, ['member']);
+    const memberSession = await member.service.createSession(member.principal, {
+      adapterId: 'cn.yanbot.reference',
+    });
+    await expect(
+      member.service.createRun(member.principal, memberSession.sessionId, {
+        prompt: 'member',
+        workspace: member.workspace.source,
+      }),
+    ).rejects.toMatchObject({ status: 403, auditCode: 'ADMISSION_PERMISSION' });
+    expect(member.store.outbox).toHaveLength(0);
+    expect(member.store.admissionStates.size).toBe(0);
+
+    const owner = await setup();
+    const ownerSession = await owner.service.createSession(owner.principal, { adapterId: 'cn.yanbot.reference' });
+    await expect(
+      owner.service.createRun(owner.principal, ownerSession.sessionId, {
+        prompt: 'auto edit',
+        permissionPolicy: 'auto-edit',
+        workspace: owner.workspace.source,
+      }),
+    ).rejects.toMatchObject({ status: 403, auditCode: 'ADMISSION_PERMISSION' });
+    expect(owner.store.admissionStates.size).toBe(0);
+  });
+
+  it('enforces organization concurrency atomically across sessions', async () => {
+    const fixture = await setup({ maxActiveRunsPerOrganization: 1 });
+    const sessions = await Promise.all([
+      fixture.service.createSession(fixture.principal, { adapterId: 'cn.yanbot.reference' }),
+      fixture.service.createSession(fixture.principal, { adapterId: 'cn.yanbot.reference' }),
+    ]);
+    const results = await Promise.allSettled(
+      sessions.map((session, index) =>
+        fixture.service.createRun(fixture.principal, session.sessionId, {
+          prompt: `concurrent-${index}`,
+          workspace: fixture.workspace.source,
+        }),
+      ),
+    );
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toEqual([
+      expect.objectContaining({ reason: expect.objectContaining({ status: 429, retryable: true }) }),
+    ]);
+    expect(fixture.store.runs.size).toBe(1);
+    expect(fixture.store.outbox).toHaveLength(1);
+  });
+
+  it('keeps daily admission consumed after release and resets only at a later UTC period', async () => {
+    const fixture = await setup({ maxRunsPerUtcDay: 1 });
+    const firstSession = await fixture.service.createSession(fixture.principal, {
+      adapterId: 'cn.yanbot.reference',
+    });
+    const first = await fixture.service.createRun(
+      fixture.principal,
+      firstSession.sessionId,
+      { prompt: 'first', workspace: fixture.workspace.source },
+      'daily-idempotency',
+    );
+    await expect(
+      fixture.service.createRun(
+        fixture.principal,
+        firstSession.sessionId,
+        { prompt: 'first', workspace: fixture.workspace.source },
+        'daily-idempotency',
+      ),
+    ).resolves.toEqual({ run: first.run, reused: true });
+    await fixture.service.cancelRun(fixture.principal, first.run.runId);
+    const secondSession = await fixture.service.createSession(fixture.principal, {
+      adapterId: 'cn.yanbot.reference',
+    });
+    await expect(
+      fixture.service.createRun(fixture.principal, secondSession.sessionId, {
+        prompt: 'quota',
+        workspace: fixture.workspace.source,
+      }),
+    ).rejects.toMatchObject({ status: 429, retryable: false, auditCode: 'ADMISSION_QUOTA' });
+    fixture.store.admissionStates.get(fixture.principal.organizationId)!.periodStart = new Date(0);
+    await expect(
+      fixture.service.createRun(fixture.principal, secondSession.sessionId, {
+        prompt: 'next period',
+        workspace: fixture.workspace.source,
+      }),
+    ).resolves.toMatchObject({ reused: false });
+    await expect(fixture.store.findAdmissionState(fixture.principal.organizationId)).resolves.toMatchObject({
+      activeRuns: 1,
+      admittedRuns: 1,
+    });
+  });
+
+  it('reconciles active drift without changing admitted runs and is dry-run by default', async () => {
+    const fixture = await setup();
+    const session = await fixture.service.createSession(fixture.principal, { adapterId: 'cn.yanbot.reference' });
+    await fixture.service.createRun(fixture.principal, session.sessionId, {
+      prompt: 'reconcile',
+      workspace: fixture.workspace.source,
+    });
+    const state = fixture.store.admissionStates.get(fixture.principal.organizationId)!;
+    state.activeRuns = 7;
+    const admittedRuns = state.admittedRuns;
+    const admission = new AdmissionService(fixture.store, new AuditService(fixture.store, fixture.config));
+    await expect(admission.reconcile({ limit: 10, apply: false })).resolves.toEqual([
+      expect.objectContaining({ expectedActiveRuns: 1, actualActiveRuns: 7, status: 'drift' }),
+    ]);
+    expect(state.activeRuns).toBe(7);
+    expect(fixture.store.audits.some((record) => record.action === 'admission.reconcile')).toBe(false);
+    await expect(admission.reconcile({ limit: 10, apply: true })).resolves.toEqual([
+      expect.objectContaining({ expectedActiveRuns: 1, actualActiveRuns: 7, status: 'applied' }),
+    ]);
+    expect(state).toMatchObject({ activeRuns: 1, admittedRuns });
+    expect(fixture.store.audits).toEqual(
+      expect.arrayContaining([expect.objectContaining({ action: 'admission.reconcile', outcome: 'succeeded' })]),
+    );
   });
 });
 
@@ -158,6 +289,7 @@ describe('Execution grants', () => {
       ),
     ).rejects.toMatchObject({ status: 403 });
     await expect(service.getRun(principal, created.run.runId)).resolves.toMatchObject({ status: 'completed' });
+    await expect(store.findAdmissionState(principal.organizationId)).resolves.toMatchObject({ activeRuns: 0 });
   });
 
   it('keeps the internal boundary closed by default', async () => {
@@ -207,16 +339,17 @@ describe('Execution grants', () => {
   });
 });
 
-async function setup() {
+async function setup(overrides: Partial<CloudConfig> = {}, roles: TenantPrincipal['roles'] = ['owner']) {
+  const effectiveConfig: CloudConfig = { ...config, ...overrides };
   const store = new MemoryControlPlaneStore();
-  const workspaces = new WorkspaceService(store, config);
-  const service = new ControlPlaneService(store, workspaces, config);
-  const auth = new AuthService(store, config);
+  const workspaces = new WorkspaceService(store, effectiveConfig);
+  const service = new ControlPlaneService(store, workspaces, effectiveConfig, new AuditService(store, effectiveConfig));
+  const auth = new AuthService(store, effectiveConfig);
   const principal: TenantPrincipal = {
     organizationId: randomUUID(),
     userId: randomUUID(),
     deviceId: randomUUID(),
-    roles: ['owner'],
+    roles,
   };
   const now = new Date();
   const workspace: WorkspaceRecord = {
@@ -234,7 +367,7 @@ async function setup() {
     expiresAt: new Date(now.getTime() + 60_000),
   };
   await store.insertWorkspace(workspace);
-  return { store, workspaces, service, auth, principal, workspace };
+  return { config: effectiveConfig, store, workspaces, service, auth, principal, workspace };
 }
 
 async function insertAttempt(store: MemoryControlPlaneStore, organizationId: string, runId: string): Promise<void> {

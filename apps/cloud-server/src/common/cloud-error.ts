@@ -4,13 +4,15 @@ export class CloudError extends Error {
   readonly status: number;
   readonly code: HarnessErrorCode;
   readonly retryable: boolean;
+  readonly auditCode: string | undefined;
 
-  constructor(status: number, code: HarnessErrorCode, message: string, retryable = false) {
+  constructor(status: number, code: HarnessErrorCode, message: string, retryable = false, auditCode?: string) {
     super(message);
     this.name = 'CloudError';
     this.status = status;
     this.code = code;
     this.retryable = retryable;
+    this.auditCode = auditCode;
   }
 }
 
@@ -20,6 +22,28 @@ export function authenticationFailed(): CloudError {
 
 export function permissionDenied(): CloudError {
   return new CloudError(403, 'PERMISSION_DENIED', 'Permission denied.');
+}
+
+export function admissionPermissionDenied(): CloudError {
+  return new CloudError(403, 'PERMISSION_DENIED', 'Permission denied.', false, 'ADMISSION_PERMISSION');
+}
+
+export function admissionRejected(reason: 'concurrency' | 'quota'): CloudError {
+  return reason === 'concurrency'
+    ? new CloudError(
+        429,
+        'HARNESS_FAILED',
+        'The organization has reached its active run limit.',
+        true,
+        'ADMISSION_CONCURRENCY',
+      )
+    : new CloudError(
+        429,
+        'HARNESS_FAILED',
+        'The organization has reached its UTC daily run limit.',
+        false,
+        'ADMISSION_QUOTA',
+      );
 }
 
 export function resourceNotFound(): CloudError {

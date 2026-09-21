@@ -18,7 +18,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { AccessTokenGuard } from '../auth/auth.guard.js';
 import type { CloudRequest } from '../common/request-context.js';
 import { requestId } from '../common/request-context.js';
-import { invalidConfiguration } from '../common/cloud-error.js';
+import { CloudError, invalidConfiguration } from '../common/cloud-error.js';
 import type { TenantPrincipal } from '../domain.js';
 import { ControlPlaneService } from './control-plane.service.js';
 
@@ -75,7 +75,7 @@ export class ControlPlaneController {
       throw invalidConfiguration('The idempotency key is invalid.');
     }
     return this.#audited('run.create', principal(request), response, 201, () =>
-      this.#controlPlane.createRun(principal(request), sessionId, body, idempotencyKey),
+      this.#controlPlane.createRun(principal(request), sessionId, body, idempotencyKey, requestId(response)),
     );
   }
 
@@ -92,7 +92,7 @@ export class ControlPlaneController {
     @Res({ passthrough: true }) response: Response,
   ) {
     return this.#audited('run.cancel', principal(request), response, 200, () =>
-      this.#controlPlane.cancelRun(principal(request), runId, body.reason),
+      this.#controlPlane.cancelRun(principal(request), runId, body.reason, requestId(response)),
     );
   }
 
@@ -166,7 +166,8 @@ export class ControlPlaneController {
         principal: authenticated,
         action,
         outcome: 'rejected',
-        status: 400,
+        status: error instanceof CloudError ? error.status : 400,
+        ...(error instanceof CloudError ? { errorCode: error.auditCode ?? error.code } : {}),
       });
       throw error;
     }

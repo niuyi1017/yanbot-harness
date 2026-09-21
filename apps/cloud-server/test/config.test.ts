@@ -21,7 +21,19 @@ describe('Cloud Server configuration', () => {
     expect(config.host).toBe('127.0.0.1');
     expect(config.gitAllowedHosts).toEqual(['github.com', 'gitlab.example.com']);
     expect(config.eventRetentionSeconds).toBe(604_800);
+    expect(config.runAllowedRoles).toEqual(['owner', 'admin']);
+    expect(config.allowedPermissionPolicies).toEqual(['interactive', 'read-only']);
+    expect(config.maxActiveRunsPerOrganization).toBe(10);
+    expect(config.maxRunsPerUtcDay).toBe(1_000);
     expect(() => parseCloudConfig({ ...base, CLOUD_RELARY_ENABLED: 'true' })).toThrow();
+  });
+
+  it('rejects empty, duplicate, unknown and unbounded admission settings', () => {
+    expect(() => parseCloudConfig({ ...base, CLOUD_RUN_ALLOWED_ROLES: '' })).toThrow(/allowlist/u);
+    expect(() => parseCloudConfig({ ...base, CLOUD_RUN_ALLOWED_ROLES: 'owner,owner' })).toThrow(/unique/u);
+    expect(() => parseCloudConfig({ ...base, CLOUD_ALLOWED_PERMISSION_POLICIES: 'unrestricted' })).toThrow();
+    expect(() => parseCloudConfig({ ...base, CLOUD_MAX_ACTIVE_RUNS_PER_ORGANIZATION: '10001' })).toThrow();
+    expect(() => parseCloudConfig({ ...base, CLOUD_MAX_RUNS_PER_UTC_DAY: '1000001' })).toThrow();
   });
 
   it('requires the internal API and TLS Redis when the production relay is enabled', () => {
@@ -47,7 +59,13 @@ describe('Cloud Server configuration', () => {
 
   it('defines only prefixed collections and required unique/TTL indexes', () => {
     expect(Object.values(collectionNames).every((name) => name.startsWith('yanbot_harness_'))).toBe(true);
-    expect(modelDefinitions).toHaveLength(14);
+    expect(modelDefinitions).toHaveLength(15);
+    const admissionIndexes = modelDefinitions.find(([name]) => name === 'AdmissionState')?.[1].indexes() ?? [];
+    expect(admissionIndexes).toEqual(
+      expect.arrayContaining([
+        expect.arrayContaining([{ organizationId: 1 }, expect.objectContaining({ unique: true })]),
+      ]),
+    );
     const tokenIndexes = modelDefinitions.find(([name]) => name === 'TokenGrant')?.[1].indexes() ?? [];
     expect(tokenIndexes).toEqual(
       expect.arrayContaining([

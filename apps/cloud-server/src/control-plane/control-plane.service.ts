@@ -20,7 +20,15 @@ import {
   type Session,
 } from '@yanbot-harness/contracts';
 
-import { conflict, invalidConfiguration, resourceNotFound } from '../common/cloud-error.js';
+import { AuditService } from '../audit/audit.service.js';
+import {
+  admissionPermissionDenied,
+  admissionRejected,
+  CloudError,
+  conflict,
+  invalidConfiguration,
+  resourceNotFound,
+} from '../common/cloud-error.js';
 import type { CloudConfig } from '../config.js';
 import type { EventRecord, RunRecord, TenantPrincipal } from '../domain.js';
 import { CONTROL_PLANE_STORE, type ControlPlaneStore } from '../persistence/control-plane.store.js';
@@ -63,15 +71,18 @@ export class ControlPlaneService {
   readonly #config: CloudConfig;
   readonly #now: () => Date;
   readonly #generateId: () => string;
+  readonly #audit: AuditService;
 
   constructor(
     @Inject(CONTROL_PLANE_STORE) store: ControlPlaneStore,
     @Inject(WorkspaceService) workspaces: WorkspaceService,
     @Inject(CLOUD_CONFIG) config: CloudConfig,
+    @Inject(AuditService) audit: AuditService,
   ) {
     this.#store = store;
     this.#workspaces = workspaces;
     this.#config = config;
+    this.#audit = audit;
     this.#now = () => new Date();
     this.#generateId = randomUUID;
   }
@@ -124,6 +135,7 @@ export class ControlPlaneService {
     sessionIdValue: unknown,
     value: unknown,
     idempotencyKey?: string,
+    auditRequestId: string = randomUUID(),
   ): Promise<CreateRunResult> {
     const sessionId = uuidSchema.parse(sessionIdValue);
     const input = createRunRequestSchema.parse(value);
@@ -132,65 +144,101 @@ export class ControlPlaneService {
     }
     if (input.model && input.model.adapterId !== adapterId)
       throw invalidConfiguration('The selected model is invalid.');
-    const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex');
-    return this.#store.transaction(async () => {
-      if (idempotencyKey) {
-        const previous = await this.#store.findIdempotentRun(principal.organizationId, sessionId, idempotencyKey);
-        if (previous) {
-          if (previous.inputFingerprint !== fingerprint)
-            throw conflict('The idempotency key was used with another request.');
-          return createRunResultSchema.parse({ run: previous.value, reused: true });
-        }
+    try {
+      if (!principal.roles.some((role) => this.#config.runAllowedRoles.some((allowed) => allowed === role))) {
+        throw admissionPermissionDenied();
       }
-      const sessionRecord = await this.#store.findSession(principal.organizationId, sessionId);
-      if (!sessionRecord) throw resourceNotFound();
-      if (sessionRecord.value.status === 'running') throw conflict('The session already has an active run.');
-      const workspace = await this.#workspaces.requireReady(principal.organizationId, input.workspace);
-      const timestamp = this.#now().toISOString();
-      const run = runSchema.parse({
-        protocolVersion: HARNESS_PROTOCOL_VERSION,
-        runId: this.#generateId(),
-        sessionId,
-        adapterId,
-        status: 'queued',
-        prompt: input.prompt,
-        ...(input.model === undefined ? {} : { model: input.model }),
-        permissionPolicy: input.permissionPolicy,
-        createdAt: timestamp,
-      });
-      const runRecord: RunRecord = {
-        organizationId: principal.organizationId,
-        userId: principal.userId,
-        sessionId,
-        runId: run.runId,
-        workspaceRef: workspace.workspaceRef,
-        value: run,
-        inputFingerprint: fingerprint,
-        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
-      };
-      const nextSession = sessionSchema.parse({
-        ...sessionRecord.value,
-        status: 'running',
-        updatedAt: timestamp,
-        lastRunId: run.runId,
-        workspaceRef: workspace.workspaceRef,
-      });
-      await this.#store.insertRunAndOutbox(
-        runRecord,
-        {
+      if (!this.#config.allowedPermissionPolicies.includes(input.permissionPolicy)) {
+        throw admissionPermissionDenied();
+      }
+    } catch (error) {
+      await this.#auditAdmissionRejection(principal, auditRequestId, error);
+      throw error;
+    }
+    const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    try {
+      const result = await this.#store.transaction(async () => {
+        if (idempotencyKey) {
+          const previous = await this.#store.findIdempotentRun(principal.organizationId, sessionId, idempotencyKey);
+          if (previous) {
+            if (previous.inputFingerprint !== fingerprint)
+              throw conflict('The idempotency key was used with another request.');
+            return createRunResultSchema.parse({ run: previous.value, reused: true });
+          }
+        }
+        const sessionRecord = await this.#store.findSession(principal.organizationId, sessionId);
+        if (!sessionRecord) throw resourceNotFound();
+        if (sessionRecord.value.status === 'running') throw conflict('The session already has an active run.');
+        const workspace = await this.#workspaces.requireReady(principal.organizationId, input.workspace);
+        const now = this.#now();
+        const timestamp = now.toISOString();
+        const run = runSchema.parse({
+          protocolVersion: HARNESS_PROTOCOL_VERSION,
+          runId: this.#generateId(),
+          sessionId,
+          adapterId,
+          status: 'queued',
+          prompt: input.prompt,
+          ...(input.model === undefined ? {} : { model: input.model }),
+          permissionPolicy: input.permissionPolicy,
+          createdAt: timestamp,
+        });
+        const runRecord: RunRecord = {
           organizationId: principal.organizationId,
-          outboxId: this.#generateId(),
+          userId: principal.userId,
+          sessionId,
           runId: run.runId,
-          attempt: 1,
-          kind: 'run.requested',
-          status: 'pending',
-          availableAt: this.#now(),
-          createdAt: this.#now(),
-        },
-        { ...sessionRecord, value: nextSession },
-      );
-      return createRunResultSchema.parse({ run, reused: false });
-    });
+          workspaceRef: workspace.workspaceRef,
+          value: run,
+          inputFingerprint: fingerprint,
+          ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+        };
+        const nextSession = sessionSchema.parse({
+          ...sessionRecord.value,
+          status: 'running',
+          updatedAt: timestamp,
+          lastRunId: run.runId,
+          workspaceRef: workspace.workspaceRef,
+        });
+        const admission = await this.#store.insertAdmittedRunAndOutbox(
+          runRecord,
+          {
+            organizationId: principal.organizationId,
+            outboxId: this.#generateId(),
+            runId: run.runId,
+            attempt: 1,
+            kind: 'run.requested',
+            status: 'pending',
+            availableAt: now,
+            createdAt: now,
+          },
+          { ...sessionRecord, value: nextSession },
+          {
+            activeLimit: this.#config.maxActiveRunsPerOrganization,
+            periodLimit: this.#config.maxRunsPerUtcDay,
+            periodStart: utcPeriodStart(now),
+            now,
+          },
+        );
+        if (admission !== 'created') throw admissionRejected(admission);
+        return createRunResultSchema.parse({ run, reused: false });
+      });
+      if (!result.reused) {
+        await this.#audit.record({
+          requestId: auditRequestId,
+          principal,
+          action: 'run.admission.accept',
+          resourceType: 'run',
+          resourceId: result.run.runId,
+          outcome: 'succeeded',
+          status: 201,
+        });
+      }
+      return result;
+    } catch (error) {
+      await this.#auditAdmissionRejection(principal, auditRequestId, error);
+      throw error;
+    }
   }
 
   async getRun(principal: TenantPrincipal, runIdValue: unknown): Promise<Run> {
@@ -200,7 +248,12 @@ export class ControlPlaneService {
     return runSchema.parse(record.value);
   }
 
-  async cancelRun(principal: TenantPrincipal, runIdValue: unknown, reason?: string): Promise<Run> {
+  async cancelRun(
+    principal: TenantPrincipal,
+    runIdValue: unknown,
+    reason?: string,
+    auditRequestId: string = randomUUID(),
+  ): Promise<Run> {
     const runId = uuidSchema.parse(runIdValue);
     return this.#store.transaction(async () => {
       const record = await this.#store.findRun(principal.organizationId, runId);
@@ -240,6 +293,7 @@ export class ControlPlaneService {
         'RUN_CANCELLED',
       );
       await this.#store.revokeRunGrants(principal.organizationId, runId, this.#now());
+      await this.#releaseAdmission(principal.organizationId, runId, principal.userId, auditRequestId);
       return nextRun;
     });
   }
@@ -277,7 +331,13 @@ export class ControlPlaneService {
     }
   }
 
-  async failDispatch(organizationId: string, runId: string, attempt: number, code: HarnessErrorCode): Promise<void> {
+  async failDispatch(
+    organizationId: string,
+    runId: string,
+    attempt: number,
+    code: HarnessErrorCode,
+    auditRequestId: string = randomUUID(),
+  ): Promise<void> {
     await this.#store.transaction(async () => {
       const record = await this.#store.findRun(organizationId, runId);
       if (!record || terminalStatuses.has(record.value.status)) {
@@ -318,6 +378,7 @@ export class ControlPlaneService {
       await this.#store.closeRunAttempt(organizationId, runId, attempt, 'failed', this.#now(), code);
       await this.#store.cancelOutbox(organizationId, runId);
       await this.#store.revokeRunGrants(organizationId, runId, this.#now());
+      await this.#releaseAdmission(organizationId, runId, record.userId, auditRequestId);
     });
   }
 
@@ -335,4 +396,41 @@ export class ControlPlaneService {
       expiresAt: new Date(this.#now().getTime() + this.#config.eventRetentionSeconds * 1_000),
     };
   }
+
+  async #releaseAdmission(
+    organizationId: string,
+    runId: string,
+    subjectId: string,
+    auditRequestId: string,
+  ): Promise<void> {
+    if (!(await this.#store.releaseRunAdmission(organizationId, runId, this.#now()))) return;
+    await this.#audit.record({
+      requestId: auditRequestId,
+      organizationId,
+      subjectId,
+      action: 'run.admission.release',
+      resourceType: 'run',
+      resourceId: runId,
+      outcome: 'succeeded',
+      status: 200,
+    });
+  }
+
+  async #auditAdmissionRejection(principal: TenantPrincipal, requestId: string, error: unknown): Promise<void> {
+    if (!(error instanceof CloudError) || !error.auditCode?.startsWith('ADMISSION_')) return;
+    await this.#audit.record({
+      requestId,
+      principal,
+      action: 'run.admission.reject',
+      resourceType: 'organization',
+      resourceId: principal.organizationId,
+      outcome: 'rejected',
+      status: error.status,
+      errorCode: error.auditCode,
+    });
+  }
+}
+
+function utcPeriodStart(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
 }

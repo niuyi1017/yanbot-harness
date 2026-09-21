@@ -58,6 +58,16 @@ export type RunRecord = {
   value: Run;
   inputFingerprint: string;
   idempotencyKey?: string;
+  admissionReleasedAt?: Date;
+};
+export type AdmissionStateRecord = {
+  organizationId: string;
+  activeRuns: number;
+  admittedRuns: number;
+  periodStart: Date;
+  activeLimit: number;
+  periodLimit: number;
+  updatedAt: Date;
 };
 export type EventRecord = {
   organizationId: string;

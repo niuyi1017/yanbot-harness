@@ -52,6 +52,9 @@ describe('Remote dispatch relay', () => {
       terminalEventType: 'run.failed',
     });
     expect(fixture.store.runAttempts[0]).toMatchObject({ active: false });
+    await expect(fixture.store.findAdmissionState(fixture.principal.organizationId)).resolves.toMatchObject({
+      activeRuns: 0,
+    });
   });
 
   it('reaps an expired worker lease, removes the stale job and creates a new grant attempt', async () => {
@@ -135,11 +138,15 @@ async function setup(overrides: Partial<CloudConfig> = {}) {
     attemptRecoveryMs: 60_000,
     maxAttempts: 3,
     retryDelayMs: 1,
+    runAllowedRoles: ['owner', 'admin'],
+    allowedPermissionPolicies: ['interactive', 'read-only'],
+    maxActiveRunsPerOrganization: 10,
+    maxRunsPerUtcDay: 1_000,
     ...overrides,
   };
   const store = new MemoryControlPlaneStore();
   const workspaces = new WorkspaceService(store, config);
-  const controlPlane = new ControlPlaneService(store, workspaces, config);
+  const controlPlane = new ControlPlaneService(store, workspaces, config, new AuditService(store, config));
   const auth = new AuthService(store, config);
   const audit = new AuditService(store, config);
   const grants = new ExecutionGrantService(store, auth, controlPlane, config, audit);

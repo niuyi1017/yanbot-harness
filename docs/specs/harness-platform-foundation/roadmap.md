@@ -195,6 +195,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 - 实现 Session/Run 持久化、幂等创建、SSE 事件重放和错误分类。
 - 实现上传快照与受控 Git 引用、摘要校验、大小限制、TTL 和清理。
 - 引入 Redis Queue 和 Reference Worker，验证排队、执行、取消与恢复。
+- 实现组织级 active/UTC 日 admission、角色与 permission policy 预检、终态释放和显式 reconciliation。
 - 完成跨租户拒绝、token 过期、恶意工作区清单和日志脱敏测试。
 
 完成门禁：macOS/Windows 客户端使用同一 SDK/CLI 可连接 Remote Reference；租户、认证、工作区和事件重放安全用例通过。
@@ -262,17 +263,17 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ## 6. 当前进度汇总
 
-| 阶段                      | 状态  | 当前结论                                                                                                 | 下一动作                                                 |
-| ------------------------- | ----- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                                                      | 固定候选提交和摘要；并行等待 Windows 验收                |
-| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                                                                     | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移         |
-| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                        | 完整 containment/业务回滚、Windows 阻网、正式身份/实机   |
-| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                                                              | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI          |
-| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                                                       | 先做能力与许可证探针，不直接写 Wrapper                   |
-| P4 Remote Reference       | `[~]` | 控制面、Queue、Reference Worker 与本机真实 BullMQ/HTTP E2E 完成；尚无真实 Mongo/TLS/ACL 与双平台部署证据 | 补生产基础设施和 macOS/Windows Remote 客户端验收         |
-| P5 Remote CodeBuddy       | `[ ]` | Reference Worker可复用，真实厂商凭据与 Sandbox 未实现                                                    | 独立 Spec 建设 Docker Sandbox、短期凭据和 CodeBuddy 门禁 |
-| P6 四象限认证             | `[ ]` | 未开始                                                                                                   | 等待 P3、P5 和 Windows 实机条件                          |
-| P7 产品/运营              | `[ ]` | 未脚手架化                                                                                               | Local Web 可在 P1 后并行，其余按依赖进入                 |
+| 阶段                      | 状态  | 当前结论                                                                                                                 | 下一动作                                                         |
+| ------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                                                                      | 固定候选提交和摘要；并行等待 Windows 验收                        |
+| P1 中立协议与双目标客户端 | `[ ]` | 设计已完成，尚未实现                                                                                                     | 建立/确认实施子 Spec 后开始 contracts 与兼容迁移                 |
+| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                                        | 完整 containment/业务回滚、Windows 阻网、正式身份/实机           |
+| P2 CLI Sidecar 基础设施   | `[ ]` | 只有 Schema                                                                                                              | 在 P1 公共语义稳定后实现 Supervisor 和 Fake CLI                  |
+| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                                                                       | 先做能力与许可证探针，不直接写 Wrapper                           |
+| P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Reference Worker 与本机真实 BullMQ/HTTP E2E 完成；尚无真实 Mongo/TLS/ACL 与双平台部署证据 | 补生产基础设施、Mongo 并发事务和 macOS/Windows Remote 客户端验收 |
+| P5 Remote CodeBuddy       | `[ ]` | Reference Worker可复用，真实厂商凭据与 Sandbox 未实现                                                                    | 独立 Spec 建设 Docker Sandbox、短期凭据和 CodeBuddy 门禁         |
+| P6 四象限认证             | `[ ]` | 未开始                                                                                                                   | 等待 P3、P5 和 Windows 实机条件                                  |
+| P7 产品/运营              | `[ ]` | 未脚手架化                                                                                                               | Local Web 可在 P1 后并行，其余按依赖进入                         |
 
 ## 7. 最近两个执行节点
 

@@ -127,9 +127,60 @@ describe('Cloud HTTP boundary', () => {
       expect.arrayContaining(['execution-grant.claim', 'run.heartbeat', 'run.terminal']),
     );
   });
+
+  it('returns and audits the actual 429 admission rejection status', async () => {
+    const { application, origin, auth, store } = await startApplication({ maxActiveRunsPerOrganization: 1 });
+    applications.push(application);
+    const identity = {
+      organizationId: randomUUID(),
+      organizationName: 'Limited tenant',
+      userId: randomUUID(),
+      userDisplayName: 'Limited user',
+      deviceId: randomUUID(),
+      roles: ['owner'],
+    };
+    const provisioned = await auth.provision(identity);
+    const tokens = await post(origin, '/v1/auth/device/exchange', {
+      organizationId: identity.organizationId,
+      deviceId: identity.deviceId,
+      deviceSecret: provisioned.deviceSecret,
+    });
+    const authorization = { authorization: `Bearer ${String(tokens.accessToken)}` };
+    const prepared = await post(
+      origin,
+      '/v1/workspaces/git',
+      { repository: 'https://github.com/example/repo.git', commit: 'a'.repeat(40) },
+      authorization,
+    );
+    const sessions = await Promise.all([
+      post(origin, '/v1/sessions', { adapterId: 'cn.yanbot.reference' }, authorization),
+      post(origin, '/v1/sessions', { adapterId: 'cn.yanbot.reference' }, authorization),
+    ]);
+    await post(
+      origin,
+      `/v1/sessions/${String(sessions[0]!.sessionId)}/runs`,
+      { prompt: 'accepted', workspace: prepared.workspace },
+      authorization,
+    );
+    const rejected = await fetch(`${origin}/v1/sessions/${String(sessions[1]!.sessionId)}/runs`, {
+      method: 'POST',
+      headers: { ...authorization, 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'rejected', workspace: prepared.workspace }),
+    });
+    expect(rejected.status).toBe(429);
+    await expect(rejected.json()).resolves.toMatchObject({
+      error: { code: 'HARNESS_FAILED', retryable: true },
+    });
+    expect(store.audits).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: 'run.admission.reject', status: 429, errorCode: 'ADMISSION_CONCURRENCY' }),
+        expect.objectContaining({ action: 'run.create', status: 429, errorCode: 'ADMISSION_CONCURRENCY' }),
+      ]),
+    );
+  });
 });
 
-async function startApplication() {
+async function startApplication(overrides: Partial<CloudConfig> = {}) {
   const store = new MemoryControlPlaneStore();
   const config: CloudConfig = {
     nodeEnv: 'test',
@@ -155,6 +206,11 @@ async function startApplication() {
     attemptRecoveryMs: 60_000,
     maxAttempts: 3,
     retryDelayMs: 1_000,
+    runAllowedRoles: ['owner', 'admin'],
+    allowedPermissionPolicies: ['interactive', 'read-only'],
+    maxActiveRunsPerOrganization: 10,
+    maxRunsPerUtcDay: 1_000,
+    ...overrides,
   };
   const module = await Test.createTestingModule({
     controllers: [AuthController, WorkspaceController, ControlPlaneController, ExecutionGrantController],

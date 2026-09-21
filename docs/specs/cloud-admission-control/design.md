@@ -76,6 +76,7 @@ Session 写锁继续限制单 Session；AdmissionState 补充跨 Session 的组�
 - 比较 activeRuns；
 - 默认输出仅含 organizationId、expected/actual 和状态的 JSONL；
 - 只有 `--apply` 才修正 activeRuns/updatedAt；不降低或重算 admittedRuns；
+- dry-run 完全只读；`admission.reconcile` 审计在 apply 时写入，避免只读命令产生持久化副作用；
 - 设置最大扫描数量，发现超限或未知状态 fail closed。
 
 命令不自动运行，不在 API 请求里做全表扫描。部署前后可显式执行，回滚旧版本时 counter 集合可保留，不影响旧代码。

@@ -1,4 +1,5 @@
 import type {
+  AdmissionStateRecord,
   AuditRecord,
   DeviceRecord,
   EventRecord,
@@ -17,6 +18,15 @@ import type {
 import type { WorkspaceSource } from '@yanbot-harness/contracts';
 
 export const CONTROL_PLANE_STORE = Symbol('CONTROL_PLANE_STORE');
+
+export type AdmissionLimits = {
+  activeLimit: number;
+  periodLimit: number;
+  periodStart: Date;
+  now: Date;
+};
+
+export type AdmissionResult = 'created' | 'concurrency' | 'quota';
 
 export interface ControlPlaneStore {
   transaction<T>(operation: () => Promise<T>): Promise<T>;
@@ -56,7 +66,22 @@ export interface ControlPlaneStore {
   listSessions(organizationId: string): Promise<SessionRecord[]>;
   findSession(organizationId: string, sessionId: string): Promise<SessionRecord | undefined>;
   replaceSession(record: SessionRecord): Promise<void>;
-  insertRunAndOutbox(run: RunRecord, outbox: OutboxRecord, session: SessionRecord): Promise<void>;
+  insertAdmittedRunAndOutbox(
+    run: RunRecord,
+    outbox: OutboxRecord,
+    session: SessionRecord,
+    limits: AdmissionLimits,
+  ): Promise<AdmissionResult>;
+  releaseRunAdmission(organizationId: string, runId: string, releasedAt: Date): Promise<boolean>;
+  findAdmissionState(organizationId: string): Promise<AdmissionStateRecord | undefined>;
+  listAdmissionStates(limit: number): Promise<AdmissionStateRecord[]>;
+  countActiveRuns(organizationId: string): Promise<number>;
+  reconcileAdmissionActiveRuns(
+    organizationId: string,
+    previousActiveRuns: number,
+    activeRuns: number,
+    updatedAt: Date,
+  ): Promise<boolean>;
   findRun(organizationId: string, runId: string): Promise<RunRecord | undefined>;
   findIdempotentRun(organizationId: string, sessionId: string, key: string): Promise<RunRecord | undefined>;
   replaceRunAndSession(run: RunRecord, session: SessionRecord): Promise<void>;

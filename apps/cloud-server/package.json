@@ -12,6 +12,7 @@
     "provision": "node dist/bin/provision.js",
     "cleanup:workspaces": "node dist/bin/cleanup-workspaces.js",
     "sync:indexes": "node dist/bin/sync-indexes.js",
+    "reconcile:admission": "node dist/bin/reconcile-admission.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run"
   },

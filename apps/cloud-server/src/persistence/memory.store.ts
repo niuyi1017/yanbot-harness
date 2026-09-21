@@ -1,4 +1,5 @@
 import type {
+  AdmissionStateRecord,
   AuditRecord,
   DeviceRecord,
   EventRecord,
@@ -15,7 +16,7 @@ import type {
   WorkspaceRecord,
 } from '../domain.js';
 import type { WorkspaceSource } from '@yanbot-harness/contracts';
-import type { ControlPlaneStore } from './control-plane.store.js';
+import type { AdmissionLimits, AdmissionResult, ControlPlaneStore } from './control-plane.store.js';
 
 export class MemoryControlPlaneStore implements ControlPlaneStore {
   readonly organizations = new Map<string, OrganizationRecord>();
@@ -32,6 +33,7 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
   readonly outbox: OutboxRecord[] = [];
   readonly runAttempts: RunAttemptRecord[] = [];
   readonly executionGrants: ExecutionGrantRecord[] = [];
+  readonly admissionStates = new Map<string, AdmissionStateRecord>();
 
   async transaction<T>(operation: () => Promise<T>): Promise<T> {
     return operation();
@@ -149,10 +151,83 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     await this.insertSession(record);
   }
 
-  async insertRunAndOutbox(run: RunRecord, outbox: OutboxRecord, session: SessionRecord): Promise<void> {
+  async insertAdmittedRunAndOutbox(
+    run: RunRecord,
+    outbox: OutboxRecord,
+    session: SessionRecord,
+    limits: AdmissionLimits,
+  ): Promise<AdmissionResult> {
+    const previous = this.admissionStates.get(run.organizationId);
+    const state: AdmissionStateRecord = previous
+      ? clone(previous)
+      : {
+          organizationId: run.organizationId,
+          activeRuns: [...this.runs.values()].filter(
+            (candidate) => candidate.organizationId === run.organizationId && !candidate.value.terminalEventType,
+          ).length,
+          admittedRuns: 0,
+          periodStart: new Date(limits.periodStart),
+          activeLimit: limits.activeLimit,
+          periodLimit: limits.periodLimit,
+          updatedAt: new Date(limits.now),
+        };
+    if (state.periodStart < limits.periodStart) {
+      state.periodStart = new Date(limits.periodStart);
+      state.admittedRuns = 0;
+    }
+    if (state.activeRuns >= limits.activeLimit) return 'concurrency';
+    if (state.admittedRuns >= limits.periodLimit) return 'quota';
+    state.activeRuns += 1;
+    state.admittedRuns += 1;
+    state.activeLimit = limits.activeLimit;
+    state.periodLimit = limits.periodLimit;
+    state.updatedAt = new Date(limits.now);
     this.runs.set(tenantKey(run.organizationId, run.runId), clone(run));
     this.outbox.push(clone(outbox));
-    await this.replaceSession(session);
+    this.sessions.set(tenantKey(session.organizationId, session.value.sessionId), clone(session));
+    this.admissionStates.set(run.organizationId, state);
+    return 'created';
+  }
+
+  async releaseRunAdmission(organizationId: string, runId: string, releasedAt: Date): Promise<boolean> {
+    const run = this.runs.get(tenantKey(organizationId, runId));
+    if (!run?.value.terminalEventType || run.admissionReleasedAt) return false;
+    const state = this.admissionStates.get(organizationId);
+    if (!state || state.activeRuns < 1) throw new Error('The admission state is inconsistent.');
+    run.admissionReleasedAt = new Date(releasedAt);
+    state.activeRuns -= 1;
+    state.updatedAt = new Date(releasedAt);
+    return true;
+  }
+
+  async findAdmissionState(organizationId: string): Promise<AdmissionStateRecord | undefined> {
+    return cloneOptional(this.admissionStates.get(organizationId));
+  }
+
+  async listAdmissionStates(limit: number): Promise<AdmissionStateRecord[]> {
+    return [...this.admissionStates.values()]
+      .sort((left, right) => left.organizationId.localeCompare(right.organizationId))
+      .slice(0, limit)
+      .map(clone);
+  }
+
+  async countActiveRuns(organizationId: string): Promise<number> {
+    return [...this.runs.values()].filter(
+      (record) => record.organizationId === organizationId && !record.value.terminalEventType,
+    ).length;
+  }
+
+  async reconcileAdmissionActiveRuns(
+    organizationId: string,
+    previousActiveRuns: number,
+    activeRuns: number,
+    updatedAt: Date,
+  ): Promise<boolean> {
+    const state = this.admissionStates.get(organizationId);
+    if (!state || state.activeRuns !== previousActiveRuns) return false;
+    state.activeRuns = activeRuns;
+    state.updatedAt = new Date(updatedAt);
+    return true;
   }
 
   async findRun(organizationId: string, runId: string): Promise<RunRecord | undefined> {

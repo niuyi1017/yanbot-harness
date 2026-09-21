@@ -19,6 +19,7 @@ export const collectionNames = Object.freeze({
   executionGrants: 'yanbot_harness_execution_grants',
   outbox: 'yanbot_harness_outbox',
   auditLogs: 'yanbot_harness_audit_logs',
+  admissionStates: 'yanbot_harness_admission_states',
 });
 
 export const organizationSchema = new Schema(
@@ -85,6 +86,7 @@ export const runSchema = tenantDocumentSchema({
   value: { type: Schema.Types.Mixed, required: true },
   inputFingerprint: identity,
   idempotencyKey: String,
+  admissionReleasedAt: Date,
 })
   .index({ organizationId: 1, runId: 1 }, { unique: true })
   .index({ organizationId: 1, sessionId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
@@ -183,6 +185,19 @@ export const auditLogSchema = new Schema(
   .index({ organizationId: 1, timestamp: -1 })
   .index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
+export const admissionStateSchema = new Schema(
+  {
+    organizationId: identity,
+    activeRuns: { type: Number, required: true, min: 0 },
+    admittedRuns: { type: Number, required: true, min: 0 },
+    periodStart: date,
+    activeLimit: { type: Number, required: true, min: 1 },
+    periodLimit: { type: Number, required: true, min: 1 },
+    updatedAt: date,
+  },
+  strict,
+).index({ organizationId: 1 }, { unique: true });
+
 export const modelDefinitions = Object.freeze([
   ['Organization', organizationSchema, collectionNames.organizations],
   ['User', userSchema, collectionNames.users],
@@ -198,6 +213,7 @@ export const modelDefinitions = Object.freeze([
   ['ExecutionGrant', executionGrantSchema, collectionNames.executionGrants],
   ['Outbox', outboxSchema, collectionNames.outbox],
   ['AuditLog', auditLogSchema, collectionNames.auditLogs],
+  ['AdmissionState', admissionStateSchema, collectionNames.admissionStates],
 ] as const);
 
 function tenantDocumentSchema(fields: Record<string, unknown>): Schema {

@@ -31,6 +31,10 @@ const config: CloudConfig = {
   attemptRecoveryMs: 60_000,
   maxAttempts: 3,
   retryDelayMs: 1_000,
+  runAllowedRoles: ['owner', 'admin'],
+  allowedPermissionPolicies: ['interactive', 'read-only'],
+  maxActiveRunsPerOrganization: 10,
+  maxRunsPerUtcDay: 1_000,
 };
 
 describe('Cloud authentication', () => {

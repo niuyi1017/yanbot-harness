@@ -241,6 +241,17 @@ export class ExecutionGrantService {
           grant.claimedBy,
         );
         await this.#store.revokeRunGrants(grant.organizationId, runId, new Date());
+        if (await this.#store.releaseRunAdmission(grant.organizationId, runId, new Date())) {
+          await this.#audit.record({
+            requestId: auditRequestId,
+            organizationId: grant.organizationId,
+            action: 'run.admission.release',
+            resourceType: 'run',
+            resourceId: runId,
+            outcome: 'succeeded',
+            status: 200,
+          });
+        }
       }
       return event;
     });

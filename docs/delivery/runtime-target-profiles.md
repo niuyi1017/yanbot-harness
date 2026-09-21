@@ -1,8 +1,8 @@
 # Runtime target and CLI profile migration
 
 The preview.3 development candidate keeps one SDK and CLI surface for Local and Remote Runtime targets. Phase 4 now
-contains the Cloud control plane, explicit Remote workspace preparation, Redis relay, and an independent credential-free
-Reference Worker. These are source/test candidates, not a hosted Remote deployment or interactive login. Current
+contains the Cloud control plane, explicit Remote workspace preparation, deployment-side organization admission,
+Redis relay, and an independent credential-free Reference Worker. These are source/test candidates, not a hosted Remote deployment or interactive login. Current
 release certification remains Local-only.
 
 ## SDK migration

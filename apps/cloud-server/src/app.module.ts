@@ -1,5 +1,6 @@
 import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 
+import { AdmissionService } from './admission/admission.service.js';
 import { AuditService } from './audit/audit.service.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AccessTokenGuard } from './auth/auth.guard.js';
@@ -37,6 +38,7 @@ export class AppModule implements NestModule {
         { provide: CONTROL_PLANE_STORE, useExisting: MongoControlPlaneStore },
         AuthService,
         AuditService,
+        AdmissionService,
         AccessTokenGuard,
         WorkspaceService,
         ControlPlaneService,

@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { assertRedisUrl } from '@yanbot-harness/cloud-queue';
+import type { PermissionPolicy } from '@yanbot-harness/contracts';
 import { z } from 'zod';
 
 const booleanText = z
@@ -8,6 +9,27 @@ const booleanText = z
   .default('false')
   .transform((value) => value === 'true');
 const positiveInteger = (fallback: number) => z.coerce.number().int().positive().default(fallback);
+const commaSeparatedEnum = <T extends readonly [string, ...string[]]>(values: T, fallback: string) =>
+  z
+    .string()
+    .default(fallback)
+    .transform((value, context) => {
+      const entries = value.split(',').map((entry) => entry.trim());
+      if (entries.length === 0 || entries.some((entry) => entry.length === 0)) {
+        context.addIssue({ code: 'custom', message: 'The allowlist cannot be empty.' });
+        return z.NEVER;
+      }
+      const allowed = new Set<string>(values);
+      if (entries.some((entry) => !allowed.has(entry))) {
+        context.addIssue({ code: 'custom', message: `Expected only: ${values.join(', ')}.` });
+        return z.NEVER;
+      }
+      if (new Set(entries).size !== entries.length) {
+        context.addIssue({ code: 'custom', message: 'Allowlist entries must be unique.' });
+        return z.NEVER;
+      }
+      return entries as T[number][];
+    });
 
 const environmentSchema = z
   .object({
@@ -42,6 +64,13 @@ const environmentSchema = z
     CLOUD_ATTEMPT_RECOVERY_MS: positiveInteger(60_000),
     CLOUD_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
     CLOUD_RETRY_DELAY_MS: positiveInteger(1_000),
+    CLOUD_RUN_ALLOWED_ROLES: commaSeparatedEnum(['owner', 'admin', 'member'] as const, 'owner,admin'),
+    CLOUD_ALLOWED_PERMISSION_POLICIES: commaSeparatedEnum(
+      ['interactive', 'read-only', 'auto-edit'] as const,
+      'interactive,read-only',
+    ),
+    CLOUD_MAX_ACTIVE_RUNS_PER_ORGANIZATION: z.coerce.number().int().min(1).max(10_000).default(10),
+    CLOUD_MAX_RUNS_PER_UTC_DAY: z.coerce.number().int().min(1).max(1_000_000).default(1_000),
   })
   .strict();
 
@@ -70,6 +99,10 @@ export type CloudConfig = {
   attemptRecoveryMs: number;
   maxAttempts: number;
   retryDelayMs: number;
+  runAllowedRoles: readonly ('owner' | 'admin' | 'member')[];
+  allowedPermissionPolicies: readonly PermissionPolicy[];
+  maxActiveRunsPerOrganization: number;
+  maxRunsPerUtcDay: number;
 };
 
 export function parseCloudConfig(environment: NodeJS.ProcessEnv): CloudConfig {
@@ -131,5 +164,9 @@ export function parseCloudConfig(environment: NodeJS.ProcessEnv): CloudConfig {
     attemptRecoveryMs: value.CLOUD_ATTEMPT_RECOVERY_MS,
     maxAttempts: value.CLOUD_MAX_ATTEMPTS,
     retryDelayMs: value.CLOUD_RETRY_DELAY_MS,
+    runAllowedRoles: value.CLOUD_RUN_ALLOWED_ROLES,
+    allowedPermissionPolicies: value.CLOUD_ALLOWED_PERMISSION_POLICIES,
+    maxActiveRunsPerOrganization: value.CLOUD_MAX_ACTIVE_RUNS_PER_ORGANIZATION,
+    maxRunsPerUtcDay: value.CLOUD_MAX_RUNS_PER_UTC_DAY,
   };
 }
