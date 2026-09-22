@@ -50,6 +50,8 @@ async function fixture(t) {
   });
   await put('node_modules/vendor/embedded/tool.bin', Buffer.from([0, 1, 255]));
   await put('node_modules/vendor/LICENSE', 'fixture license\n');
+  await put('main.js.map', '{"version":3,"sources":["main.ts"]}\n');
+  await put('node_modules/vendor/embedded/tool.js.map', '{"version":3}\n');
   for (const relative of NORMALIZATION_METADATA) await put(relative, '/build/private/project\n');
   return {
     root,
@@ -64,7 +66,8 @@ async function fixture(t) {
 test('normalization pins owned dependencies, preserves vendor bytes and resolved graph, and is repeatable', async (t) => {
   const f = await fixture(t);
   const result = await f.normalize();
-  assert.deepEqual(result.omitted.sort(), [...NORMALIZATION_METADATA].sort());
+  const expectedOmissions = [...NORMALIZATION_METADATA, 'main.js.map', 'node_modules/vendor/embedded/tool.js.map'];
+  assert.deepEqual(result.omitted.sort(), expectedOmissions.sort());
   assert.equal(result.manifests.length, 2);
   const output = path.join(f.root, 'normalized');
   const manifest = JSON.parse(await readFile(path.join(output, 'package.json'), 'utf8'));
@@ -78,7 +81,11 @@ test('normalization pins owned dependencies, preserves vendor bytes and resolved
     'node_modules/vendor/LICENSE',
   ])
     assert.deepEqual(await readFile(path.join(output, relative)), await readFile(path.join(f.source, relative)));
-  const options = { omitPackageManifestBytes: true, ignoredFiles: NORMALIZATION_METADATA };
+  await assert.rejects(readFile(path.join(output, 'main.js.map')), { code: 'ENOENT' });
+  await assert.rejects(readFile(path.join(output, 'node_modules/vendor/embedded/tool.js.map')), {
+    code: 'ENOENT',
+  });
+  const options = { omitPackageManifestBytes: true, ignoredFiles: expectedOmissions };
   assert.deepEqual(await auditDeployedPackages(f.source, options), await auditDeployedPackages(output, options));
   assert.equal((await f.normalize(path.join(f.root, 'second'))).after.sha256, result.after.sha256);
   assert.equal(

@@ -55,7 +55,10 @@ export async function stageRuntime({ repository, root, pnpmEntry, signal }) {
     ownedPackages,
     forbiddenRoots: [repository, await realpath(repository), root, await realpath(root)],
   });
-  const comparison = { omitPackageManifestBytes: true, ignoredFiles: NORMALIZATION_METADATA };
+  const comparison = {
+    omitPackageManifestBytes: true,
+    ignoredFiles: [...new Set([...NORMALIZATION_METADATA, ...normalization.omitted])],
+  };
   const sourceGraph = await auditDeployedPackages(linkFree, comparison);
   const targetGraph = await auditDeployedPackages(normalized, comparison);
   assert.equal(sourceGraph.graphSha256, targetGraph.graphSha256);

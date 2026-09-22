@@ -58,6 +58,10 @@ export async function normalizeRuntimeStaging({ source, destination, ownedPackag
       plan.push({ ...entry, action: 'omit' });
       continue;
     }
+    if (entry.path.endsWith('.map')) {
+      plan.push({ ...entry, action: 'omit' });
+      continue;
+    }
     const absolute = path.join(root, entry.path);
     let replacement;
     if (entry.path === 'package.json' || /(?:^|\/)node_modules\/(?:@[^/]+\/)?[^/]+\/package\.json$/u.test(entry.path)) {
