@@ -114,10 +114,17 @@ export type SidecarRequest = z.infer<typeof sidecarRequestSchema>;
 export type SidecarResponse = z.infer<typeof sidecarResponseSchema>;
 export type SidecarNotification = z.infer<typeof sidecarNotificationSchema>;
 
-export { SidecarClient, SidecarError, type SidecarClientLimits, type SidecarClientOptions } from './client.js';
+export {
+  SidecarClient,
+  SidecarError,
+  type SidecarClientLimits,
+  type SidecarClientOptions,
+  type SidecarInitialization,
+} from './client.js';
 export {
   SidecarSupervisor,
   type SidecarLaunch,
   type SidecarProcessOwner,
   type SidecarSupervisorOptions,
 } from './supervisor.js';
+export { SidecarAdapter, type SidecarAdapterOptions } from './adapter.js';

@@ -87,6 +87,18 @@ describe('Sidecar Client and Supervisor', () => {
     }
   });
 
+  it('does not echo a Wrapper error message into the public exception', async () => {
+    const supervisor = await SidecarSupervisor.start(options('remote-error'));
+    try {
+      await expect(supervisor.client.request('probe', {}, z.object({ available: z.boolean() }))).rejects.toMatchObject({
+        code: 'REMOTE_ERROR',
+        message: 'Sidecar returned an error.',
+      });
+    } finally {
+      await supervisor.dispose();
+    }
+  });
+
   it('rejects an oversized protocol line', async () => {
     const supervisor = await SidecarSupervisor.start({ ...options('oversized-line'), maxLineBytes: 1_024 });
     try {

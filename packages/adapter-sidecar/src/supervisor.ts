@@ -20,10 +20,11 @@ export interface SidecarProcessOwner {
 }
 
 export type SidecarSupervisorOptions = SidecarLaunch &
-  Omit<SidecarClientOptions, 'onFatal'> & {
+  SidecarClientOptions & {
     clientName: string;
     clientVersion: string;
     expectedAdapterId?: string;
+    expectedAdapterVersion?: string;
     shutdownTimeoutMs?: number;
     processOwner?: SidecarProcessOwner;
   };
@@ -46,8 +47,12 @@ export class SidecarSupervisor {
       ...(options.maxPendingRequests === undefined ? {} : { maxPendingRequests: options.maxPendingRequests }),
       ...(options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs }),
       ...(options.onEvent === undefined ? {} : { onEvent: options.onEvent }),
-      onFatal: () => {
-        void this.dispose().catch(() => undefined);
+      onFatal: (error) => {
+        try {
+          options.onFatal?.(error);
+        } finally {
+          void this.dispose().catch(() => undefined);
+        }
       },
     });
   }
@@ -68,7 +73,12 @@ export class SidecarSupervisor {
       throw error;
     }
     try {
-      await supervisor.client.initialize(options.clientName, options.clientVersion, options.expectedAdapterId);
+      await supervisor.client.initialize(
+        options.clientName,
+        options.clientVersion,
+        options.expectedAdapterId,
+        options.expectedAdapterVersion,
+      );
       return supervisor;
     } catch (error) {
       await supervisor.dispose().catch(() => undefined);

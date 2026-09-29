@@ -5,8 +5,8 @@
 - [x] 审计现有Adapter SPI、Sidecar Schema、总体架构与双Runtime设计。
 - [x] 确认SDK型与CLI型Harness都是产品必须覆盖的接入形态。
 - [x] 补齐CLI Wrapper、进程监管、能力降级、凭据、跨平台和交付设计。
-- [~] Sidecar Client/Supervisor 已有首轮工程候选：独立进程、握手、请求关联、JSONL 分帧、限额、超时与 POSIX
-  进程组清理的本机 Fake Sidecar 测试通过。Windows 原生 Job owner、真实 CLI Adapter 与双平台认证未完成。
+- [~] Sidecar Client/Supervisor/Adapter Bridge 已有本机工程候选：进程监管、握手、请求关联、JSONL 分帧、
+  限额、超时、POSIX 进程组清理及 Reference Conformance 通过。Windows 原生 Job owner、真实 CLI Adapter 与双平台认证未完成。
 
 ## Phase 1：厂商能力探针
 
@@ -27,11 +27,13 @@
 - [~] 实现 POSIX 进程组与 Windows 进程树清理，禁止 `shell: true` 和命令字符串拼接。macOS 已测试同组
   子孙进程回收；脱组/忽略信号场景、Windows Job owner 与目标机无残留证据待补，不回退到 PID `taskkill`。
 - [~] 使用 Fake Sidecar 覆盖协议污染、半帧、崩溃、超时和僵尸进程。已覆盖大部分通信负例和 POSIX
-  子孙进程；Reference Adapter Conformance 与 Windows runner 仍待补。
-- [ ] 新增通用 `SidecarAdapter` Bridge 与无凭据 Reference Sidecar Fixture。依赖 Client/Supervisor；验收：
-      `runAdapterConformance` 正常 Run 与取消通过，并覆盖乱序/错配/重复终态、队列溢出、异常退出和提前退出清理。
+  子孙进程及本机 Reference Adapter Conformance；完整故障矩阵与 Windows runner 仍待补。
+- [x] 新增通用 `SidecarAdapter` Bridge 与无凭据 Reference Sidecar Fixture。正常 Run、响应前 Event、取消、
+      AbortSignal 与提前退出通过 `runAdapterConformance`/定向测试；错配、乱序、重复终态、队列溢出及异常退出失败收敛。
+      验收：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit`；Windows 和真实厂商仍按独立门禁跟踪。
 
-首轮验证：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit` 与全仓 `pnpm check` 通过；这只证明本机工程候选。
+首轮验证：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit` 与全仓 `pnpm check` 通过；Bridge 新增后
+Sidecar 包 27 项单元测试通过。这只证明本机工程候选。
 
 验收：Sidecar实现与Reference进程通过Adapter Conformance Kit；macOS与Windows CI无残留进程。
 

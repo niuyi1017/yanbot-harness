@@ -24,6 +24,8 @@ export type SidecarClientOptions = SidecarClientLimits & {
   onFatal?: (error: SidecarError) => void;
 };
 
+export type SidecarInitialization = z.infer<typeof initializeResultSchema>;
+
 export class SidecarError extends Error {
   constructor(
     readonly code:
@@ -68,6 +70,7 @@ export class SidecarClient {
   #stderrBytes = 0;
   #nextId = 1;
   #failure: SidecarError | undefined;
+  #initialization: SidecarInitialization | undefined;
   #disposed = false;
   #closed: Promise<void>;
 
@@ -105,7 +108,16 @@ export class SidecarClient {
     return this.#failure;
   }
 
-  async initialize(clientName: string, clientVersion: string, expectedAdapterId?: string) {
+  get initialization(): SidecarInitialization | undefined {
+    return this.#initialization;
+  }
+
+  async initialize(
+    clientName: string,
+    clientVersion: string,
+    expectedAdapterId?: string,
+    expectedAdapterVersion?: string,
+  ) {
     const result = await this.request(
       'initialize',
       { protocolVersion: SIDECAR_PROTOCOL_VERSION, clientName, clientVersion },
@@ -116,12 +128,14 @@ export class SidecarClient {
       result.protocolVersion !== SIDECAR_PROTOCOL_VERSION ||
       result.manifest.protocolVersion !== SIDECAR_PROTOCOL_VERSION ||
       !result.manifest.runtimeKinds.includes('sidecar') ||
-      (expectedAdapterId !== undefined && result.manifest.adapterId !== expectedAdapterId)
+      (expectedAdapterId !== undefined && result.manifest.adapterId !== expectedAdapterId) ||
+      (expectedAdapterVersion !== undefined && result.manifest.adapterVersion !== expectedAdapterVersion)
     ) {
       const error = new SidecarError('PROTOCOL_ERROR', 'Sidecar identity or protocol is incompatible.');
       this.#fatal(error);
       throw error;
     }
+    this.#initialization = result;
     return result;
   }
 
@@ -224,8 +238,10 @@ export class SidecarClient {
       } else {
         pending.resolve(result);
       }
-    } catch {
-      this.#fatal(new SidecarError('PROTOCOL_ERROR', 'Invalid Sidecar protocol frame.'));
+    } catch (error) {
+      this.#fatal(
+        error instanceof SidecarError ? error : new SidecarError('PROTOCOL_ERROR', 'Invalid Sidecar protocol frame.'),
+      );
     }
   }
 

@@ -71,6 +71,10 @@ function handle(request) {
     return;
   }
   if (request.method === 'probe') {
+    if (scenario === 'remote-error') {
+      write({ jsonrpc: '2.0', id: request.id, error: { code: 500, message: 'secret-marker' } });
+      return;
+    }
     if (scenario === 'oversized-line') {
       process.stdout.write(`${'x'.repeat(2048)}\n`);
       return;
