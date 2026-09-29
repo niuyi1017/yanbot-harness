@@ -31,6 +31,7 @@
 - [x] 新增通用 `SidecarAdapter` Bridge 与无凭据 Reference Sidecar Fixture。正常 Run、响应前 Event、取消、
       AbortSignal 与提前退出通过 `runAdapterConformance`/定向测试；错配、乱序、重复终态、队列溢出及异常退出失败收敛。
       验收：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit`；Windows 和真实厂商仍按独立门禁跟踪。
+- [ ] Bridge 增加可配置 Run 事件空闲超时，覆盖 Wrapper 存活但不发终态的情况；超时后取消并回收进程。
 
 首轮验证：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit` 与全仓 `pnpm check` 通过；Bridge 新增后
 Sidecar 包 27 项单元测试通过。这只证明本机工程候选。

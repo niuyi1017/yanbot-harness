@@ -45,6 +45,7 @@ Session/Run/Event协议。
 - 单个 Runtime 首轮只允许一个活动 Run；`startRun` / `resumeRun` 在发送请求前建立有界事件队列，接受响应前到达的合法 Event。
 - Event 必须匹配当前 runId/sessionId、从 1 连续递增且只有一个终态；队列溢出、错配和重复终态均关闭进程并报协议错误。
 - `AbortSignal`、取消、迭代器提前退出与 dispose 均走同一取消/进程回收路径；Sidecar 异常退出会唤醒等待事件的迭代器。
+- Bridge 等待下一条 Event 时使用可配置的空闲超时；即使 Wrapper 进程仍存活，也要以 `REQUEST_TIMEOUT` 结束无终态 Run，尝试取消并回收进程。计时仅覆盖事件空闲等待，不把消费者处理事件的时间算入空闲时间。
 - `credentials` 不通过 Sidecar JSONL 请求或事件传送；执行环境只由调用方在受控 launch 环境中显式提供。
 
 首轮以无凭据 Reference Sidecar Fixture 跑 `runAdapterConformance`，证明 Bridge 与既有 SDK 型 Adapter 共用一套
