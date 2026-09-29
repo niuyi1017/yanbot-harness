@@ -38,6 +38,18 @@ Session/Run/Event协议。
 - 限制单行、缓冲区、stderr和待处理请求数量，防止内存失控。
 - 管理POSIX进程组和Windows进程树，dispose保持幂等。
 
+在进程协议之上提供通用 `SidecarAdapter`，实现 `adapter-api` 的 `HarnessAdapter` / `AdapterRuntime`：
+
+- 构造时固定受信 manifest 与可执行路径；initialize 必须匹配 adapterId、adapterVersion 和协议版本。
+- `probe` 与 `createRuntime` 分别启动受监管进程；Runtime 只从 initialize 获取 capability，不从厂商文本猜测。
+- 单个 Runtime 首轮只允许一个活动 Run；`startRun` / `resumeRun` 在发送请求前建立有界事件队列，接受响应前到达的合法 Event。
+- Event 必须匹配当前 runId/sessionId、从 1 连续递增且只有一个终态；队列溢出、错配和重复终态均关闭进程并报协议错误。
+- `AbortSignal`、取消、迭代器提前退出与 dispose 均走同一取消/进程回收路径；Sidecar 异常退出会唤醒等待事件的迭代器。
+- `credentials` 不通过 Sidecar JSONL 请求或事件传送；执行环境只由调用方在受控 launch 环境中显式提供。
+
+首轮以无凭据 Reference Sidecar Fixture 跑 `runAdapterConformance`，证明 Bridge 与既有 SDK 型 Adapter 共用一套
+Adapter SPI。该测试仍不能替代真实厂商或 Windows Job 认证。
+
 首轮工程候选把进程创建与终止抽象为 `SidecarProcessOwner`。POSIX 默认 owner 创建独立进程组，目前仅有
 同组且响应终止信号的子孙进程回收证据；主动脱组或忽略信号的进程仍需更强归属机制与目标机认证。
 Windows 必须由原生 Job owner 提供进程树归属，缺失时在 spawn 前失败。不得用退出后重开的 PID 或 `taskkill`

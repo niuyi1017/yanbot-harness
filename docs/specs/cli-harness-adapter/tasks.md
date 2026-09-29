@@ -28,6 +28,8 @@
   子孙进程回收；脱组/忽略信号场景、Windows Job owner 与目标机无残留证据待补，不回退到 PID `taskkill`。
 - [~] 使用 Fake Sidecar 覆盖协议污染、半帧、崩溃、超时和僵尸进程。已覆盖大部分通信负例和 POSIX
   子孙进程；Reference Adapter Conformance 与 Windows runner 仍待补。
+- [ ] 新增通用 `SidecarAdapter` Bridge 与无凭据 Reference Sidecar Fixture。依赖 Client/Supervisor；验收：
+      `runAdapterConformance` 正常 Run 与取消通过，并覆盖乱序/错配/重复终态、队列溢出、异常退出和提前退出清理。
 
 首轮验证：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit` 与全仓 `pnpm check` 通过；这只证明本机工程候选。
 
