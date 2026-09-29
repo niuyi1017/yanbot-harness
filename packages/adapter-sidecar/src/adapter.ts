@@ -26,6 +26,7 @@ export type SidecarAdapterOptions = {
   manifest: AdapterManifest;
   launch: Omit<SidecarSupervisorOptions, 'expectedAdapterId' | 'expectedAdapterVersion' | 'onEvent' | 'onFatal'>;
   maxQueuedEvents?: number;
+  runIdleTimeoutMs?: number;
 };
 
 const emptyResultSchema = z.object({});
@@ -36,6 +37,7 @@ export class SidecarAdapter implements HarnessAdapter {
   readonly manifest: AdapterManifest;
   readonly #launch: SidecarAdapterOptions['launch'];
   readonly #maxQueuedEvents: number;
+  readonly #runIdleTimeoutMs: number;
 
   constructor(options: SidecarAdapterOptions) {
     this.manifest = adapterManifestSchema.parse(options.manifest);
@@ -46,6 +48,14 @@ export class SidecarAdapter implements HarnessAdapter {
     this.#maxQueuedEvents = options.maxQueuedEvents ?? 256;
     if (!Number.isSafeInteger(this.#maxQueuedEvents) || this.#maxQueuedEvents < 1 || this.#maxQueuedEvents > 10_000) {
       throw new SidecarError('RESOURCE_LIMIT', 'Invalid Sidecar event queue limit.');
+    }
+    this.#runIdleTimeoutMs = options.runIdleTimeoutMs ?? 120_000;
+    if (
+      !Number.isSafeInteger(this.#runIdleTimeoutMs) ||
+      this.#runIdleTimeoutMs < 10 ||
+      this.#runIdleTimeoutMs > 1_800_000
+    ) {
+      throw new SidecarError('RESOURCE_LIMIT', 'Invalid Sidecar Run idle timeout.');
     }
   }
 
@@ -81,6 +91,7 @@ export class SidecarAdapter implements HarnessAdapter {
     }
     const client = supervisor.client;
     const maxQueuedEvents = this.#maxQueuedEvents;
+    const runIdleTimeoutMs = this.#runIdleTimeoutMs;
     const timeoutMs = Math.min(1_000, this.#launch.requestTimeoutMs ?? 1_000);
     let stopped = false;
     const cancel = async (input: { runId: string; reason?: string }) => {
@@ -92,7 +103,7 @@ export class SidecarAdapter implements HarnessAdapter {
         if (stopped) throw new SidecarError('DISPOSED', 'Sidecar Runtime is closed.');
         if (active) throw new SidecarError('PROTOCOL_ERROR', 'Sidecar Runtime already has an active Run.');
         if (input.abortSignal?.aborted) throw new SidecarError('DISPOSED', 'Run was aborted before start.');
-        const queue = new EventQueue(input.runId, input.sessionId, maxQueuedEvents);
+        const queue = new EventQueue(input.runId, input.sessionId, maxQueuedEvents, runIdleTimeoutMs);
         active = queue;
         const { abortSignal, ...request } = input;
         let startAcknowledged = false;
@@ -174,16 +185,18 @@ class EventQueue {
   readonly runId: string;
   readonly #sessionId: string;
   readonly #limit: number;
+  readonly #idleTimeoutMs: number;
   readonly #events: AdapterEvent[] = [];
   #sequence = 0;
   #terminal = false;
   #failure: unknown;
   #wake: (() => void) | undefined;
 
-  constructor(runId: string, sessionId: string, limit: number) {
+  constructor(runId: string, sessionId: string, limit: number, idleTimeoutMs: number) {
     this.runId = runId;
     this.#sessionId = sessionId;
     this.#limit = limit;
+    this.#idleTimeoutMs = idleTimeoutMs;
   }
 
   get terminalSeen(): boolean {
@@ -224,9 +237,18 @@ class EventQueue {
         yield event;
         if (terminalTypes.has(event.type)) return;
       } else {
-        await new Promise<void>((resolve) => {
-          this.#wake = resolve;
-        });
+        let timer: NodeJS.Timeout | undefined;
+        try {
+          await new Promise<void>((resolve, reject) => {
+            this.#wake = resolve;
+            timer = setTimeout(() => {
+              this.#wake = undefined;
+              reject(new SidecarError('REQUEST_TIMEOUT', 'Sidecar Run event idle timeout.'));
+            }, this.#idleTimeoutMs);
+          });
+        } finally {
+          clearTimeout(timer);
+        }
       }
     }
   }

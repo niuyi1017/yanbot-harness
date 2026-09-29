@@ -42,7 +42,7 @@ function handle(request) {
     if (scenario === 'pre-ack') emit('run.started', { adapterId: manifest.adapterId });
     respond(request.id, {});
     if (scenario !== 'pre-ack') emit('run.started', { adapterId: manifest.adapterId });
-    if (scenario === 'cancel') return;
+    if (scenario === 'cancel' || scenario === 'stall') return;
     if (scenario === 'crash' || scenario === 'no-terminal') {
       setTimeout(() => process.exit(scenario === 'crash' ? 4 : 0), 10);
       return;

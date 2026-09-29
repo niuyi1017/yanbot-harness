@@ -24,7 +24,7 @@ const request = {
   extensions: [],
 };
 
-function adapter(scenario: string, maxQueuedEvents?: number): SidecarAdapter {
+function adapter(scenario: string, maxQueuedEvents?: number, runIdleTimeoutMs?: number): SidecarAdapter {
   return new SidecarAdapter({
     manifest,
     launch: {
@@ -37,6 +37,7 @@ function adapter(scenario: string, maxQueuedEvents?: number): SidecarAdapter {
       shutdownTimeoutMs: 300,
     },
     ...(maxQueuedEvents === undefined ? {} : { maxQueuedEvents }),
+    ...(runIdleTimeoutMs === undefined ? {} : { runIdleTimeoutMs }),
   });
 }
 
@@ -86,6 +87,15 @@ describe('SidecarAdapter SPI bridge', () => {
     await expect(runAdapterConformance({ adapter: adapter('overflow', 2), request })).rejects.toMatchObject({
       code: 'RESOURCE_LIMIT',
     });
+  });
+
+  it('times out and closes a live Wrapper that stops sending Run events', async () => {
+    const runtime = await adapter('stall', undefined, 50).createRuntime({});
+    const iterator = runtime.startRun(request)[Symbol.asyncIterator]();
+    expect((await iterator.next()).value?.type).toBe('run.started');
+    await expect(iterator.next()).rejects.toMatchObject({ code: 'REQUEST_TIMEOUT' });
+    await expect(runtime.startRun(request)[Symbol.asyncIterator]().next()).rejects.toMatchObject({ code: 'DISPOSED' });
+    await runtime.dispose();
   });
 
   it('rejects a Wrapper manifest that differs from the pinned manifest', async () => {
