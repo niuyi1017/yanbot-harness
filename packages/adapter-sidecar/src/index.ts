@@ -113,3 +113,11 @@ export const sidecarNotificationSchema = z.discriminatedUnion('method', [
 export type SidecarRequest = z.infer<typeof sidecarRequestSchema>;
 export type SidecarResponse = z.infer<typeof sidecarResponseSchema>;
 export type SidecarNotification = z.infer<typeof sidecarNotificationSchema>;
+
+export { SidecarClient, SidecarError, type SidecarClientLimits, type SidecarClientOptions } from './client.js';
+export {
+  SidecarSupervisor,
+  type SidecarLaunch,
+  type SidecarProcessOwner,
+  type SidecarSupervisorOptions,
+} from './supervisor.js';

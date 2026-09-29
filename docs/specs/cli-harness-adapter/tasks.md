@@ -1,11 +1,12 @@
 # 第三方 CLI Harness Adapter 任务清单
 
-## 当前状态（2026-09-15）
+## 当前状态（2026-09-29）
 
 - [x] 审计现有Adapter SPI、Sidecar Schema、总体架构与双Runtime设计。
 - [x] 确认SDK型与CLI型Harness都是产品必须覆盖的接入形态。
 - [x] 补齐CLI Wrapper、进程监管、能力降级、凭据、跨平台和交付设计。
-- [ ] 目前只有Sidecar协议Schema，没有生产Sidecar Client/Supervisor或真实CLI Adapter。
+- [~] Sidecar Client/Supervisor 已有首轮工程候选：独立进程、握手、请求关联、JSONL 分帧、限额、超时与 POSIX
+  进程组清理的本机 Fake Sidecar 测试通过。Windows 原生 Job owner、真实 CLI Adapter 与双平台认证未完成。
 
 ## Phase 1：厂商能力探针
 
@@ -18,11 +19,17 @@
 
 ## Phase 2：Sidecar Client 与 Supervisor
 
-- [ ] 在 `packages/adapter-sidecar` 实现进程启动、initialize握手、请求关联和通知分发。
-- [ ] 实现增量JSONL分帧、Schema校验、背压、长度/缓冲限制、stderr限长和脱敏。
-- [ ] 实现启动/请求/空闲/关闭超时和幂等dispose。
-- [ ] 实现POSIX进程组与Windows进程树清理，禁止 `shell: true` 和命令字符串拼接。
-- [ ] 使用Fake Sidecar覆盖协议污染、半帧、崩溃、超时和僵尸进程。
+- [~] 在 `packages/adapter-sidecar` 实现进程启动、initialize 握手、请求关联和通知分发。首轮工程候选
+  已覆盖握手、并发/乱序响应和通知；Windows 无受信 owner 时明确失败。
+- [~] 实现增量 JSONL 分帧、Schema 校验、背压、长度/缓冲限制、stderr 限长和脱敏。拆分 UTF-8/CRLF、非法帧、
+  stderr/行长限制已测；完整背压与输出配额故障矩阵待补。
+- [~] 实现启动/请求/空闲/关闭超时和幂等 dispose。请求超时、关闭超时和幂等关闭已测；空闲与异常终态待补。
+- [~] 实现 POSIX 进程组与 Windows 进程树清理，禁止 `shell: true` 和命令字符串拼接。macOS 已测试同组
+  子孙进程回收；脱组/忽略信号场景、Windows Job owner 与目标机无残留证据待补，不回退到 PID `taskkill`。
+- [~] 使用 Fake Sidecar 覆盖协议污染、半帧、崩溃、超时和僵尸进程。已覆盖大部分通信负例和 POSIX
+  子孙进程；Reference Adapter Conformance 与 Windows runner 仍待补。
+
+首轮验证：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit` 与全仓 `pnpm check` 通过；这只证明本机工程候选。
 
 验收：Sidecar实现与Reference进程通过Adapter Conformance Kit；macOS与Windows CI无残留进程。
 

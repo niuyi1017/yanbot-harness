@@ -38,6 +38,12 @@ Session/Run/Event协议。
 - 限制单行、缓冲区、stderr和待处理请求数量，防止内存失控。
 - 管理POSIX进程组和Windows进程树，dispose保持幂等。
 
+首轮工程候选把进程创建与终止抽象为 `SidecarProcessOwner`。POSIX 默认 owner 创建独立进程组，目前仅有
+同组且响应终止信号的子孙进程回收证据；主动脱组或忽略信号的进程仍需更强归属机制与目标机认证。
+Windows 必须由原生 Job owner 提供进程树归属，缺失时在 spawn 前失败。不得用退出后重开的 PID 或 `taskkill`
+结果冒充 Job 的空树证明。异常退出且没有收到 shutdown 回执时，清理状态标记为未验证。Windows owner 与真实
+厂商 Wrapper 尚未接入，不能因此把 Phase 2 或四象限认证标为完成。
+
 ### `packages/adapter-cli-host`
 
 向厂商Wrapper提供可复用但不含厂商判断的基础设施：
