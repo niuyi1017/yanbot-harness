@@ -20,3 +20,10 @@
 
 不把厂商 CLI 嵌入 Runtime 进程：独立 Wrapper 可隔离协议噪声与故障；不以通用任意命令 Adapter 替代固定厂商映射，
 避免公共 API 变成 shell 入口。不启用文档提及但没有凭据实测的 resume/工具权限，后续按能力逐项认证。
+
+## 三平台无凭据认证门禁
+
+CI 在 macOS arm64/Windows x64/Linux x64 从官方 registry 下载独立平台包到 runner 临时目录，
+先校验仓库固定 SHA512 再解包，仅运行无凭据 SDK 冒烟；二进制不进入仓库或上传 artifacts。
+Windows 先编译可信 CLI Job host。只上传脱敏 JSON 测试报告。安装脚本拒绝未知平台、版本和摘要，
+不执行 npm lifecycle。此门禁只认证无凭据路径，仍不能声明真实付费调用成功。
