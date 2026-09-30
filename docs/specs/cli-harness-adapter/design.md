@@ -67,6 +67,18 @@ Windows 必须由原生 Job owner 提供进程树归属，缺失时在 spawn 前
 - 脱敏日志、输出大小限制、统一退出原因。
 - 测试用Fake CLI与时钟/进程抽象。
 
+首轮 Host API 接收固定绝对可执行路径、argv 数组、显式环境和工作目录；通过异步 stdout 行回调把厂商机器输出交给专用
+Wrapper 解析器，默认只统计 stderr 字节数，不转发原文。Host 限制单行、总输出、运行/空闲时间；回调失败、超时或
+AbortSignal 取消都走进程 owner 清理。版本探针复用同一运行器并限制输出长度，不用 shell。
+
+环境由调用方给出允许的变量名，Host 只从显式来源拷贝被允许的值；凭据文件目录单次创建、权限收紧，运行后由
+持有者清理。首轮 POSIX owner 用独立进程组；Windows owner 必须显式注入并证明进程树清理，缺失时在 spawn 前
+失败。Host 与 Sidecar 的 owner 接口形状相近，但不从 Sidecar 包反向依赖，因为 Wrapper 与 Runtime 分别托管不同
+进程。首轮仍不能证明主动脱组的子孙进程已清理。
+
+备选方案：直接使用 `execFile` 收集完整 stdout。它会在完成前缓存厂商输出，不能边解析边限流，因此不用作 Run
+执行；版本探针也复用 Host 的受限流读取以保持同一边界。
+
 ### `packages/adapter-<vendor>-cli`
 
 每个厂商单独实现：

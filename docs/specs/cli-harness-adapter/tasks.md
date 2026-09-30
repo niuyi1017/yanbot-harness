@@ -41,6 +41,8 @@ Sidecar 包 28 项单元测试通过。这只证明本机工程候选。
 
 ## Phase 3：通用 CLI Host
 
+- [ ] 首轮工程候选：新增 Host 包与安全 spawn/owner、环境允许列表、受限 stdout/stderr 增量读取、超时/取消及
+      版本探针。验证：包内 Fake CLI 正常、输出污染、限额、超时、取消用例与全仓 `pnpm check`。
 - [ ] 新增 `packages/adapter-cli-host`，提供安全spawn、版本探测、allowlist环境和临时凭据目录。
 - [ ] 建立厂商stdout增量解析接口、stderr诊断接口、退出归一化与输出配额。
 - [ ] 实现取消升级、进程树句柄和运行后临时目录清理。
