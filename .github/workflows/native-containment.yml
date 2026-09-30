@@ -36,6 +36,9 @@ jobs:
           run_install: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm --filter @yanbot-harness/adapter-cli-host --filter @yanbot-harness/adapter-sidecar test:unit
+        env:
+          HARNESS_CLI_JOB_HOST: ${{ github.workspace }}/native-build/cli-job-host.exe
       - run: node scripts/probe-managed-containment.mjs
         env:
           HARNESS_NATIVE_JOB_HOST: native-build/managed-job-host.exe

@@ -2,11 +2,13 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { runAdapterConformance } from '@yanbot-harness/adapter-kit';
+import { createWindowsCliJobOwner } from '@yanbot-harness/adapter-cli-host';
 import { describe, expect, it } from 'vitest';
 
 import { SidecarAdapter } from '../src/index.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/reference-sidecar.mjs', import.meta.url));
+const nativeHost = process.env.HARNESS_CLI_JOB_HOST;
 const manifest = {
   protocolVersion: '1.0.0' as const,
   adapterId: 'cn.yanbot.sidecar-reference',
@@ -35,13 +37,14 @@ function adapter(scenario: string, maxQueuedEvents?: number, runIdleTimeoutMs?: 
       clientVersion: '0.1.0',
       requestTimeoutMs: 1_000,
       shutdownTimeoutMs: 300,
+      ...(process.platform === 'win32' && nativeHost ? { processOwner: createWindowsCliJobOwner(nativeHost) } : {}),
     },
     ...(maxQueuedEvents === undefined ? {} : { maxQueuedEvents }),
     ...(runIdleTimeoutMs === undefined ? {} : { runIdleTimeoutMs }),
   });
 }
 
-describe('SidecarAdapter SPI bridge', () => {
+describe.skipIf(process.platform === 'win32' && !nativeHost)('SidecarAdapter SPI bridge', () => {
   it.each(['text', 'pre-ack'])('passes Reference conformance with %s event timing', async (scenario) => {
     const report = await runAdapterConformance({ adapter: adapter(scenario), request });
     expect(report.events.map((event) => event.type)).toEqual(['run.started', 'assistant.delta', 'run.completed']);

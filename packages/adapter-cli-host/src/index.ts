@@ -1,5 +1,6 @@
 export { buildAllowedEnvironment } from './environment.js';
 export { withCredentialDirectory, type CredentialDirectoryOptions } from './credentials.js';
+export { createWindowsCliJobOwner } from './windows-job-owner.js';
 export {
   runVendorCli,
   probeVendorVersion,

@@ -11,7 +11,7 @@ const output = path.resolve(process.argv[2] ?? 'native-build');
 await mkdir(output, { recursive: true });
 const source = path.resolve(import.meta.dirname, '../native/windows');
 const artifacts = [];
-for (const name of ['managed-job-host', 'breakaway-probe']) {
+for (const name of ['managed-job-host', 'cli-job-host', 'breakaway-probe']) {
   const file = path.join(output, name + '.exe');
   await execute(
     'cl.exe',

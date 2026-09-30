@@ -8,19 +8,21 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { describe, expect, it } from 'vitest';
 
-import { buildAllowedEnvironment, probeVendorVersion, runVendorCli } from '../src/index.js';
+import { buildAllowedEnvironment, createWindowsCliJobOwner, probeVendorVersion, runVendorCli } from '../src/index.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/fake-vendor.mjs', import.meta.url));
+const nativeHost = process.env.HARNESS_CLI_JOB_HOST;
 
 function launch(scenario: string, extraArgs: readonly string[] = []) {
   return {
     executablePath: process.execPath,
     args: [fixture, scenario, ...extraArgs],
     environment: {},
+    ...(process.platform === 'win32' && nativeHost ? { processOwner: createWindowsCliJobOwner(nativeHost) } : {}),
   };
 }
 
-describe.skipIf(process.platform === 'win32')('generic vendor CLI host', () => {
+describe.skipIf(process.platform === 'win32' && !nativeHost)('generic vendor CLI host', () => {
   it('copies only explicit allowed environment variables', async () => {
     const environment = buildAllowedEnvironment({ TEST_ALLOWED: 'yes', SECRET_MARKER: 'secret-marker' }, [
       'TEST_ALLOWED',
@@ -135,7 +137,7 @@ describe.skipIf(process.platform === 'win32')('generic vendor CLI host', () => {
     expect(finalized).toBe(1);
   });
 
-  it('reports a remaining process group after the leader has exited', async () => {
+  it.skipIf(process.platform === 'win32')('reports a remaining process group after the leader has exited', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'cli-host-orphan-'));
     const childFile = path.join(directory, 'child.pid');
     try {
@@ -242,5 +244,7 @@ describe.skipIf(process.platform === 'win32')('generic vendor CLI host', () => {
 });
 
 it.runIf(process.platform === 'win32')('requires a native process owner on Windows', async () => {
-  await expect(runVendorCli(launch('version'))).rejects.toMatchObject({ code: 'INVALID_LAUNCH' });
+  await expect(runVendorCli({ executablePath: process.execPath, args: [], environment: {} })).rejects.toMatchObject({
+    code: 'INVALID_LAUNCH',
+  });
 });

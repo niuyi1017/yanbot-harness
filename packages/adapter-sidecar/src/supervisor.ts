@@ -17,6 +17,7 @@ export type SidecarLaunch = {
 export interface SidecarProcessOwner {
   spawn(launch: SidecarLaunch): ChildProcess;
   terminate(child: ChildProcess, timeoutMs: number): Promise<void>;
+  verifyClosed?(child: ChildProcess, timeoutMs: number): Promise<void>;
 }
 
 export type SidecarSupervisorOptions = SidecarLaunch &
@@ -108,7 +109,9 @@ export class SidecarSupervisor {
           );
       }
       if (await closesWithin(this.client.waitForClose(), Math.min(1_000, this.#shutdownTimeoutMs))) {
-        if (!shutdownAcknowledged) {
+        if (this.#owner.verifyClosed) {
+          await this.#owner.verifyClosed(this.#child, this.#shutdownTimeoutMs);
+        } else if (!shutdownAcknowledged) {
           throw new SidecarError('CLEANUP_UNVERIFIED', 'Sidecar exited without a verified shutdown.');
         }
       } else {

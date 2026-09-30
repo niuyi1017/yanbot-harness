@@ -32,11 +32,20 @@ if (scenario === 'version') {
   if (scenario === 'ignore-term') process.on('SIGTERM', () => undefined);
   process.stdout.write('started\n');
   setInterval(() => undefined, 1_000);
-} else if (scenario === 'child') {
-  const child = spawn(process.execPath, ['-e', 'setInterval(() => undefined, 1000)'], {
-    stdio: 'ignore',
-  });
+} else if (scenario === 'child' || scenario === 'detached-child') {
+  const child = spawn(
+    process.execPath,
+    ['-e', scenario === 'detached-child' ? 'setTimeout(() => {}, 10000)' : 'setInterval(() => undefined, 1000)'],
+    {
+      stdio: 'ignore',
+      detached: scenario === 'detached-child',
+    },
+  );
   writeFileSync(process.argv[3], String(child.pid));
+  if (scenario === 'detached-child') {
+    writeFileSync(process.argv[3] + '.parent', String(process.pid));
+    setTimeout(() => process.exit(0), 10000);
+  }
   process.stdout.write('started\n');
   setInterval(() => undefined, 1_000);
 } else if (scenario === 'orphan') {

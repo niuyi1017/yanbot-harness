@@ -23,6 +23,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@yanbot-harness/adapter-cli-host": "workspace:*",
     "@yanbot-harness/adapter-kit": "workspace:*"
   }
 }

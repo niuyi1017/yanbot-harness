@@ -15,6 +15,7 @@ export type VendorLaunch = {
 export interface CliHostProcessOwner {
   spawn(launch: VendorLaunch): ChildProcess;
   terminate(child: ChildProcess, timeoutMs: number): Promise<void>;
+  verifyClosed?(child: ChildProcess, timeoutMs: number): Promise<void>;
 }
 
 export type CliHostOptions = VendorLaunch & {

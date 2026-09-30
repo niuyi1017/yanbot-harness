@@ -235,6 +235,9 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@yanbot-harness/adapter-cli-host':
+        specifier: workspace:*
+        version: link:../adapter-cli-host
       '@yanbot-harness/adapter-kit':
         specifier: workspace:*
         version: link:../adapter-kit

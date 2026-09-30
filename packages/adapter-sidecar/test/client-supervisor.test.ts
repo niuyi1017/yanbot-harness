@@ -5,11 +5,13 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
+import { createWindowsCliJobOwner } from '@yanbot-harness/adapter-cli-host';
 import { describe, expect, it } from 'vitest';
 
 import { SidecarError, SidecarSupervisor } from '../src/index.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/fake-sidecar.mjs', import.meta.url));
+const nativeHost = process.env.HARNESS_CLI_JOB_HOST;
 
 function options(scenario: string) {
   return {
@@ -21,10 +23,11 @@ function options(scenario: string) {
     expectedAdapterId: 'cn.yanbot.fake-sidecar',
     requestTimeoutMs: 1_000,
     shutdownTimeoutMs: 300,
+    ...(process.platform === 'win32' && nativeHost ? { processOwner: createWindowsCliJobOwner(nativeHost) } : {}),
   };
 }
 
-describe('Sidecar Client and Supervisor', () => {
+describe.skipIf(process.platform === 'win32' && !nativeHost)('Sidecar Client and Supervisor', () => {
   it('correlates requests and decodes split UTF-8/CRLF frames', async () => {
     const events: string[] = [];
     const supervisor = await SidecarSupervisor.start({
