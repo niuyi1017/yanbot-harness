@@ -18,6 +18,8 @@ jobs:
           node-version: 22.22.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install Redis integration-test dependency
+        run: sudo apt-get update && sudo apt-get install -y redis-server
       - run: pnpm check
 
   common-packages:

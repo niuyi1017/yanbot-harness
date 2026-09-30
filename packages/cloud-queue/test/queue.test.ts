@@ -56,7 +56,7 @@ describe('cloud queue Redis integration', () => {
   });
 
   afterAll(async () => {
-    await redis.close();
+    await redis?.close();
   });
 
   it('deduplicates a deterministic job ID', async () => {
@@ -121,7 +121,13 @@ async function startRedis(): Promise<{ url: string; restart(): Promise<void>; cl
   const directory = await mkdtemp(path.join(tmpdir(), 'yanbot-cloud-queue-'));
   const url = `redis://127.0.0.1:${port}/0`;
   let child = launchRedis(port, directory);
-  await waitForRedis(child, url);
+  try {
+    await waitForRedis(child, url);
+  } catch (error) {
+    child.kill();
+    await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
   return {
     url,
     async restart() {
@@ -139,17 +145,20 @@ async function startRedis(): Promise<{ url: string; restart(): Promise<void>; cl
 }
 
 function launchRedis(port: number, directory: string): ChildProcess {
-  return spawn(
+  const child = spawn(
     'redis-server',
     ['--bind', '127.0.0.1', '--port', String(port), '--save', '', '--appendonly', 'no', '--dir', directory],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
+  child.once('error', () => undefined);
+  return child;
 }
 
 async function waitForRedis(child: ChildProcess, url: string): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error('The temporary Redis process exited before readiness.');
+    if (child.pid === undefined || child.exitCode !== null)
+      throw new Error('The temporary Redis process exited before readiness.');
     const connection = createQueueConnection(url);
     connection.on('error', () => undefined);
     try {

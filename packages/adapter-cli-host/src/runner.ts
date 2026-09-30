@@ -1,4 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { constants } from 'node:fs';
+import { access, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -75,6 +77,13 @@ export async function runVendorCli(options: CliHostOptions): Promise<CliHostResu
   if (process.platform === 'win32' && options.processOwner === undefined) {
     throw new CliHostError('INVALID_LAUNCH', 'Windows vendor CLI requires a native process-tree owner.');
   }
+  try {
+    if (!(await stat(options.executablePath)).isFile()) throw new Error('Not a file');
+    await access(options.executablePath, process.platform === 'win32' ? constants.F_OK : constants.X_OK);
+  } catch {
+    throw new CliHostError('SPAWN_ERROR', 'Vendor CLI could not start.');
+  }
+  if (options.signal?.aborted) throw new CliHostError('CANCELLED', 'Vendor CLI invocation was cancelled.');
   const owner = options.processOwner ?? posixProcessOwner;
   let child: ChildProcess;
   try {
