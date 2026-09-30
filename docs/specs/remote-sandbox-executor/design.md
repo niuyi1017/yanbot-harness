@@ -1,0 +1,27 @@
+# 设计
+
+- 新增 `packages/sandbox-docker`，实现 HarnessAdapter facade。复用 `adapter-sidecar` 的握手/事件/错误/取消，
+  不改变 SDK、公共 HTTP 或 RunRequest。包内只处理中立容器生命周期，不解析任何厂商输出。
+- 新增 `apps/sandbox-runtime`，由固定入口选择 Reference 或 Claude CLI Adapter；接收私有 boot 帧和 lease 心跳，
+  其余请求使用 Sidecar Schema。一次最多一个 active Run，resume/扩展/凭据注入本阶段关闭。
+- 受信 Docker 可执行路径来自部署；只接受 Linux daemon。本机镜像 ID `sha256:<64hex>` 或 registry `@sha256:<64hex>`；
+  `--pull=never`，避免请求路径隐式拉取。create 得到完整 CID 后 start --attach --interactive；始终按 CID 清理。
+- 固定 non-root 65532:65532、256 PID、512 MiB memory/swap、1 CPU、只读根、64 MiB /tmp tmpfs、64 MiB /home/sandbox tmpfs；
+  无 host PID/IPC/network。工作区 read-only 挂载到 /workspace，源必须位于受信 snapshot root 的真实子目录且不能是 root 本身。
+- Host 每 2 秒发送不返回响应的私有 lease 通知，guest 10 秒没有 lease 则终止；guest PID1 退出由 Docker auto-remove 清理整容器。
+  失联时不尝试继续任务；控制面既有 lease/reaper 决定重试。容器创建/启动错误输出只保留稳定错误。
+- `RunCoordinator` 的 Adapter factory 接收当前 Run，并可异步创建 facade；Factory 仍只在 composition root 选择。
+  Worker 依据部署选择 sandbox，按 Run 的 adapterId 严格匹配。默认控制面 catalog 仍只开放 Reference。
+- Guest adapter manifest 从实际 adapter 取得，并将 runtimeKinds 映射为 sidecar；禁用 resume 声明以匹配无持久状态行为。
+- CI 用固定 Node 基础镜像构建只含受控仓库制品的镜像，最终使用 image inspect 返回的不可变 ID；不上传含厂商二进制的镜像。
+  默认镜像只带 Reference，Claude 验证镜像通过单独授权/官方完整性步骤安装，生产仍不开放。
+
+## 复用与备选
+
+复用 CLI Host 的环境允许列表理念、Sidecar Bridge、AdapterEventFactory、现有 Reference Adapter 与 Worker lease。
+拒绝直接 `docker run` 后只杀 Docker 客户端：这不能证明容器清理。拒绝 host-network 与 Docker socket 挂载到 guest。
+暂不实现可任意指定镜像/command 的公共 API，所有执行配置仅来源受信部署。
+
+官方参考：[create](https://docs.docker.com/reference/cli/docker/container/create/)、
+[resources](https://docs.docker.com/engine/containers/resource_constraints/)、
+[security](https://docs.docker.com/engine/security/)。
