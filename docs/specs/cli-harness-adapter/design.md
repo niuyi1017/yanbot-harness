@@ -80,6 +80,11 @@ Host 在成功和失败路径都等待 owner 完成清理；owner 必须支持�
 退出后仅只读检查原进程组是否消失，不按退出后可能复用的 PID 发信号；若组仍存在则报告 `CLEANUP_UNVERIFIED`。
 这会暴露同组残留，但不代替 Windows Job 或更强 containment 的认证。
 
+临时凭据使用 `withCredentialDirectory(files, operation, options)`：在规范化父目录下创建独占目录，写入前先施加
+POSIX 0700 或 Windows 当前用户独占 ACL，文件仅允许受限 basename、独占创建且 POSIX 0600。目录/文件与总字节数
+有上限，凭据内容不出现在 argv 或错误中。回调结束、失败或取消后校验目录身份并清理；身份变化则明确报清理失败，
+不删除替换后的路径。Windows ACL 复用既有 managed-permissions 的规则，但实现保持在 Host 内，不依赖 SDK。
+
 备选方案：直接使用 `execFile` 收集完整 stdout。它会在完成前缓存厂商输出，不能边解析边限流，因此不用作 Run
 执行；版本探针也复用 Host 的受限流读取以保持同一边界。
 
