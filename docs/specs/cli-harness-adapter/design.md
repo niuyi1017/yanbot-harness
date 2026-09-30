@@ -85,6 +85,15 @@ POSIX 0700 或 Windows 当前用户独占 ACL，文件仅允许受限 basename�
 有上限，凭据内容不出现在 argv 或错误中。回调结束、失败或取消后校验目录身份并清理；身份变化则明确报清理失败，
 不删除替换后的路径。Windows ACL 复用既有 managed-permissions 的规则，但实现保持在 Host 内，不依赖 SDK。
 
+Windows CLI 专用 Job 宿主使用独立 `cli-job-host.exe`，保留已认证 managed 宿主的通道契约。
+新增宿主的 stdin 是仅父进程持有的 lease/stop 管道，stdout/stderr 直接转发厂商管道，fd 3 返回有界 started/stopped
+证明，fd 4 是厂商 stdin。目标进程在原子 Job 归属下 suspended 创建，设置 KILL_ON_JOB_CLOSE 后恢复；不继承 lease
+与证明通道。父连接关闭、显式 stop 或主进程退出均终止并等待 Job 空树，之后返回厂商退出码。
+
+Host 导出结构兼容 Sidecar owner 的 `createWindowsCliJobOwner`，调用方先验证受信 native 路径。
+owner 返回 ChildProcess 时把公开 stdin 指向 fd 4，保留原 stdin 控制 lease，终止时必须等待严格的空树证明。
+单独的 Windows CI 构建与执行 native Host、CLI Host 凭据 ACL 和 Sidecar Conformance；本机解析器测试不能替代此证据。
+
 备选方案：直接使用 `execFile` 收集完整 stdout。它会在完成前缓存厂商输出，不能边解析边限流，因此不用作 Run
 执行；版本探针也复用 Host 的受限流读取以保持同一边界。
 

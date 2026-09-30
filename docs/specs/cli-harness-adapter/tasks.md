@@ -21,6 +21,9 @@
 
 ## Phase 2：Sidecar Client 与 Supervisor
 
+- [ ] Windows CLI Job 宿主与 owner：独立厂商 stdin/stdout/stderr 和 lease/control，原子 Job 归属及空树证明；
+      CI 实际运行 Host、ACL、Sidecar Conformance，记录运行链接和提交。
+
 - [~] 在 `packages/adapter-sidecar` 实现进程启动、initialize 握手、请求关联和通知分发。首轮工程候选
   已覆盖握手、并发/乱序响应和通知；Windows 无受信 owner 时明确失败。
 - [~] 实现增量 JSONL 分帧、Schema 校验、背压、长度/缓冲限制、stderr 限长和脱敏。拆分 UTF-8/CRLF、非法帧、
