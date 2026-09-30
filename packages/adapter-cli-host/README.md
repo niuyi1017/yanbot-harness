@@ -6,7 +6,9 @@ part of the public SDK or platform CLI.
 `runVendorCli` requires an absolute executable path, an argv array and an explicit environment. Use
 `buildAllowedEnvironment(source, names)` to copy only allowed variables from the chosen source. Arguments are
 passed directly with `shell: false`. The current one-shot API closes stdin after startup; interactive input
-and credential-directory ownership remain future work.
+remains future work. `withCredentialDirectory` creates bounded private credential files for one awaited
+operation and removes its owned directory on success, failure or cancellation. POSIX permissions are tested;
+the Windows ACL implementation still requires target-platform verification.
 
 Stdout is decoded as strict UTF-8 lines, including split code points and CRLF. The host awaits `onStdoutLine`
 before delivering another line, applies line and total-output limits, and drains stderr under a separate

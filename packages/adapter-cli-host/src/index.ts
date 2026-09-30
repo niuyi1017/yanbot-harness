@@ -1,4 +1,5 @@
 export { buildAllowedEnvironment } from './environment.js';
+export { withCredentialDirectory, type CredentialDirectoryOptions } from './credentials.js';
 export {
   runVendorCli,
   probeVendorVersion,

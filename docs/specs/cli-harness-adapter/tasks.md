@@ -45,9 +45,9 @@ Sidecar 包 28 项单元测试通过。这只证明本机工程候选。
 
 - [x] 首轮工程候选：新增 Host 包与安全 spawn/owner、环境允许列表、受限 stdout/stderr 增量读取、超时/取消及
       版本探针。`pnpm --filter @yanbot-harness/adapter-cli-host test:unit` 本机 20 项通过，1 项 Windows 专用门禁跳过。
-- [~] 新增 `packages/adapter-cli-host`，安全 spawn、版本探测与 allowlist 环境已实现；临时凭据目录待补。
-- [ ] 临时凭据目录：独占文件名/容量限制、POSIX 权限、Windows ACL、成功/失败/取消清理与目录身份替换拒绝。
-      验证：Host 包定向测试和目标系统 ACL 门禁。
+- [~] 新增 `packages/adapter-cli-host`，安全 spawn、版本探测、allowlist 环境与临时凭据目录已实现；Windows ACL 认证待补。
+- [~] 临时凭据目录：独占文件名/容量限制、POSIX 权限、成功/失败/取消清理与目录身份替换拒绝通过本机测试。
+  Host 包 31 项通过、1 项 Windows 专用测试跳过；Windows ACL 已实现，待目标系统验证。
 - [~] stdout 异步行解析接口、stderr 字节限额与丢弃、退出归一化已实现；厂商结构化诊断映射由后续 Wrapper 验收。
 - [~] 取消后停止派发输出，POSIX TERM/KILL 升级与同组协作子进程已测；主进程退出后组仍存在时报清理未验证，
   所有退出路径均调用 owner 收尾。更强进程归属、Windows 与临时目录清理待补。

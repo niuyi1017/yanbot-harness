@@ -50,6 +50,8 @@ export class CliHostError extends Error {
       | 'RUN_TIMEOUT'
       | 'IDLE_TIMEOUT'
       | 'CANCELLED'
+      | 'CREDENTIAL_ERROR'
+      | 'CREDENTIAL_CLEANUP_FAILED'
       | 'CLEANUP_UNVERIFIED',
     message: string,
   ) {
