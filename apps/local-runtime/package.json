@@ -39,7 +39,8 @@
     "@yanbot-harness/extension-kit": "workspace:*",
     "@yanbot-harness/permission-engine": "workspace:*",
     "express": "5.2.1",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@yanbot-harness/adapter-claude-code-cli": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "dual-runtime-matrix",
+  "sourceCommit": "02fccc249d6585cc843e76e85fa2be26a80dcc56",
+  "versions": {
+    "release": "0.1.0-preview.3",
+    "protocol": "1.0.0"
+  },
+  "targets": [
+    {
+      "target": "darwin-arm64",
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "v22.22.0",
+      "sourceDirty": false,
+      "localReference": {
+        "status": "passed",
+        "transport": "loopback-http-sse",
+        "serviceEvidence": false,
+        "scenarios": [
+          {
+            "id": "discovery-resources",
+            "status": "passed",
+            "durationMs": 63
+          },
+          {
+            "id": "run-idempotency",
+            "status": "passed",
+            "durationMs": 85
+          },
+          {
+            "id": "interaction-replay",
+            "status": "passed",
+            "durationMs": 42
+          },
+          {
+            "id": "cancellation",
+            "status": "passed",
+            "durationMs": 25
+          }
+        ]
+      },
+      "remoteReferenceFixture": {
+        "status": "passed",
+        "transport": "injected-fetch",
+        "serviceEvidence": false,
+        "scenarios": [
+          {
+            "id": "discovery-resources",
+            "status": "passed",
+            "durationMs": 10
+          },
+          {
+            "id": "run-idempotency",
+            "status": "passed",
+            "durationMs": 11
+          },
+          {
+            "id": "interaction-replay",
+            "status": "passed",
+            "durationMs": 13
+          },
+          {
+            "id": "cancellation",
+            "status": "passed",
+            "durationMs": 6
+          }
+        ]
+      }
+    },
+    {
+      "target": "win32-x64",
+      "platform": "win32",
+      "arch": "x64",
+      "node": "v22.22.0",
+      "sourceDirty": false,
+      "localReference": {
+        "status": "passed",
+        "transport": "loopback-http-sse",
+        "serviceEvidence": false,
+        "scenarios": [
+          {
+            "id": "discovery-resources",
+            "status": "passed",
+            "durationMs": 87
+          },
+          {
+            "id": "run-idempotency",
+            "status": "passed",
+            "durationMs": 94
+          },
+          {
+            "id": "interaction-replay",
+            "status": "passed",
+            "durationMs": 84
+          },
+          {
+            "id": "cancellation",
+            "status": "passed",
+            "durationMs": 52
+          }
+        ]
+      },
+      "remoteReferenceFixture": {
+        "status": "passed",
+        "transport": "injected-fetch",
+        "serviceEvidence": false,
+        "scenarios": [
+          {
+            "id": "discovery-resources",
+            "status": "passed",
+            "durationMs": 10
+          },
+          {
+            "id": "run-idempotency",
+            "status": "passed",
+            "durationMs": 16
+          },
+          {
+            "id": "interaction-replay",
+            "status": "passed",
+            "durationMs": 15
+          },
+          {
+            "id": "cancellation",
+            "status": "passed",
+            "durationMs": 10
+          }
+        ]
+      }
+    }
+  ],
+  "remoteService": {
+    "status": "not-run",
+    "reason": "formal-remote-service-not-implemented"
+  },
+  "status": "incomplete"
+}

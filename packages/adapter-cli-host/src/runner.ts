@@ -21,6 +21,7 @@ export interface CliHostProcessOwner {
 }
 
 export type CliHostOptions = VendorLaunch & {
+  stdinText?: string;
   onStdoutLine?: (line: string) => void | Promise<void>;
   signal?: AbortSignal;
   processOwner?: CliHostProcessOwner;
@@ -66,6 +67,12 @@ export class CliHostError extends Error {
 /** Execute one vendor CLI invocation without passing raw vendor output to the platform. */
 export async function runVendorCli(options: CliHostOptions): Promise<CliHostResult> {
   validateLaunch(options);
+  if (
+    options.stdinText !== undefined &&
+    (typeof options.stdinText !== 'string' || Buffer.byteLength(options.stdinText) > 4 * 1024 * 1024)
+  ) {
+    throw new CliHostError('RESOURCE_LIMIT', 'Vendor CLI input exceeded its limit.');
+  }
   const startupTimeoutMs = bounded(options.startupTimeoutMs, 15_000, 100, 120_000);
   const runTimeoutMs = bounded(options.runTimeoutMs, 600_000, 100, 3_600_000);
   const idleTimeoutMs = bounded(options.idleTimeoutMs, 120_000, 100, 1_800_000);
@@ -138,7 +145,7 @@ export async function runVendorCli(options: CliHostOptions): Promise<CliHostResu
     ]);
     clearTimeout(startupTimer);
     if (!child.stdout || !child.stderr) throw new CliHostError('SPAWN_ERROR', 'Vendor CLI pipes are unavailable.');
-    child.stdin?.end();
+    child.stdin?.end(options.stdinText);
     timer = setTimeout(() => fail(new CliHostError('RUN_TIMEOUT', 'Vendor CLI run timed out.')), runTimeoutMs);
     const markActivity = () => {
       if (stopped) return;

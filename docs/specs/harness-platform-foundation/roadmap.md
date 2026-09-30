@@ -34,7 +34,9 @@
 | 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过                             | 完整 containment、正式业务回滚、正式签名与实机认证            |
 | 产品界面与运营        | `[ ]`    | 总体设计                                                                                  | Local Web、Electron、Admin、市场与版本管理                    |
 
-当前可以对外准确声明的是：**Local Preview 已形成候选交付；Remote Runtime 和真实 CLI 型厂商尚未交付。**
+当前可以对外准确声明的是：**Local Preview 已形成候选交付；Claude Code CLI 已有 Experimental 本机候选及真实无凭据认证错误证据，付费调用未认证；Remote Runtime 尚未正式交付。**
+
+2026-09-30 补充：Windows CLI Job/ACL/Sidecar 已通过实际 CI（`36702969484`）；Local macOS/Windows 与 Remote Fixture 矩阵归档见 `../dual-runtime-matrix-evidence/evidence/02fccc2/`。Claude 子 Spec 见 `../claude-code-cli-adapter/`；用户暂无 Anthropic Key。
 
 ## 3. 总体执行原则
 

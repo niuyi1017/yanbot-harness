@@ -5,7 +5,7 @@
 - [x] 审计现有 CI runner、共享 Conformance、Remote Fixture 与历史证据格式。
 - [x] 冻结真实 Local、Remote Fixture 和真实 Remote service 的证据身份边界。
 - [x] 实现与验证证据基础设施。
-- [ ] P3.8 仍未完成：缺少正式 Remote service 和关联真实 CI run 的归档证据。
+- [~] P3.8 仍未完成：macOS/Windows CI 证据已归档，正式 Remote service 仍缺。
 
 ## T1. Spec 门禁
 
@@ -57,6 +57,6 @@ Remote service 证据。
 
 ## P3.8 完成仍需
 
-- [ ] 推送提交后，取得 macOS 与 Windows matrix 成功 run URL、artifact 和 source commit。
+- [x] 已取得 macOS 与 Windows matrix 成功 run URL、artifact 和 source commit：见 `evidence/02fccc2/README.md`。
 - [ ] Phase 4/5 提供正式 Remote service 后，以真实 HTTPS、真实认证、持久化和 workspace preparation 运行同一套证据。
 - [ ] 将真实 service report 纳入发布门禁并更新交付兼容表。

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "dual-runtime-platform",
+  "source": {
+    "commit": "02fccc249d6585cc843e76e85fa2be26a80dcc56",
+    "dirty": false
+  },
+  "generatedAt": "2026-09-30T10:32:47.205Z",
+  "runner": {
+    "target": "darwin-arm64",
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v22.22.0"
+  },
+  "versions": {
+    "release": "0.1.0-preview.3",
+    "protocol": "1.0.0"
+  },
+  "runtimes": [
+    {
+      "runtimeKind": "local-reference",
+      "executionMode": "local",
+      "transport": "loopback-http-sse",
+      "serviceEvidence": false,
+      "scenarios": [
+        {
+          "id": "discovery-resources",
+          "status": "passed",
+          "durationMs": 63
+        },
+        {
+          "id": "run-idempotency",
+          "status": "passed",
+          "durationMs": 85
+        },
+        {
+          "id": "interaction-replay",
+          "status": "passed",
+          "durationMs": 42
+        },
+        {
+          "id": "cancellation",
+          "status": "passed",
+          "durationMs": 25
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "runtimeKind": "remote-reference-fixture",
+      "executionMode": "remote",
+      "transport": "injected-fetch",
+      "serviceEvidence": false,
+      "scenarios": [
+        {
+          "id": "discovery-resources",
+          "status": "passed",
+          "durationMs": 10
+        },
+        {
+          "id": "run-idempotency",
+          "status": "passed",
+          "durationMs": 11
+        },
+        {
+          "id": "interaction-replay",
+          "status": "passed",
+          "durationMs": 13
+        },
+        {
+          "id": "cancellation",
+          "status": "passed",
+          "durationMs": 6
+        }
+      ],
+      "status": "passed"
+    }
+  ],
+  "remoteService": {
+    "status": "not-run",
+    "reason": "formal-remote-service-not-implemented"
+  },
+  "status": "passed"
+}

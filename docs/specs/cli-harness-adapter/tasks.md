@@ -12,10 +12,10 @@
 
 ## Phase 1：厂商能力探针
 
-- [ ] 选择首个CLI厂商与精确版本，核对许可证、支持平台、安装/更新方式和机器输出文档。
+- [x] 用户选择 Claude Code 2.1.284，官方 macOS 包完整性、机器接口与条款已核对；详见厂商子 Spec。
 - [ ] 探测非交互运行、流式JSON、工具事件、session ID、resume、cancel、权限交互、模型与usage。
 - [ ] 记录命令、输出fixtures、退出码和已知后台子进程，不保存真实凭据。
-- [ ] 建立 `docs/architecture/<vendor>-cli-capability-matrix.md` 和厂商Adapter子Spec。
+- [x] 建立 `docs/architecture/claude-code-cli-capability-matrix.md` 和 `claude-code-cli-adapter` 子 Spec。
 
 验收：明确每项能力为native/emulated/unsupported，并得出“可产品化”或“仅Experimental”的结论。
 
@@ -63,7 +63,7 @@ Sidecar 包 28 项单元测试通过。这只证明本机工程候选。
 
 ## Phase 4：首个厂商 CLI Adapter
 
-- [ ] 新增 `packages/adapter-<vendor>-cli`，锁定支持的CLI版本和manifest。
+- [x] 新增 `packages/adapter-claude-code-cli`，锁定 2.1.284 与 Experimental manifest。
 - [ ] 实现命令/config、机器事件、session、权限、错误和退出码映射。
 - [ ] 只对探针确认的能力声明native，其余明确降级。
 - [ ] 接入Local Runtime静态允许列表，不向SDK/平台CLI暴露厂商字段。
@@ -93,3 +93,9 @@ Sidecar 包 28 项单元测试通过。这只证明本机工程候选。
 
 本次架构审计与Spec使用 `gpt-5.6-sol + high` 足够。开始Phase 1真实CLI能力探针和Phase 2跨平台进程监管实现时，
 建议切换到 `gpt-6-astra + high`。
+
+## 2026-09-30 实际 CI 补充
+
+- Windows 原生 Job、父强杀/派生进程、Host、凭据 ACL 与 Sidecar 全部通过：[run 36702969484](https://github.com/niuyi1017/yanbot-harness/actions/runs/36702969484)，源提交 `02fccc2`。
+- Claude Code Wrapper/Host fixture 15 项通过；真实 macOS 无凭据 SDK 全链路返回认证失败，终态及持久化正确。
+- 用户没有 API Key，付费调用/usage/真实取消和 Remote 厂商认证门禁仍未完成。

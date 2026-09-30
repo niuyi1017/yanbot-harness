@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { HARNESS_RELEASE_VERSION } from '@yanbot-harness/contracts';
 
+import { ClaudeCodeCliAdapter } from '@yanbot-harness/adapter-claude-code-cli';
 import { CodeBuddyAdapter } from '@yanbot-harness/adapter-codebuddy';
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
 
@@ -37,7 +38,15 @@ async function main(): Promise<void> {
   const adapterMode = process.argv.includes('--reference')
     ? 'reference'
     : (process.env.YANBOT_HARNESS_ADAPTER ?? 'codebuddy');
-  if (adapterMode !== 'codebuddy' && adapterMode !== 'reference') throw new Error('Unsupported Runtime Adapter.');
+  if (!['codebuddy', 'reference', 'claude-code-cli'].includes(adapterMode))
+    throw new Error('Unsupported Runtime Adapter.');
+  const usesClaude = adapterMode === 'claude-code-cli';
+  const claudeCredential = usesClaude
+    ? await resolveRuntimeCredential({
+        environmentKey: 'ANTHROPIC_API_KEY',
+        fileEnvironmentKey: 'ANTHROPIC_API_KEY_FILE',
+      })
+    : undefined;
   const usesCodeBuddy = adapterMode === 'codebuddy';
   const adapterCredential = usesCodeBuddy
     ? await resolveRuntimeCredential({
@@ -51,12 +60,19 @@ async function main(): Promise<void> {
     stateRoot,
     runtimeDescriptorPath: path.join(stateRoot, 'runtime.json'),
     adapters: [
-      usesCodeBuddy
-        ? new CodeBuddyAdapter()
-        : new ReferenceAdapter(
-            configuredReferenceScenario === undefined ? {} : { scenario: configuredReferenceScenario },
-          ),
+      usesClaude
+        ? new ClaudeCodeCliAdapter({
+            executablePath: process.env.CLAUDE_CODE_EXECUTABLE ?? '',
+            ...(claudeCredential ? { apiKey: claudeCredential } : {}),
+            ...(process.env.HARNESS_CLI_JOB_HOST ? { windowsJobHost: process.env.HARNESS_CLI_JOB_HOST } : {}),
+          })
+        : usesCodeBuddy
+          ? new CodeBuddyAdapter()
+          : new ReferenceAdapter(
+              configuredReferenceScenario === undefined ? {} : { scenario: configuredReferenceScenario },
+            ),
     ],
+    ...(claudeCredential ? { redactionSecrets: [claudeCredential] } : {}),
     ...(process.env.YANBOT_HARNESS_ACCESS_TOKEN === undefined
       ? {}
       : { accessToken: process.env.YANBOT_HARNESS_ACCESS_TOKEN }),
@@ -138,7 +154,10 @@ Environment:
   CODEBUDDY_API_KEY                  CodeBuddy credential (Runtime process only).
   CODEBUDDY_API_KEY_FILE             Protected one-line credential file; mutually exclusive with CODEBUDDY_API_KEY.
   CODEBUDDY_INTERNET_ENVIRONMENT     Use internal for the certified China route.
-  YANBOT_HARNESS_ADAPTER             codebuddy (default) or reference.
+  YANBOT_HARNESS_ADAPTER             codebuddy (default), reference, or claude-code-cli.
+  CLAUDE_CODE_EXECUTABLE            Absolute path to Claude Code 2.1.284 (Experimental).
+  ANTHROPIC_API_KEY_FILE            Protected API key file for Claude Code; or ANTHROPIC_API_KEY.
+  HARNESS_CLI_JOB_HOST              Required native CLI Job host path on Windows.
   YANBOT_HARNESS_STATE_DIR           Runtime state and descriptor directory.
   YANBOT_HARNESS_ACCESS_TOKEN        Optional fixed Runtime bearer token.
   YANBOT_HARNESS_ALLOWED_ORIGINS     Optional comma-separated Origin allowlist.

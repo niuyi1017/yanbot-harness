@@ -17,6 +17,12 @@ if (scenario === 'version') {
   process.stdout.write(`${'x'.repeat(2_048)}\n`);
 } else if (scenario === 'many-lines') {
   process.stdout.write('line\n'.repeat(512));
+} else if (scenario === 'stdin-count') {
+  let bytes = 0;
+  process.stdin.on('data', (chunk) => {
+    bytes += chunk.length;
+  });
+  process.stdin.on('end', () => process.stdout.write(String(bytes) + '\n'));
 } else if (scenario === 'stdin-eof') {
   process.stdin.resume();
   process.stdin.on('end', () => process.stdout.write('eof\n'));

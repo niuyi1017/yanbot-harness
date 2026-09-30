@@ -1,0 +1,28 @@
+{
+  "name": "@yanbot-harness/adapter-claude-code-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/adapter-cli-host": "workspace:*",
+    "@yanbot-harness/adapter-kit": "workspace:*",
+    "@yanbot-harness/adapter-sidecar": "workspace:*",
+    "@yanbot-harness/contracts": "workspace:*",
+    "zod": "4.4.3"
+  }
+}

@@ -55,6 +55,22 @@ describe.skipIf(process.platform === 'win32' && !nativeHost)('generic vendor CLI
     expect(await probeVendorVersion(launch('version'))).toBe('fake-vendor 1.2.3');
   });
 
+  it('writes bounded UTF-8 input and rejects oversized input before launch', async () => {
+    const lines: string[] = [];
+    const stdinText = 'α'.repeat(128 * 1024);
+    await runVendorCli({
+      ...launch('stdin-count'),
+      stdinText,
+      onStdoutLine: (line) => {
+        lines.push(line);
+      },
+    });
+    expect(lines).toEqual([String(Buffer.byteLength(stdinText))]);
+    await expect(
+      runVendorCli({ ...launch('stdin-count'), stdinText: 'x'.repeat(4 * 1024 * 1024 + 1) }),
+    ).rejects.toMatchObject({ code: 'RESOURCE_LIMIT' });
+  });
+
   it('closes stdin for commands waiting for EOF', async () => {
     const lines: string[] = [];
     await runVendorCli({

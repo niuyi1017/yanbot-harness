@@ -63,7 +63,7 @@
       依赖：P3.6。验收：稳定错误分类和无敏感数据证据。
 - [ ] **P3.8 矩阵证据**：将 Local macOS/Windows 与 Remote service 作为独立矩阵项输出证据。依赖：P3.7。
   - [x] 实现严格单平台报告、macOS/Windows CI runner、双目标聚合器与 Fixture/service 身份隔离。
-  - [ ] 取得同一提交的 macOS/Windows 实际 CI artifact 与 run URL。
+  - [x] 取得同一提交的 macOS/Windows 实际 CI artifact 与 run URL：`02fccc2`，run `36702969432`，归档见 `../dual-runtime-matrix-evidence/evidence/02fccc2/`。
   - [ ] Phase 4/5 完成后取得正式 Remote service 的真实 HTTPS 证据；Fixture 结果不能替代。
 
 验收：Reference Adapter 在 Local 与 Remote 两套后端通过同一组核心断言，没有模式专用公共 API。

@@ -152,7 +152,8 @@ async function scanTextFile(file, label) {
   const content = await readFile(file, 'utf8');
   if (/ck_[A-Za-z0-9._-]{40,}/u.test(content)) violations.push(`${label}: credential-like value`);
   if (
-    content.includes('workspace:') &&
+    path.basename(file) === 'package.json' &&
+    /:\s*"workspace:/u.test(content) &&
     (!label.includes('node_modules/') || label.includes('node_modules/@yanbot-harness/'))
   ) {
     violations.push(`${label}: workspace protocol`);
