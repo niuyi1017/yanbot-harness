@@ -1,12 +1,14 @@
 # 第三方 CLI Harness Adapter 任务清单
 
-## 当前状态（2026-09-29）
+## 当前状态（2026-09-30）
 
 - [x] 审计现有Adapter SPI、Sidecar Schema、总体架构与双Runtime设计。
 - [x] 确认SDK型与CLI型Harness都是产品必须覆盖的接入形态。
 - [x] 补齐CLI Wrapper、进程监管、能力降级、凭据、跨平台和交付设计。
 - [~] Sidecar Client/Supervisor/Adapter Bridge 已有本机工程候选：进程监管、握手、请求关联、JSONL 分帧、
   限额、超时、POSIX 进程组清理及 Reference Conformance 通过。Windows 原生 Job owner、真实 CLI Adapter 与双平台认证未完成。
+- [~] 通用 CLI Host 首轮工程候选完成本机 Fake CLI 验证：安全启动、显式环境、增量输出、限额、超时、取消与版本探针。
+  临时凭据目录、Windows owner、完整跨平台故障矩阵待补。
 
 ## Phase 1：厂商能力探针
 
@@ -41,12 +43,16 @@ Sidecar 包 28 项单元测试通过。这只证明本机工程候选。
 
 ## Phase 3：通用 CLI Host
 
-- [ ] 首轮工程候选：新增 Host 包与安全 spawn/owner、环境允许列表、受限 stdout/stderr 增量读取、超时/取消及
-      版本探针。验证：包内 Fake CLI 正常、输出污染、限额、超时、取消用例与全仓 `pnpm check`。
-- [ ] 新增 `packages/adapter-cli-host`，提供安全spawn、版本探测、allowlist环境和临时凭据目录。
-- [ ] 建立厂商stdout增量解析接口、stderr诊断接口、退出归一化与输出配额。
-- [ ] 实现取消升级、进程树句柄和运行后临时目录清理。
-- [ ] 提供Fake Vendor CLI，覆盖CRLF、UTF-8、背压、噪声、无终态和派生子进程。
+- [x] 首轮工程候选：新增 Host 包与安全 spawn/owner、环境允许列表、受限 stdout/stderr 增量读取、超时/取消及
+      版本探针。`pnpm --filter @yanbot-harness/adapter-cli-host test:unit` 本机 20 项通过，1 项 Windows 专用门禁跳过。
+- [~] 新增 `packages/adapter-cli-host`，安全 spawn、版本探测与 allowlist 环境已实现；临时凭据目录待补。
+- [~] stdout 异步行解析接口、stderr 字节限额与丢弃、退出归一化已实现；厂商结构化诊断映射由后续 Wrapper 验收。
+- [~] 取消后停止派发输出，POSIX TERM/KILL 升级与同组协作子进程已测；主进程退出后组仍存在时报清理未验证，
+  所有退出路径均调用 owner 收尾。更强进程归属、Windows 与临时目录清理待补。
+- [~] Fake CLI 覆盖 CRLF、拆分 UTF-8、异步解析背压、噪声/解析失败、限额、空闲/总时限、取消和同组子进程；
+  不响应信号/主动脱组及厂商无终态矩阵待补。
+
+2026-09-30 本机工程候选验证：全仓 `pnpm check` 通过；该结果不替代 Windows/Linux 目标平台认证。
 
 验收：包内无厂商名分支；安全与故障fixture在macOS、Windows、Linux通过。
 

@@ -6,8 +6,8 @@
 提供可嵌入的Node SDK；部分产品主要通过独立CLI提供Agent能力，例如可将Claude Code CLI作为此类接入方式的候选。
 具体厂商是否提供其他SDK不影响本设计：只要本次选用的集成面是CLI，就必须经过标准CLI Adapter边界。
 
-现有 `adapter-sidecar` 已冻结 JSON-RPC 2.0 over JSON Lines 的请求、响应与事件Schema，但尚未实现child process
-（子进程）启动、监管、厂商CLI解析或真实Adapter。因此目前是“架构已预留，产品能力未完成”。
+立项时 `adapter-sidecar` 仅冻结 JSON-RPC 2.0 over JSON Lines 的请求、响应与事件 Schema。当前已推进到
+Client/Supervisor/Bridge 和通用 CLI Host 的本机工程候选；真实厂商与跨平台认证状态以 `tasks.md` 为准。
 
 一句话目标：**用厂商专用 Sidecar Wrapper 把第三方CLI翻译成统一Adapter SPI，使平台SDK、平台CLI、Local Runtime
 和Remote Runtime不感知厂商命令行差异。**

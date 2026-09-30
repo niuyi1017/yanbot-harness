@@ -76,6 +76,10 @@ AbortSignal 取消都走进程 owner 清理。版本探针复用同一运行器�
 失败。Host 与 Sidecar 的 owner 接口形状相近，但不从 Sidecar 包反向依赖，因为 Wrapper 与 Runtime 分别托管不同
 进程。首轮仍不能证明主动脱组的子孙进程已清理。
 
+Host 在成功和失败路径都等待 owner 完成清理；owner 必须支持主进程先退出的情况。POSIX 默认 owner 在主进程
+退出后仅只读检查原进程组是否消失，不按退出后可能复用的 PID 发信号；若组仍存在则报告 `CLEANUP_UNVERIFIED`。
+这会暴露同组残留，但不代替 Windows Job 或更强 containment 的认证。
+
 备选方案：直接使用 `execFile` 收集完整 stdout。它会在完成前缓存厂商输出，不能边解析边限流，因此不用作 Run
 执行；版本探针也复用 Host 的受限流读取以保持同一边界。
 

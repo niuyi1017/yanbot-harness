@@ -177,6 +177,8 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/adapter-cli-host: {}
+
   packages/adapter-codebuddy:
     dependencies:
       '@tencent-ai/agent-sdk':
