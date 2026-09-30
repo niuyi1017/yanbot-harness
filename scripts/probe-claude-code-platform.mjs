@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -17,7 +18,7 @@ if (!integrities[target]) throw new Error('Unsupported probe platform.');
 const root = await mkdtemp(path.join(tmpdir(), 'harness-claude-platform-'));
 try {
   const name = `claude-code-${target}`;
-  const response = await fetch(`https://registry.npmjs.org/@anthropic-ai/${name}/-/${name}-${version}.tgz`, {
+  const response = await globalThis.fetch(`https://registry.npmjs.org/@anthropic-ai/${name}/-/${name}-${version}.tgz`, {
     signal: globalThis.AbortSignal.timeout(120_000),
   });
   if (!response.ok) throw new Error('Official package unavailable.');
