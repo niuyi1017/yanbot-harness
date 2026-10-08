@@ -43,6 +43,29 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
 
   async syncIndexes(): Promise<void> {
     if (!this.#connection) throw new Error('MongoDB is not connected.');
+    // Keep uniqueness enforced throughout the explicit legacy-index migration.
+    const runs = this.#connection.model('HarnessRun').collection;
+    await runs.createIndex(
+      { organizationId: 1, sessionId: 1, idempotencyKey: 1 },
+      {
+        name: 'run_idempotency_present',
+        unique: true,
+        partialFilterExpression: { idempotencyKey: { $type: 'string' } },
+      },
+    );
+    const legacy = (await runs.indexes()).find(
+      (index) => index.name === 'organizationId_1_sessionId_1_idempotencyKey_1',
+    );
+    if (legacy) {
+      if (
+        !legacy.unique ||
+        !legacy.sparse ||
+        legacy.partialFilterExpression ||
+        JSON.stringify(legacy.key) !== JSON.stringify({ organizationId: 1, sessionId: 1, idempotencyKey: 1 })
+      )
+        throw new Error('The legacy Run index differs from the expected migration source.');
+      await runs.dropIndex(legacy.name!);
+    }
     for (const [name] of modelDefinitions) await this.#connection.model(name).syncIndexes();
   }
 

@@ -89,7 +89,10 @@ export const runSchema = tenantDocumentSchema({
   admissionReleasedAt: Date,
 })
   .index({ organizationId: 1, runId: 1 }, { unique: true })
-  .index({ organizationId: 1, sessionId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
+  .index(
+    { organizationId: 1, sessionId: 1, idempotencyKey: 1 },
+    { name: 'run_idempotency_present', unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+  );
 export const runEventSchema = tenantDocumentSchema({
   runId: identity,
   eventId: identity,

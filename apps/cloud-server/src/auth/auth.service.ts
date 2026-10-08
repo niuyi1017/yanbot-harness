@@ -88,18 +88,21 @@ export class AuthService {
   async refresh(value: unknown): Promise<TokenPair> {
     const input = refreshSchema.parse(value);
     const digest = this.digest(input.refreshToken);
-    return this.#store.transaction(async () => {
+    const result = await this.#store.transaction(async () => {
       const previous = await this.#store.findRefreshGrant(digest);
       const now = this.#now();
       if (!previous || previous.revokedAt || previous.refreshExpiresAt <= now) throw authenticationFailed();
       if (previous.rotatedAt) {
         await this.#store.revokeTokenFamily(previous.familyId, now);
-        throw authenticationFailed();
+        return undefined;
       }
       const active = await this.#store.resolveActivePrincipal(previous);
       if (!active || !(await this.#store.markRefreshRotated(digest, now))) throw authenticationFailed();
       return this.#issue(previous.organizationId, previous.userId, previous.deviceId, previous.familyId);
     });
+    // Throw after commit: a rejection inside the transaction would undo revocation.
+    if (!result) throw authenticationFailed();
+    return result;
   }
 
   async authenticate(authorization: string | undefined): Promise<TenantPrincipal> {
