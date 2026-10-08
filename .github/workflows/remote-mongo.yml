@@ -20,26 +20,7 @@ jobs:
           run_install: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - name: Start isolated single-node replica set
-        run: |
-          docker pull mongo:8.0
-          image=$(docker image inspect --format '{{.Id}}' mongo:8.0)
-          docker run -d --name harness-mongo-ci --publish 127.0.0.1:27017:27017 "$image" --replSet harness-ci --bind_ip_all
-          for attempt in $(seq 1 30); do
-            if docker exec harness-mongo-ci mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' >/dev/null 2>&1; then break; fi
-            sleep 1
-          done
-          docker exec harness-mongo-ci mongosh --quiet --eval 'rs.initiate({_id:"harness-ci",members:[{_id:0,host:"127.0.0.1:27017"}]})'
-          ready=false
-          for attempt in $(seq 1 30); do
-            if docker exec harness-mongo-ci mongosh --quiet --eval 'quit(db.hello().isWritablePrimary ? 0 : 1)' >/dev/null 2>&1; then ready=true; break; fi
-            sleep 1
-          done
-          test "$ready" = true
-          mkdir -p evidence
-          docker image inspect --format '{{json .RepoDigests}}' mongo:8.0 > evidence/mongo-image-digests.json
-          docker exec harness-mongo-ci mongosh --quiet --eval 'print(JSON.stringify({version:db.version(),replicaSet:db.hello().setName}))' > evidence/mongo-server.json
-          git rev-parse HEAD > evidence/source-commit.txt
+      - uses: ./.github/actions/mongo-replica-set
       - name: Real transaction and index conformance
         env:
           HARNESS_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=harness-ci&directConnection=true

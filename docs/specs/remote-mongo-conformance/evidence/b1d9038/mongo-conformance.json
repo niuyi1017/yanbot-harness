@@ -1,0 +1,112 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 2,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 8,
+  "numPassedTests": 8,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1791480670451,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence migrates the legacy sparse index explicitly and is idempotent",
+          "status": "passed",
+          "title": "migrates the legacy sparse index explicitly and is idempotent",
+          "duration": 56.25532499999986,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence allows sequential no-key runs while enforcing explicit-key uniqueness",
+          "status": "passed",
+          "title": "allows sequential no-key runs while enforcing explicit-key uniqueness",
+          "duration": 141.08658400000013,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence deduplicates concurrent identical requests with one admission and outbox",
+          "status": "passed",
+          "title": "deduplicates concurrent identical requests with one admission and outbox",
+          "duration": 76.93292300000007,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence serializes the Session write lock and returns domain conflicts",
+          "status": "passed",
+          "title": "serializes the Session write lock and returns domain conflicts",
+          "duration": 46.18328500000007,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence enforces organization concurrency across different sessions on first admission",
+          "status": "passed",
+          "title": "enforces organization concurrency across different sessions on first admission",
+          "duration": 69.65034300000002,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence rolls back admission, Run, outbox and Session when a transaction fails",
+          "status": "passed",
+          "title": "rolls back admission, Run, outbox and Session when a transaction fails",
+          "duration": 26.199756000000207,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence commits refresh-reuse family revocation despite authentication rejection",
+          "status": "passed",
+          "title": "commits refresh-reuse family revocation despite authentication rejection",
+          "duration": 36.366818000000194,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence reconnects and replays one durable terminal event with tenant/cursor isolation",
+          "status": "passed",
+          "title": "reconnects and replays one durable terminal event with tenant/cursor isolation",
+          "duration": 113.94957599999998,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1791480671625,
+      "endTime": 1791480672191.9495,
+      "status": "passed",
+      "message": "",
+      "name": "/home/runner/work/yanbot-harness/yanbot-harness/apps/cloud-server/test/mongo.integration.test.ts"
+    }
+  ]
+}

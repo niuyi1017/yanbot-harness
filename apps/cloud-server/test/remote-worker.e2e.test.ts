@@ -19,6 +19,7 @@ import { AuthService } from '../src/auth/auth.service.js';
 import { CloudExceptionFilter } from '../src/common/cloud-exception.filter.js';
 import { RequestContextMiddleware } from '../src/common/request-context.js';
 import type { CloudConfig } from '../src/config.js';
+import type { RunAttemptRecord } from '../src/domain.js';
 import { ControlPlaneController } from '../src/control-plane/control-plane.controller.js';
 import { ControlPlaneService } from '../src/control-plane/control-plane.service.js';
 import { DispatchService } from '../src/dispatch/dispatch.service.js';
@@ -27,7 +28,8 @@ import { ExecutionGrantService } from '../src/execution-grants/execution-grant.s
 import { HealthController } from '../src/health.controller.js';
 import { CONTROL_PLANE_STORE } from '../src/persistence/control-plane.store.js';
 import { MemoryControlPlaneStore } from '../src/persistence/memory.store.js';
-import { CLOUD_CONFIG } from '../src/persistence/mongo.service.js';
+import { CLOUD_CONFIG, MongoService } from '../src/persistence/mongo.service.js';
+import { MongoControlPlaneStore } from '../src/persistence/mongo.store.js';
 import { WorkspaceController } from '../src/workspaces/workspace.controller.js';
 import { WorkspaceService } from '../src/workspaces/workspace.service.js';
 
@@ -38,7 +40,8 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
   let worker: ChildProcess;
   let origin: string;
   let auth: AuthService;
-  let store: MemoryControlPlaneStore;
+  let inspect: Awaited<ReturnType<typeof startApplication>>['inspect'];
+  let closeDatabase: Awaited<ReturnType<typeof startApplication>>['closeDatabase'];
   const queueName = `remote-e2e-${process.pid}`;
 
   beforeAll(async () => {
@@ -48,13 +51,15 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     application = started.application;
     origin = started.origin;
     auth = started.auth;
-    store = started.store;
+    inspect = started.inspect;
+    closeDatabase = started.closeDatabase;
     worker = spawnWorker(redis.url, queueName, origin, root);
-  }, 15_000);
+  }, 30_000);
 
   afterAll(async () => {
     await stopWorker(worker);
     await application?.close();
+    await closeDatabase?.();
     await redis?.close();
     if (root) await rm(root, { recursive: true, force: true });
   });
@@ -78,13 +83,14 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     expect(events[0]?.type).toBe('run.started');
     expect(events.at(-1)?.type).toBe('run.completed');
     await expect(handle.refresh()).resolves.toMatchObject({ status: 'completed' });
-    expect(store.runAttempts).toEqual(
+    const persisted = await inspect();
+    expect(persisted.runAttempts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ runId: handle.run.runId, status: 'completed', active: false }),
       ]),
     );
-    expect(JSON.stringify(store.outbox)).not.toContain('e2e-secret-prompt');
-    expect(JSON.stringify(store.audits)).not.toContain('e2e-secret-prompt');
+    expect(JSON.stringify(persisted.outbox)).not.toContain('e2e-secret-prompt');
+    expect(JSON.stringify(persisted.audits)).not.toContain('e2e-secret-prompt');
   }, 15_000);
 
   it('round-trips an interaction through polling without queue payload expansion', async () => {
@@ -136,7 +142,7 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     expect(events.filter((event) => ['run.completed', 'run.failed', 'run.cancelled'].includes(event.type))).toEqual([
       expect.objectContaining({ type: 'run.cancelled' }),
     ]);
-    expect(store.runAttempts.find((attempt) => attempt.runId === handle.run.runId)).toMatchObject({
+    expect((await inspect()).runAttempts.find((attempt) => attempt.runId === handle.run.runId)).toMatchObject({
       active: false,
       failureCode: 'RUN_CANCELLED',
     });
@@ -170,8 +176,9 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
         status: 'failed',
         adapterId: selectedAdapterId,
       });
-      expect(JSON.stringify(store.outbox)).not.toContain('Return OK.');
-      expect(store.runAttempts.find((attempt) => attempt.runId === handle.run.runId)?.active).toBe(false);
+      const persisted = await inspect();
+      expect(JSON.stringify(persisted.outbox)).not.toContain('Return OK.');
+      expect(persisted.runAttempts.find((attempt) => attempt.runId === handle.run.runId)?.active).toBe(false);
     },
     60_000,
   );
@@ -237,7 +244,12 @@ async function stopWorker(worker: ChildProcess | undefined): Promise<void> {
 }
 
 async function startApplication(redisUrl: string, queue: string, workspaceRoot: string) {
-  const store = new MemoryControlPlaneStore();
+  const mongoUri = process.env.HARNESS_TEST_MONGODB_URI;
+  if (mongoUri) {
+    const parsed = new URL(mongoUri);
+    if (parsed.protocol !== 'mongodb:' || parsed.hostname !== '127.0.0.1' || parsed.username || parsed.password)
+      throw new Error('Worker E2E requires a dedicated loopback test replica set.');
+  }
   const config: CloudConfig = {
     nodeEnv: 'test',
     experimentalClaudeCli: Boolean(process.env.HARNESS_SANDBOX_CLAUDE_IMAGE),
@@ -246,8 +258,8 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     port: 0,
     trustProxy: false,
     tlsTerminated: false,
-    mongodbUri: 'mongodb://unused',
-    mongodbDatabase: 'test',
+    mongodbUri: mongoUri ?? 'mongodb://unused',
+    mongodbDatabase: `harness_ci_${randomUUID().replaceAll('-', '')}`,
     tokenPepper: 'p'.repeat(32),
     workspaceRoot,
     accessTokenTtlSeconds: 900,
@@ -261,8 +273,8 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     queueName: queue,
     relayIntervalMs: 20,
     relayLeaseMs: 1_000,
-    runLeaseMs: process.env.HARNESS_SANDBOX_CLAUDE_IMAGE ? 5000 : 500,
-    attemptRecoveryMs: 1_000,
+    runLeaseMs: process.env.HARNESS_SANDBOX_CLAUDE_IMAGE || mongoUri ? 5000 : 500,
+    attemptRecoveryMs: process.env.HARNESS_SANDBOX_CLAUDE_IMAGE || mongoUri ? 10_000 : 1_000,
     maxAttempts: 3,
     retryDelayMs: 20,
     runAllowedRoles: ['owner', 'admin'],
@@ -270,6 +282,12 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     maxActiveRunsPerOrganization: 10,
     maxRunsPerUtcDay: 1_000,
   };
+  const mongo = mongoUri ? new MongoService(config) : undefined;
+  if (mongo) {
+    await mongo.onModuleInit();
+    await mongo.syncIndexes();
+  }
+  const store = mongo ? new MongoControlPlaneStore(mongo) : new MemoryControlPlaneStore();
   const module = await Test.createTestingModule({
     controllers: [
       HealthController,
@@ -300,7 +318,17 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     application,
     origin: `http://127.0.0.1:${address.port}`,
     auth: module.get(AuthService),
-    store,
+    closeDatabase: async () => {
+      await mongo?.onModuleDestroy();
+    },
+    inspect: async () => {
+      if (store instanceof MemoryControlPlaneStore) return store;
+      return {
+        runAttempts: await mongo!.model<RunAttemptRecord>('RunAttempt').find().lean().exec(),
+        outbox: await mongo!.model('Outbox').find().lean().exec(),
+        audits: await mongo!.model('AuditLog').find().lean().exec(),
+      };
+    },
   };
 }
 

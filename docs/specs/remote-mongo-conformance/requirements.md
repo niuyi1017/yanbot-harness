@@ -15,6 +15,7 @@
 6. 专用数据库名由测试随机生成，CI 仅绑定 loopback，测试无数据库 URL 时显式跳过；专用 workflow 必须执行且零跳过。
 7. CI 归档 Mongo 版本、镜像 digest、源提交和测试报告；不能将测试部署等同生产 TLS/认证/备份/故障切换认证。
 8. Refresh token 重放必须持久化撤销整个 family；不能因抛出认证异常而回滚撤销事务。
+9. 同一套完整 SDK/HTTP/Redis/Worker/Docker 用例可选择真实 Mongo Store，验证两个厂商的认证失败、Reference 成功/交互/取消持久化。
 
 ## 不在本次范围
 
