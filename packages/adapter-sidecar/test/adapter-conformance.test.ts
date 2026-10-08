@@ -77,14 +77,19 @@ describe.skipIf(process.platform === 'win32' && !nativeHost)('SidecarAdapter SPI
     await runtime.dispose();
   });
 
-  it.each(['wrong-run', 'wrong-sequence', 'duplicate-terminal', 'overflow', 'crash', 'no-terminal'])(
-    'fails closed on %s events',
-    async (scenario) => {
-      await expect(
-        runAdapterConformance({ adapter: adapter(scenario, scenario === 'overflow' ? 2 : undefined), request }),
-      ).rejects.toThrow();
-    },
-  );
+  it.each([
+    'wrong-run',
+    'wrong-sequence',
+    'duplicate-terminal',
+    'duplicate-terminal-split',
+    'overflow',
+    'crash',
+    'no-terminal',
+  ])('fails closed on %s events', async (scenario) => {
+    await expect(
+      runAdapterConformance({ adapter: adapter(scenario, scenario === 'overflow' ? 2 : undefined), request }),
+    ).rejects.toThrow();
+  });
 
   it('reports queue overflow as a resource limit', async () => {
     await expect(runAdapterConformance({ adapter: adapter('overflow', 2), request })).rejects.toMatchObject({

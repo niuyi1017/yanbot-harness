@@ -33,3 +33,9 @@
 `docker create` 的响应可能在客户端超时后丢失，导致尚未运行、没有 Guest lease watchdog 的容器。
 Worker 启动及每 15 秒扫描专用 Harness label 的 created 容器；只回收名称符合 Harness UUID 格式且创建超过 60 秒的对象。
 使用非 force rm：若其间被正常启动，Docker 拒绝删除，保留运行中的资源。此回收器不扫描或删除其他 label 的容器。
+
+## CLI 容器探针
+
+增加不发布的 CI 镜像变体，构建时从官方 npm 取得 Claude Code Linux x64 2.1.284，
+校验与已通过平台探针相同的固定 SHA512 后仅保留可执行文件。该镜像通过 DockerSandboxAdapter 的同一公共协议，
+在 network=none、无 API Key 环境验证 AUTHENTICATION_FAILED 和清理；其结果仍不是付费模型成功证据。

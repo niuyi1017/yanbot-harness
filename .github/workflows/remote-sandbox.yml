@@ -26,6 +26,8 @@ jobs:
           base=$(docker image inspect --format '{{index .RepoDigests 0}}' node:22.22.0-bookworm-slim)
           docker build -f containers/sandbox/Dockerfile --build-arg NODE_BASE="$base" -t harness-sandbox-test .
           docker build -f containers/sandbox/Dockerfile --build-arg NODE_BASE="$base" --build-arg REFERENCE_WAIT=1 -t harness-sandbox-wait .
+          docker build -f containers/sandbox/Dockerfile --build-arg NODE_BASE="$base" --build-arg WITH_CLAUDE=1 -t harness-sandbox-claude .
+          echo "HARNESS_SANDBOX_CLAUDE_IMAGE=$(docker image inspect --format '{{.Id}}' harness-sandbox-claude)" >> "$GITHUB_ENV"
           echo "HARNESS_SANDBOX_IMAGE=$(docker image inspect --format '{{.Id}}' harness-sandbox-test)" >> "$GITHUB_ENV"
           echo "HARNESS_SANDBOX_WAIT_IMAGE=$(docker image inspect --format '{{.Id}}' harness-sandbox-wait)" >> "$GITHUB_ENV"
       - run: node scripts/probe-remote-sandbox.mjs evidence

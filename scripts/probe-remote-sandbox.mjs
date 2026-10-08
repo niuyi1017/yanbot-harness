@@ -8,6 +8,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { DockerSandboxAdapter, reapUnstartedContainers } from '../packages/sandbox-docker/dist/index.js';
+import { ClaudeCodeCliAdapter } from '../packages/adapter-claude-code-cli/dist/index.js';
 import { ReferenceAdapter } from '../packages/adapter-reference/dist/index.js';
 import { runAdapterConformance } from '../packages/adapter-kit/dist/index.js';
 
@@ -15,6 +16,7 @@ const execute = promisify(execFile);
 const dockerPath = process.env.HARNESS_DOCKER_PATH ?? '/usr/bin/docker';
 const image = process.env.HARNESS_SANDBOX_IMAGE;
 const waitImage = process.env.HARNESS_SANDBOX_WAIT_IMAGE;
+const claudeImage = process.env.HARNESS_SANDBOX_CLAUDE_IMAGE;
 const request = () => ({
   runId: randomUUID(),
   sessionId: randomUUID(),
@@ -43,6 +45,7 @@ if (process.argv.includes('--holder')) {
   assert.equal(process.platform, 'linux');
   assert.match(image ?? '', /^sha256:[a-f0-9]{64}$/);
   assert.match(waitImage ?? '', /^sha256:[a-f0-9]{64}$/);
+  assert.match(claudeImage ?? '', /^sha256:[a-f0-9]{64}$/);
   const root = await mkdtemp(path.join(tmpdir(), 'harness-sandbox-probe-'));
   const workspacePath = path.join(root, 'workspace');
   await mkdir(workspacePath);
@@ -61,6 +64,15 @@ if (process.argv.includes('--holder')) {
       request: request(),
     });
     assert.equal(report.events.at(-1).type, 'run.completed');
+    const cliReport = await runAdapterConformance({
+      adapter: new DockerSandboxAdapter(
+        { ...deployment, image: claudeImage },
+        new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' }).manifest,
+      ),
+      request: request(),
+    });
+    assert.equal(cliReport.events.at(-1).type, 'run.failed');
+    assert.equal(cliReport.events.at(-1).payload.error.code, 'AUTHENTICATION_FAILED');
     const adapters = [
       new DockerSandboxAdapter(deployment, new ReferenceAdapter().manifest),
       new DockerSandboxAdapter(deployment, new ReferenceAdapter().manifest),
@@ -178,9 +190,11 @@ if (process.argv.includes('--holder')) {
           status: 'passed',
           image,
           waitImage,
+          claudeImage,
           sourceCommit: process.env.GITHUB_SHA ?? 'local',
           checks: [
             'reference-conformance',
+            'real-claude-cli-no-credentials',
             'nonroot-readonly-resource-policy',
             'network-denied',
             'snapshot-transfer',

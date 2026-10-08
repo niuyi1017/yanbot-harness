@@ -6,6 +6,7 @@
 !packages/**
 !apps/**
 !examples/**
+!scripts/install-claude-code-probe.mjs
 **/node_modules
 **/dist
 **/test

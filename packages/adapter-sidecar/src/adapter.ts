@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import {
   adapterManifestSchema,
+  harnessCapabilitiesSchema,
   type AdapterEvent,
   type AdapterManifest,
   type HarnessCapabilities,
@@ -77,12 +78,17 @@ export class SidecarAdapter implements HarnessAdapter {
   async createRuntime(context: AdapterRuntimeContext): Promise<AdapterRuntime> {
     rejectUnmappedContext(context);
     let active: EventQueue | undefined;
+    let runtimeFailure: SidecarError | undefined;
+    let intentionalClose = false;
     const supervisor = await this.#start({
       onEvent: (event) => {
         if (!active) throw new SidecarError('PROTOCOL_ERROR', 'Sidecar emitted an event without an active Run.');
         active.push(event);
       },
-      onFatal: (error) => active?.fail(error),
+      onFatal: (error) => {
+        if (!(intentionalClose && error.code === 'PROCESS_EXIT')) runtimeFailure ??= error;
+        active?.fail(error);
+      },
     });
     const capabilities = supervisor.client.initialization?.capabilities;
     if (!capabilities) {
@@ -117,12 +123,21 @@ export class SidecarAdapter implements HarnessAdapter {
           await client.request(resume ? 'resumeRun' : 'startRun', request, emptyResultSchema);
           startAcknowledged = true;
           if (abortSignal?.aborted) onAbort();
-          for await (const event of queue.events()) yield event;
+          for await (const event of queue.events()) {
+            if (terminalTypes.has(event.type)) {
+              const confirmed = await client.request('capabilities', {}, harnessCapabilitiesSchema);
+              if (!isDeepStrictEqual(confirmed, capabilities))
+                throw new SidecarError('PROTOCOL_ERROR', 'Sidecar capabilities changed during the Run.');
+              if (runtimeFailure) throw runtimeFailure;
+            }
+            yield event;
+          }
         } finally {
           abortSignal?.removeEventListener('abort', onAbort);
           if (!queue.terminalSeen && !client.failed) {
             await cancel({ runId: input.runId, reason: 'Run stream closed.' }).catch(() => undefined);
             stopped = true;
+            intentionalClose = true;
             await supervisor.dispose();
           }
           active = undefined;
@@ -135,10 +150,12 @@ export class SidecarAdapter implements HarnessAdapter {
       cancel,
       dispose: async () => {
         stopped = true;
+        intentionalClose = true;
         if (active && !active.terminalSeen) {
           await cancel({ runId: active.runId, reason: 'Runtime disposed.' }).catch(() => undefined);
         }
         await supervisor.dispose();
+        if (runtimeFailure) throw runtimeFailure;
       },
       ...(supported(capabilities, 'sessions.resume')
         ? { resumeRun: (input: AdapterRunInput & { adapterSessionId: string }) => run(input, true) }

@@ -33,6 +33,11 @@ function handle(request) {
     respond(request.id, { protocolVersion: '1.0.0', manifest, capabilities });
     return;
   }
+  if (request.method === 'capabilities') {
+    if (scenario === 'duplicate-terminal-split' && run) emit('run.completed', {});
+    respond(request.id, capabilities);
+    return;
+  }
   if (request.method === 'probe') {
     respond(request.id, { available: true, harnessVersion: '0.1.0' });
     return;
