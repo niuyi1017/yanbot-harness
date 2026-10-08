@@ -108,6 +108,10 @@ Vendor Wrapper 的 stdout 只允许输出 Harness Sidecar JSONL；厂商 CLI 的
 Local CodeBuddy Key 可由测试方修改受保护 Key 文件，只有 Runtime 在启动时读取。Remote 的长期厂商凭据留在服务端，
 Worker/Sandbox 只获得本次 Run 必需的短期或按次注入凭据。任何厂商 Key 都不是平台 SDK 的参数。
 
+2026-10-09 起新增 Run 模型代理工程阶段：长期 Key 由服务端 Broker 读取，Worker 使用已 claim 的 execution grant
+调用固定内部模型入口，服务端绑定组织、Run、attempt、worker、模型、额度和租约。首版 Claude 文本策略只实现服务端入口；
+Sandbox 仍保持断网，Guest 传输桥与真实模型调用另设门禁。详见 `../specs/run-model-broker/`。
+
 上表是推荐的凭据流向；现有 managed API 的 `environment` 可由宿主显式传入，且默认继承宿主环境。
 若宿主已持有 inline Key，则不能声称 SDK 进程从未持有它。新 local 默认传受控环境和凭据文件引用；SDK 的
 旧高级环境参数保持兼容。Registry 安装 token 与以上运行凭据也必须分离，不注入 Runtime。统一安装不能对
