@@ -7,6 +7,7 @@
 - [x] 冻结需求、架构边界、迁移原则和验收维度。
 - [~] Remote 控制面和 Worker 已有工程候选；Linux Docker 隔离与 CodeBuddy/Claude 无凭据链路已实测。
   正式 HTTPS/Mongo 部署、真实厂商和双平台正式服务认证未完成，当前发布仍为 Local-only Preview。
+- [x] 实际 Mongo 8.0.32 副本集 8 项存储门禁与 5 项完整 HTTP/Redis/Worker/Docker 链路通过；见 `../remote-mongo-conformance/` 与 `../remote-sandbox-executor/evidence/1386dbb/`，不代替生产部署认证。
 
 ## Phase 1：中立协议与迁移层
 

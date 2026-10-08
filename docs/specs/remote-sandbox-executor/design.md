@@ -46,7 +46,7 @@ Worker 启动及每 15 秒扫描专用 Harness label 的 created 容器；只回
 不导入或执行厂商 Adapter。生产配置拒绝此开关，默认目录仍为 Reference。Session/Run 以已授权 Session 的 adapterId 派发，
 model.adapterId 必须匹配。Claude 只接受已准备 uploaded-snapshot、read-only、无 resume/extensions/configScopes，maxTurns 仅允许 1。
 CI 用真实 HTTP、Redis、独立 Worker 和 Docker 验证 SDK 创建 Claude Session/Run、认证失败持久化及 grant/队列边界；
-测试存储仍为 MemoryControlPlaneStore，这不替代生产 Mongo/TLS 验收。
+初版 `dac5b24` 的测试存储为 MemoryControlPlaneStore；后续 `1386dbb` 已在独立 CI 使用 MongoControlPlaneStore 和实际 Mongo 8.0.32 单节点副本集，仍不替代生产 TLS/认证/故障切换验收。
 
 SDK 型厂商同时复用现有 CodeBuddy Adapter：Guest/Worker 固定允许列表增加 `cn.tencent.codebuddy`，不传入凭据。
 测试/开发控制面可用 `CLOUD_EXPERIMENTAL_CODEBUDDY=true` 开启诊断 Session，生产同样拒绝。Remote SDK 暂不开放恢复、

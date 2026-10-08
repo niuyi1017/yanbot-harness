@@ -6,6 +6,8 @@
 本机没有 Mongo 时测试显式跳过；独立 CI 强制零跳过。只允许专用 loopback 测试 URI，使用随机 `harness_ci_` 数据库。
 CI 最后删除专用容器；不连接现有业务数据库，不自动删除用户数据库。
 
+后续 [`1386dbb`](../remote-sandbox-executor/evidence/1386dbb/README.md) 已验证完整 SDK/HTTP/SSE/Redis/Worker/Docker 与同版本 Mongo 的链路，5 项全通过、零跳过。
+
 ## Run 幂等索引迁移
 
 旧 `organizationId_1_sessionId_1_idempotencyKey_1` sparse unique 索引会把缺少 key 的文档也纳入约束，

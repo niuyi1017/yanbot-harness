@@ -12,7 +12,7 @@ Local/Remote 决定执行位置，SDK/CLI 决定厂商接入方式；应用使�
 
 - Local Claude 无凭据路径已在 macOS arm64、Windows x64、Linux x64 实际通过；该结果证明版本/协议/错误/清理路径。
 - Docker CI 已验证 Reference 完整运行、Claude 实际二进制认证失败、非 root、只读根文件系统、资源限制、断网、并发隔离、取消和父强杀回收。
-- 完整 Remote SDK → HTTP → Redis → Worker → Docker 厂商链路已通过独立 CI，5 项 E2E 全通过、无跳过；它使用内存控制面存储，不能作为生产 Mongo/TLS 证据。
+- 完整 Remote SDK → HTTP/SSE → Redis → Worker → Docker 厂商链路已使用真实 Mongo 8.0.32 Store，通过 5 项 E2E、无跳过；独立 Mongo 事务/索引/重连测试 8 项通过。CI 单节点部署不能作为生产 TLS/认证/故障切换证据。
 - 用户目前没有 Anthropic Key。真实模型成功、费用、带模型请求的取消未验收。生产 credential broker、受控模型出网、持久 Session volume/恢复与生产部署仍是后续门禁。
 - Remote 厂商入口只在 development/test 中显式开启；production 配置拒绝实验开关。默认仍是 Reference。
 
@@ -62,4 +62,4 @@ SDK 创建 Session 时选择 `cn.tencent.codebuddy` 或 `com.anthropic.claude-co
 
 证据和剩余任务以 `docs/specs/remote-sandbox-executor/`、`docs/specs/claude-code-cli-adapter/` 及总 roadmap 为准。
 
-工程证据：[`dac5b24` Docker 与 Worker E2E](../specs/remote-sandbox-executor/evidence/dac5b24/README.md)。
+工程证据：[`1386dbb` Mongo/Docker 与 Worker E2E](../specs/remote-sandbox-executor/evidence/1386dbb/README.md)；已有 Cloud 部署的显式索引迁移见 [Mongo 运维说明](../specs/remote-mongo-conformance/operations.md)。

@@ -1,11 +1,12 @@
 # Cloud Control Plane 任务清单
 
-## 当前状态（2026-09-20）
+## 当前状态（2026-10-09）
 
 - [x] 审计双 Runtime、总体架构、Remote Fixture、安全负例与现有 contracts。
 - [x] 冻结 Phase 4 控制面边界、认证模型、持久化模型、工作区 API 与威胁模型。
 - [x] Phase 4 控制面代码完成；Phase 5 Worker/Redis Queue/沙箱明确不在本 Spec。
-- [ ] 真实 Mongo replica set、生产 TLS 部署和正式 Remote service 证据仍是外部门禁，不由单元测试替代。
+- [x] 真实 Mongo 8.0.32 单节点 replica set 事务/索引/重连/Refresh 撤销 8 项验证通过；见 `../remote-mongo-conformance/evidence/b1d9038/`。
+- [ ] 生产 TLS/认证/备份/故障切换部署和正式 Remote service 证据仍是外部门禁，不由 CI 测试部署替代。
 
 ## T1. Spec 门禁
 
@@ -77,8 +78,9 @@
 ## T9. 回归、证据与状态
 
 - [x] 运行 cloud-server 定向测试、Fixture/SDK/CLI 回归和 `pnpm check`。
-- [ ] 有 MongoDB 时运行真实 transaction/index/SSE 重建集成测试并归档证据；无 MongoDB 不伪造该结果。
+- [x] 实际 Mongo transaction/index/连接重建与事件游标重放集成测试已归档；独立门禁强制零跳过。
+- [x] 完整 HTTP/SSE、Redis、Worker、Docker 的真实 Mongo 链路 5 项全通过；见 `../remote-sandbox-executor/evidence/1386dbb/`。
 - [x] 更新 Phase 4 任务状态与 compatibility，保持 Phase 5/正式 Remote 未完成。
 - [x] 检查 diff/status，保留用户未跟踪临时文件，提交实现。
 
-验收：本 Spec 的代码任务全部完成、全仓门禁通过；外部部署/TLS/Mongo/Worker 证据单独列为未完成门禁。
+验收：本 Spec 的代码任务与 CI Mongo/Worker 工程门禁通过；生产 TLS/身份/多节点故障切换、真实厂商和正式服务证据仍未完成。

@@ -41,6 +41,9 @@
 2026-10-09 补充：Claude 三平台 CI `37814307621`、Windows 原生 CI `37814307676`、Linux Docker 与完整厂商 Worker E2E `37814307695` 已通过。
 Remote 证据归档见 [`dac5b24`](../remote-sandbox-executor/evidence/dac5b24/README.md)，配置与限制见 [四模式工程候选](../../delivery/four-mode-engineering-preview.md)。
 
+Mongo 补充：真实 8.0.32 副本集事务/索引/重连/Refresh 撤销 8 项通过（[证据](../remote-mongo-conformance/evidence/b1d9038/README.md)）；完整 SDK/HTTP/SSE/Redis/Worker/Docker 使用 Mongo Store 的 5 项 E2E 全通过（[`1386dbb`](../remote-sandbox-executor/evidence/1386dbb/README.md)）。
+修复无幂等键历史 Run 的唯一索引和 Refresh 重放撤销回滚；已有部署需显式运行索引迁移，见 [运维说明](../remote-mongo-conformance/operations.md)。CI 证据不等于生产 TLS/认证/多节点故障切换。
+
 ## 3. 总体执行原则
 
 1. **保护现有交付线**：冻结 `0.1.0-preview.2` 候选基线，不让后续协议重构污染本次 Windows 验收。
@@ -268,17 +271,17 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 ## 6. 当前进度汇总
 
-| 阶段                      | 状态  | 当前结论                                                                                                                      | 下一动作                                                         |
-| ------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                                                                           | 固定候选提交和摘要；并行等待 Windows 验收                        |
-| P1 中立协议与双目标客户端 | `[~]` | 中立 contracts、`/v1`、SDK/CLI target/profile 与共享 Reference Conformance 已实现；正式 Remote service 和双平台矩阵证据未完成 | 完成 P3.8 真实 CI artifact 与 Remote service 认证                |
-| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                                             | 完整 containment/业务回滚、Windows 阻网、正式身份/实机           |
-| P2 CLI Sidecar 基础设施   | `[~]` | Client/Supervisor/Bridge、CLI Host、私有凭据目录与 Windows Job/ACL 实际 CI 通过                                               | POSIX Local 脱组/父强杀保证与正式厂商认证                        |
-| P3 首个 CLI 厂商          | `[~]` | Claude Code 2.1.284 Wrapper/Host 与三平台无凭据 SDK 路径通过                                                                  | 有自有 Key 后执行真实文本/usage/cancel；保持 Experimental        |
-| P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Reference Worker 与本机真实 BullMQ/HTTP E2E 完成；尚无真实 Mongo/TLS/ACL 与双平台部署证据      | 补生产基础设施、Mongo 并发事务和 macOS/Windows Remote 客户端验收 |
-| P5 Remote CodeBuddy       | `[~]` | 真实 Linux Docker、资源/工作区隔离、取消/父强杀回收、SDK/CLI 无凭据完整 E2E 通过                                              | broker/egress、持久 Session、真实 CodeBuddy 运行与生产部署       |
-| P6 四象限认证             | `[~]` | 已归档四模式工程证据和限制；生产与付费矩阵不完整                                                                              | 真实模型、Windows 实机与正式 Remote service 认证                 |
-| P7 产品/运营              | `[ ]` | 未脚手架化                                                                                                                    | Local Web 可在 P1 后并行，其余按依赖进入                         |
+| 阶段                      | 状态  | 当前结论                                                                                                                      | 下一动作                                                            |
+| ------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                                                                           | 固定候选提交和摘要；并行等待 Windows 验收                           |
+| P1 中立协议与双目标客户端 | `[~]` | 中立 contracts、`/v1`、SDK/CLI target/profile 与共享 Reference Conformance 已实现；正式 Remote service 和双平台矩阵证据未完成 | 完成 P3.8 真实 CI artifact 与 Remote service 认证                   |
+| P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                                             | 完整 containment/业务回滚、Windows 阻网、正式身份/实机              |
+| P2 CLI Sidecar 基础设施   | `[~]` | Client/Supervisor/Bridge、CLI Host、私有凭据目录与 Windows Job/ACL 实际 CI 通过                                               | POSIX Local 脱组/父强杀保证与正式厂商认证                           |
+| P3 首个 CLI 厂商          | `[~]` | Claude Code 2.1.284 Wrapper/Host 与三平台无凭据 SDK 路径通过                                                                  | 有自有 Key 后执行真实文本/usage/cancel；保持 Experimental           |
+| P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Worker 与真实 Mongo/Redis/HTTP E2E 通过；8 项 Mongo 专项与 5 项完整链路证据已归档              | 生产 TLS/ACL、多节点故障切换和 macOS/Windows 正式 Remote 客户端验收 |
+| P5 Remote CodeBuddy       | `[~]` | 真实 Linux Docker、资源/工作区隔离、取消/父强杀回收、SDK/CLI 无凭据完整 E2E 通过                                              | broker/egress、持久 Session、真实 CodeBuddy 运行与生产部署          |
+| P6 四象限认证             | `[~]` | 已归档四模式工程证据和限制；生产与付费矩阵不完整                                                                              | 真实模型、Windows 实机与正式 Remote service 认证                    |
+| P7 产品/运营              | `[ ]` | 未脚手架化                                                                                                                    | Local Web 可在 P1 后并行，其余按依赖进入                            |
 
 ## 7. 最近两个执行节点
 
@@ -307,6 +310,8 @@ P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之�
 - 统一系统架构：[`system-architecture.md`](../../architecture/system-architecture.md)
 - 双 Runtime 专项：[`dual-runtime-compatibility`](../dual-runtime-compatibility/tasks.md)
 - CLI 厂商接入专项：[`cli-harness-adapter`](../cli-harness-adapter/tasks.md)
+- Remote 容器工程基线：[`remote-sandbox-executor`](../remote-sandbox-executor/tasks.md)
+- Remote Mongo 持久化认证：[`remote-mongo-conformance`](../remote-mongo-conformance/tasks.md)
 - 统一本地分发专项：[`unified-local-distribution`](../unified-local-distribution/tasks.md)
 - 双平台 Preview 发布：[`dual-platform-preview-release`](../dual-platform-preview-release/tasks.md)
 - 当前交付兼容矩阵：[`compatibility.md`](../../delivery/compatibility.md)
