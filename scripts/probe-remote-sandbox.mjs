@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
-import { DockerSandboxAdapter } from '../packages/sandbox-docker/dist/index.js';
+import { DockerSandboxAdapter, reapUnstartedContainers } from '../packages/sandbox-docker/dist/index.js';
 import { ReferenceAdapter } from '../packages/adapter-reference/dist/index.js';
 import { runAdapterConformance } from '../packages/adapter-kit/dist/index.js';
 
@@ -68,6 +68,19 @@ if (process.argv.includes('--holder')) {
     runtimes.push(...(await Promise.all(adapters.map((adapter) => adapter.createRuntime({})))));
     const ids = adapters.flatMap((adapter) => adapter.ownedContainerIds());
     assert.equal(new Set(ids).size, 2);
+    const abandoned = await docker([
+      'create',
+      '--label',
+      'io.yanbot.harness.sandbox=1',
+      '--name',
+      'harness-sandbox-' + randomUUID(),
+      image,
+    ]);
+    holderIds.push(abandoned);
+    await delay(1100);
+    assert.equal(await reapUnstartedContainers(dockerPath, 1000), 1);
+    assert.equal(await exists(abandoned), false);
+    holderIds = [];
     for (const cid of ids) {
       const [info] = JSON.parse(await docker(['inspect', cid]));
       assert.equal(info.Config.User, '65532:65532');
@@ -174,6 +187,7 @@ if (process.argv.includes('--holder')) {
             'concurrent-isolation',
             'cancel',
             'parent-death-auto-remove',
+            'abandoned-create-reaper',
           ],
           paidVendorEvidence: false,
         },

@@ -12,6 +12,7 @@ import type { AdapterManifest } from '@yanbot-harness/contracts';
 import { readSnapshot } from './snapshot.js';
 import { createArguments, type SandboxDeployment } from './policy.js';
 
+export { reapUnstartedContainers } from './reaper.js';
 export type { SandboxDeployment } from './policy.js';
 const execute = promisify(execFile);
 const environment = { PATH: '/usr/bin:/bin' };

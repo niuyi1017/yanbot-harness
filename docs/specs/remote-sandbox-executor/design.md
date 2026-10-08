@@ -27,3 +27,9 @@
 [security](https://docs.docker.com/engine/security/)。
 
 工作区方案调整：不把宿主目录复制到磁盘暂存或依赖跨 UID 共享权限；有界 stdin 快照传输避免父强杀后遗留暂存文件，也不向 Guest 暴露宿主 mount。boot 帧上限 32 MiB，普通协议帧上限 4 MiB。
+
+## 未启动容器回收
+
+`docker create` 的响应可能在客户端超时后丢失，导致尚未运行、没有 Guest lease watchdog 的容器。
+Worker 启动及每 15 秒扫描专用 Harness label 的 created 容器；只回收名称符合 Harness UUID 格式且创建超过 60 秒的对象。
+使用非 force rm：若其间被正常启动，Docker 拒绝删除，保留运行中的资源。此回收器不扫描或删除其他 label 的容器。
