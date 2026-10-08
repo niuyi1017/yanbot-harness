@@ -18,6 +18,8 @@
     "@yanbot-harness/cloud-queue": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
     "@yanbot-harness/core": "workspace:*",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@yanbot-harness/sandbox-docker": "workspace:*",
+    "@yanbot-harness/adapter-claude-code-cli": "workspace:*"
   }
 }

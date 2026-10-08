@@ -25,7 +25,7 @@ export type WorkerControlPlaneClient = {
   append(runId: string, attempt: number, value: AdapterEvent): Promise<void>;
 };
 type ClientFactory = (grant: string) => WorkerControlPlaneClient;
-type AdapterFactory = () => HarnessAdapter;
+type AdapterFactory = (run: Run, cwd?: string) => HarnessAdapter | Promise<HarnessAdapter>;
 
 export class RunCoordinator {
   readonly #clientFactory: ClientFactory;
@@ -85,7 +85,9 @@ export class RunCoordinator {
         }),
         abortSignal: abort.signal,
       };
-      controller = await createManagedAdapterRun(this.#adapterFactory(), {}, request);
+      const adapter = await this.#adapterFactory(run, cwd);
+      if (adapter.manifest.adapterId !== run.adapterId) throw new Error('Worker Adapter does not match the Run.');
+      controller = await createManagedAdapterRun(adapter, {}, request);
       for await (const adapterEvent of controller.events) {
         if (lostLease) throw new InternalClientError(403);
         const event =

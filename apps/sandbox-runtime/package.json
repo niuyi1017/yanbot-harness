@@ -1,0 +1,20 @@
+{
+  "name": "@yanbot-harness/sandbox-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@yanbot-harness/adapter-api": "workspace:*",
+    "@yanbot-harness/adapter-sidecar": "workspace:*",
+    "@yanbot-harness/adapter-reference": "workspace:*",
+    "@yanbot-harness/adapter-claude-code-cli": "workspace:*",
+    "@yanbot-harness/contracts": "workspace:*"
+  }
+}

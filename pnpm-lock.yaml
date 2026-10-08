@@ -109,6 +109,9 @@ importers:
       '@yanbot-harness/adapter-api':
         specifier: workspace:*
         version: link:../../packages/adapter-api
+      '@yanbot-harness/adapter-claude-code-cli':
+        specifier: workspace:*
+        version: link:../../packages/adapter-claude-code-cli
       '@yanbot-harness/adapter-reference':
         specifier: workspace:*
         version: link:../../packages/adapter-reference
@@ -121,6 +124,9 @@ importers:
       '@yanbot-harness/core':
         specifier: workspace:*
         version: link:../../packages/harness-core
+      '@yanbot-harness/sandbox-docker':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-docker
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -167,6 +173,24 @@ importers:
       '@yanbot-harness/testing':
         specifier: workspace:*
         version: link:../../packages/testing
+
+  apps/sandbox-runtime:
+    dependencies:
+      '@yanbot-harness/adapter-api':
+        specifier: workspace:*
+        version: link:../../packages/adapter-api
+      '@yanbot-harness/adapter-claude-code-cli':
+        specifier: workspace:*
+        version: link:../../packages/adapter-claude-code-cli
+      '@yanbot-harness/adapter-reference':
+        specifier: workspace:*
+        version: link:../../packages/adapter-reference
+      '@yanbot-harness/adapter-sidecar':
+        specifier: workspace:*
+        version: link:../../packages/adapter-sidecar
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
 
   examples/sdk-basic:
     dependencies:
@@ -362,6 +386,18 @@ importers:
       tar-stream:
         specifier: 3.2.1
         version: 3.2.1
+
+  packages/sandbox-docker:
+    dependencies:
+      '@yanbot-harness/adapter-api':
+        specifier: workspace:*
+        version: link:../adapter-api
+      '@yanbot-harness/adapter-sidecar':
+        specifier: workspace:*
+        version: link:../adapter-sidecar
+      '@yanbot-harness/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/sdk:
     dependencies:

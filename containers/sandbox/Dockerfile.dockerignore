@@ -1,0 +1,15 @@
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!packages/**
+!apps/**
+!examples/**
+**/node_modules
+**/dist
+**/test
+**/tests
+**/.env*
+**/*.key
+**/*.pem

@@ -29,6 +29,13 @@ describe('Remote Reference run coordinator', () => {
     },
   );
 
+  it('refuses to execute a Run with a different Adapter', async () => {
+    const fixture = createFixture({ kind: 'text', chunks: ['unused'] });
+    fixture.client.runValue.adapterId = 'com.anthropic.claude-code-cli';
+    await expect(fixture.coordinator.process(fixture.job)).rejects.toThrow('does not match');
+    expect(fixture.client.events.some((event) => event.type === 'assistant.delta')).toBe(false);
+  });
+
   it('pumps an interaction response without placing it in the queue job', async () => {
     const fixture = createFixture({ kind: 'question', prompt: 'Choose?', answerResult: 'answered' });
     fixture.client.response = {

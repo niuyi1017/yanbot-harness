@@ -1,0 +1,36 @@
+name: Remote sandbox containment
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Build immutable test images from official Node
+        run: |
+          docker pull node:22.22.0-bookworm-slim
+          base=$(docker image inspect --format '{{index .RepoDigests 0}}' node:22.22.0-bookworm-slim)
+          docker build -f containers/sandbox/Dockerfile --build-arg NODE_BASE="$base" -t harness-sandbox-test .
+          docker build -f containers/sandbox/Dockerfile --build-arg NODE_BASE="$base" --build-arg REFERENCE_WAIT=1 -t harness-sandbox-wait .
+          echo "HARNESS_SANDBOX_IMAGE=$(docker image inspect --format '{{.Id}}' harness-sandbox-test)" >> "$GITHUB_ENV"
+          echo "HARNESS_SANDBOX_WAIT_IMAGE=$(docker image inspect --format '{{.Id}}' harness-sandbox-wait)" >> "$GITHUB_ENV"
+      - run: node scripts/probe-remote-sandbox.mjs evidence
+      - uses: actions/upload-artifact@v7
+        with:
+          name: remote-sandbox-containment
+          path: evidence/remote-sandbox.json
+          if-no-files-found: error

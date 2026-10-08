@@ -11,6 +11,26 @@ const base = {
 };
 
 describe('Cloud Worker configuration', () => {
+  it('requires an immutable sandbox image and explicit opt-in', () => {
+    expect(() => parseWorkerConfig({ ...base, WORKER_SANDBOX_IMAGE: 'node:latest' })).toThrow();
+    expect(() =>
+      parseWorkerConfig({
+        ...base,
+        WORKER_EXECUTION_MODE: 'sandbox',
+        WORKER_DOCKER_PATH: '/usr/bin/docker',
+        WORKER_SANDBOX_IMAGE: 'node:latest',
+      }),
+    ).toThrow();
+    expect(
+      parseWorkerConfig({
+        ...base,
+        WORKER_EXECUTION_MODE: 'sandbox',
+        WORKER_DOCKER_PATH: '/usr/bin/docker',
+        WORKER_SANDBOX_IMAGE: 'sha256:' + 'a'.repeat(64),
+      }).sandbox?.image,
+    ).toBe('sha256:' + 'a'.repeat(64));
+  });
+
   it('parses bounded defaults', () => {
     expect(parseWorkerConfig({ ...base, PATH: '/usr/bin' })).toMatchObject({
       workerId: 'worker-a',

@@ -1,3 +1,6 @@
+import { DockerSandboxAdapter } from '@yanbot-harness/sandbox-docker';
+import { ClaudeCodeCliAdapter } from '@yanbot-harness/adapter-claude-code-cli';
+import type { Run } from '@yanbot-harness/contracts';
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
 
 import { parseWorkerConfig } from './config.js';
@@ -16,7 +19,24 @@ const scenario: ReferenceScenario | undefined =
 const coordinator = new RunCoordinator(
   config,
   undefined,
-  scenario === undefined ? undefined : () => new ReferenceAdapter({ scenario }),
+  config.sandbox
+    ? (run: Run, cwd?: string) => {
+        if (!cwd) throw new Error('Sandbox requires a prepared snapshot.');
+        const adapter =
+          run.adapterId === 'cn.yanbot.reference'
+            ? new ReferenceAdapter()
+            : run.adapterId === 'com.anthropic.claude-code-cli'
+              ? new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' })
+              : undefined;
+        if (!adapter) throw new Error('Unsupported sandbox Adapter.');
+        return new DockerSandboxAdapter(
+          { ...config.sandbox!, snapshotRoot: config.sharedWorkspaceRoot, workspacePath: cwd },
+          adapter.manifest,
+        );
+      }
+    : scenario === undefined
+      ? undefined
+      : () => new ReferenceAdapter({ scenario }),
 );
 const worker = new CloudWorkerService(config, coordinator);
 let closing = false;

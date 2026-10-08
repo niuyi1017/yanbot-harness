@@ -9,7 +9,7 @@
 
 1. 每个 Adapter Runtime 使用独立 Linux 容器；镜像只接受不可变 sha256 ID/digest；命令、用户、资源、挂载策略由部署固定。
 2. 非 root、read-only rootfs、cap-drop ALL、no-new-privileges、private IPC/PID、CPU/内存/PID/tmpfs 上限，默认 network none。
-3. 只挂载经过 realpath 检查的指定 snapshot 子目录，read-only；不挂载 Docker socket、宿主 HOME 或凭据目录。
+3. 只读取经过 realpath 检查的指定 snapshot 子目录，经有界 stdin 传入 Guest tmpfs；不挂载宿主目录、Docker socket、HOME 或凭据目录。
 4. prompt 经 stdin 公共 RunRequest；Docker inspect/环境/argv 不包含 prompt、grant、长期 Key。
 5. 取消、正常结束和失败都按不可变容器 ID 清理并确认容器消失。Worker 被强杀后，guest lease 超时退出触发 auto-remove。
 6. Guest 只允许 Reference SDK Adapter 和独立安装的 Claude CLI Adapter。无凭据 CLI 认证失败可在隔离容器内验证。

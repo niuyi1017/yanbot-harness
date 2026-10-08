@@ -23,6 +23,9 @@ const environmentSchema = z
     WORKER_RUN_TIMEOUT_MS: positiveInteger(900_000),
     WORKER_SHUTDOWN_MS: positiveInteger(30_000),
     WORKER_SHARED_WORKSPACE_ROOT: z.string().trim().min(1),
+    WORKER_EXECUTION_MODE: z.enum(['reference', 'sandbox']).default('reference'),
+    WORKER_DOCKER_PATH: z.string().optional(),
+    WORKER_SANDBOX_IMAGE: z.string().optional(),
     WORKER_TEST_SCENARIO: z.enum(['text', 'question', 'wait-for-cancel']).optional(),
   })
   .strict();
@@ -39,6 +42,7 @@ export type WorkerConfig = {
   runTimeoutMs: number;
   shutdownMs: number;
   sharedWorkspaceRoot: string;
+  sandbox?: { dockerPath: string; image: string };
   testScenario?: 'text' | 'question' | 'wait-for-cancel';
 };
 
@@ -66,7 +70,22 @@ export function parseWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig 
   if (sharedWorkspaceRoot === path.parse(sharedWorkspaceRoot).root) {
     throw new Error('The shared workspace root cannot be a filesystem root.');
   }
+  const sandbox = value.WORKER_EXECUTION_MODE === 'sandbox';
+  if (
+    sandbox &&
+    (!value.WORKER_DOCKER_PATH ||
+      !path.isAbsolute(value.WORKER_DOCKER_PATH) ||
+      !/^(?:sha256:[a-f0-9]{64}|[a-zA-Z0-9][a-zA-Z0-9./:_-]*@sha256:[a-f0-9]{64})$/.test(
+        value.WORKER_SANDBOX_IMAGE ?? '',
+      ) ||
+      value.WORKER_TEST_SCENARIO)
+  ) {
+    throw new Error('Invalid sandbox Worker configuration.');
+  }
+  if (!sandbox && (value.WORKER_DOCKER_PATH || value.WORKER_SANDBOX_IMAGE))
+    throw new Error('Sandbox settings require sandbox execution mode.');
   return {
+    ...(sandbox ? { sandbox: { dockerPath: value.WORKER_DOCKER_PATH!, image: value.WORKER_SANDBOX_IMAGE! } } : {}),
     nodeEnv: value.NODE_ENV,
     redisUrl: assertRedisUrl(value.WORKER_REDIS_URL, value.NODE_ENV === 'production'),
     queueName: value.WORKER_QUEUE_NAME,
