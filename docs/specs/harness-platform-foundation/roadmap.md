@@ -16,27 +16,30 @@
 - `[-]` 已完成内部准备，但被外部条件阻塞。
 - `[ ]` 尚未开始。
 
-**状态快照日期：2026-09-30。**
+**状态快照日期：2026-10-09。**
 
 ## 2. 当前产品基线
 
-| 能力                  | 当前状态 | 已完成范围                                                                                | 尚缺内容                                                      |
-| --------------------- | -------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理及中立 `/v1/*`                     | 旧 `/local/*` 迁移期兼容与双平台认证                          |
-| TypeScript SDK        | `[~]`    | Local/Remote 显式 Target、远端 Token Provider、Session/Run/Event                          | 正式 Remote service 实机认证                                  |
-| 平台 CLI              | `[~]`    | 公共 SDK、JSONL、Local/Remote Profile 与显式目标选择                                      | 远端交互式登录与正式 Remote service 认证                      |
-| Reference Adapter     | `[~]`    | 离线黑盒与 Local/Remote Fixture 共享 Conformance                                          | 正式 Remote service 矩阵证据                                  |
-| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量                                              | 工具/权限/提问场景、Windows 实机、Remote Worker               |
-| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档                                 | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release           |
-| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线                                           | 与 Remote 和 CLI Sidecar 的完整认证                           |
-| CLI Sidecar           | `[~]`    | Client/Supervisor/Bridge 本机 Reference Conformance；通用 CLI Host 首轮 Fake CLI 验证通过 | Windows Job owner、凭据目录、跨平台故障矩阵、真实厂商 Adapter |
-| Remote Runtime        | `[~]`    | Control Plane、Redis relay、Reference Worker、本机 E2E                                    | 生产部署、Sandbox、真实 Mongo/Redis/TLS 与双平台认证          |
-| 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过                             | 完整 containment、正式业务回滚、正式签名与实机认证            |
-| 产品界面与运营        | `[ ]`    | 总体设计                                                                                  | Local Web、Electron、Admin、市场与版本管理                    |
+| 能力                  | 当前状态 | 已完成范围                                                                        | 尚缺内容                                                         |
+| --------------------- | -------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理及中立 `/v1/*`             | 旧 `/local/*` 迁移期兼容与双平台认证                             |
+| TypeScript SDK        | `[~]`    | Local/Remote 显式 Target、远端 Token Provider、Session/Run/Event                  | 正式 Remote service 实机认证                                     |
+| 平台 CLI              | `[~]`    | 公共 SDK、JSONL、Local/Remote Profile 与显式目标选择                              | 远端交互式登录与正式 Remote service 认证                         |
+| Reference Adapter     | `[~]`    | 离线黑盒与 Local/Remote Fixture 共享 Conformance                                  | 正式 Remote service 矩阵证据                                     |
+| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量；Remote Sandbox 无凭据全链路         | 工具/权限/提问场景、Windows 实机、Remote 真实模型                |
+| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档                         | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release              |
+| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线                                   | 与 Remote 和 CLI Sidecar 的完整认证                              |
+| CLI Sidecar           | `[~]`    | Client/Supervisor/Bridge、CLI Host、Windows Job/ACL 与三平台 Claude 无凭据工程 CI | POSIX Local 脱组强杀保证、真实付费调用                           |
+| Remote Runtime        | `[~]`    | Control Plane、Redis、Worker、真实 Linux Docker 与 SDK/CLI 厂商无凭据 E2E         | broker/egress、持久 Session、生产 Mongo/TLS 与双平台正式服务认证 |
+| 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过                     | 完整 containment、正式业务回滚、正式签名与实机认证               |
+| 产品界面与运营        | `[ ]`    | 总体设计                                                                          | Local Web、Electron、Admin、市场与版本管理                       |
 
-当前可以对外准确声明的是：**Local Preview 已形成候选交付；Claude Code CLI 已有 Experimental 本机候选及真实无凭据认证错误证据，付费调用未认证；Remote Runtime 尚未正式交付。**
+当前可以对外准确声明的是：**Local Preview 已形成候选交付；Claude Code CLI 三平台与 Remote SDK/CLI 断网沙箱均已有 Experimental 工程证据，付费 CLI 与 Remote 模型调用未认证；Remote Runtime 尚未正式交付。**
 
 2026-09-30 补充：Windows CLI Job/ACL/Sidecar 已通过实际 CI（`36702969484`）；Local macOS/Windows 与 Remote Fixture 矩阵归档见 `../dual-runtime-matrix-evidence/evidence/02fccc2/`。Claude 子 Spec 见 `../claude-code-cli-adapter/`；用户暂无 Anthropic Key。
+
+2026-10-09 补充：Claude 三平台 CI `37814307621`、Windows 原生 CI `37814307676`、Linux Docker 与完整厂商 Worker E2E `37814307695` 已通过。
+Remote 证据归档见 [`dac5b24`](../remote-sandbox-executor/evidence/dac5b24/README.md)，配置与限制见 [四模式工程候选](../../delivery/four-mode-engineering-preview.md)。
 
 ## 3. 总体执行原则
 
@@ -165,7 +168,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 详细清单：[`cli-harness-adapter/tasks.md`](../cli-harness-adapter/tasks.md) Phase 2-3。
 
-### P3 `[ ]` 首个真实 CLI 厂商 Adapter
+### P3 `[~]` 首个真实 CLI 厂商 Adapter
 
 **目标**：验证类似 Claude 的“仅提供或主要依赖 CLI”厂商能够通过 Wrapper 接入统一架构。
 
@@ -208,7 +211,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 详细清单：[`dual-runtime-compatibility/tasks.md`](../dual-runtime-compatibility/tasks.md) Phase 3-4。
 
-### P5 `[ ]` Remote Worker/Sandbox 与 CodeBuddy
+### P5 `[~]` Remote Worker/Sandbox 与 CodeBuddy
 
 **目标**：把 CodeBuddy SDK Adapter 安全地运行在远端隔离 Worker 中，形成首个真实 Remote Runtime。
 
@@ -226,9 +229,9 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 模型建议：`gpt-6-astra + high`；Sandbox、凭据和隔离边界评审切换到 `xhigh`。
 
-详细清单：[`dual-runtime-compatibility/tasks.md`](../dual-runtime-compatibility/tasks.md) Phase 5。
+详细清单：[`dual-runtime-compatibility/tasks.md`](../dual-runtime-compatibility/tasks.md) Phase 5；离线容器基线见 [`remote-sandbox-executor/tasks.md`](../remote-sandbox-executor/tasks.md)。
 
-### P6 `[ ]` 四象限联合认证
+### P6 `[~]` 四象限联合认证
 
 **目标**：以统一证据确认两种 Runtime 与两种厂商接入模式能够自由组合。
 
@@ -270,20 +273,20 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 | P0 Local Preview 冻结     | `[~]` | 候选包和 macOS 核心门禁已完成，Windows 实机外部阻塞                                                                           | 固定候选提交和摘要；并行等待 Windows 验收                        |
 | P1 中立协议与双目标客户端 | `[~]` | 中立 contracts、`/v1`、SDK/CLI target/profile 与共享 Reference Conformance 已实现；正式 Remote service 和双平台矩阵证据未完成 | 完成 P3.8 真实 CI artifact 与 Remote service 认证                |
 | P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                                             | 完整 containment/业务回滚、Windows 阻网、正式身份/实机           |
-| P2 CLI Sidecar 基础设施   | `[~]` | Client/Supervisor/Bridge 与通用 CLI Host 已有本机验证；Windows Job owner、凭据目录、完整故障矩阵和双平台认证未完成            | 补凭据目录、Windows 进程归属与双平台认证，再进入真实厂商 Wrapper |
-| P3 首个 CLI 厂商          | `[ ]` | 未选定精确厂商版本                                                                                                            | 先做能力与许可证探针，不直接写 Wrapper                           |
+| P2 CLI Sidecar 基础设施   | `[~]` | Client/Supervisor/Bridge、CLI Host、私有凭据目录与 Windows Job/ACL 实际 CI 通过                                               | POSIX Local 脱组/父强杀保证与正式厂商认证                        |
+| P3 首个 CLI 厂商          | `[~]` | Claude Code 2.1.284 Wrapper/Host 与三平台无凭据 SDK 路径通过                                                                  | 有自有 Key 后执行真实文本/usage/cancel；保持 Experimental        |
 | P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Reference Worker 与本机真实 BullMQ/HTTP E2E 完成；尚无真实 Mongo/TLS/ACL 与双平台部署证据      | 补生产基础设施、Mongo 并发事务和 macOS/Windows Remote 客户端验收 |
-| P5 Remote CodeBuddy       | `[ ]` | Reference Worker可复用，真实厂商凭据与 Sandbox 未实现                                                                         | 独立 Spec 建设 Docker Sandbox、短期凭据和 CodeBuddy 门禁         |
-| P6 四象限认证             | `[ ]` | 未开始                                                                                                                        | 等待 P3、P5 和 Windows 实机条件                                  |
+| P5 Remote CodeBuddy       | `[~]` | 真实 Linux Docker、资源/工作区隔离、取消/父强杀回收、SDK/CLI 无凭据完整 E2E 通过                                              | broker/egress、持久 Session、真实 CodeBuddy 运行与生产部署       |
+| P6 四象限认证             | `[~]` | 已归档四模式工程证据和限制；生产与付费矩阵不完整                                                                              | 真实模型、Windows 实机与正式 Remote service 认证                 |
 | P7 产品/运营              | `[ ]` | 未脚手架化                                                                                                                    | Local Web 可在 P1 后并行，其余按依赖进入                         |
 
 ## 7. 最近两个执行节点
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
-2. **推进四象限关键路径**：P1 中立协议、双目标客户端和共享 Reference Conformance 已落地，P3.8 真实证据未完成；
-   P2 Sidecar Client/Supervisor 与通用 Adapter Bridge 已有本机 Reference Conformance，通用 CLI Host 首轮 Fake CLI 验证通过。
-   下一步补临时凭据目录、Windows Job owner、完整故障矩阵与双平台 Conformance，
-   再进行首个真实 CLI 厂商探针与 Wrapper。P1D 发布门禁和 P4 正式 Remote service 认证仍单独跟踪。
+2. **推进四象限生产门禁**：P2 基础设施、P3 Claude 三平台无凭据路径、P5 Linux Sandbox 与 SDK/CLI 厂商完整远端错误路径已通过。
+   下一步需独立 Spec 建设 credential broker/受控出网、持久 Session 与恢复，并取得真实模型及正式 Mongo/TLS 证据。
+   用户暂无 Anthropic Key，只阻塞付费厂商验收；不将此与尚未开发的生产能力混为同一个外部阻塞。
+   P1D 发布门禁和 P4 正式 Remote service 认证仍单独跟踪。
 
 P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之间并行推进；Local Web 也可在协议稳定后单独立项。
 

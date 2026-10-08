@@ -38,6 +38,7 @@ export async function createArguments(
       '--label',
       'io.yanbot.harness.sandbox=1',
       '--network=none',
+      '--log-driver=none',
       '--read-only',
       '--user=65532:65532',
       '--cap-drop=ALL',

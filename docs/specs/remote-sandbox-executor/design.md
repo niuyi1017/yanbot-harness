@@ -7,14 +7,14 @@
 - 受信 Docker 可执行路径来自部署；只接受 Linux daemon。本机镜像 ID `sha256:<64hex>` 或 registry `@sha256:<64hex>`；
   `--pull=never`，避免请求路径隐式拉取。create 得到完整 CID 后 start --attach --interactive；始终按 CID 清理。
 - 固定 non-root 65532:65532、256 PID、512 MiB memory/swap、1 CPU、只读根、64 MiB /tmp tmpfs、64 MiB /home/sandbox tmpfs；
-  无 host PID/IPC/network。工作区从受信 snapshot root 的真实子目录读取，经 boot stdin 传入 Guest tmpfs，不创建宿主 bind mount。源不能是 root 本身；拒绝 symlink/特殊文件，最多 2048 文件、16 MiB、16 层。Guest 校验路径后写入 /home/sandbox/workspace；Run 结束后随容器销毁。
+  禁用 Docker 持久日志（log-driver=none），无 host PID/IPC/network。工作区从受信 snapshot root 的真实子目录读取，经 boot stdin 传入 Guest tmpfs，不创建宿主 bind mount。源不能是 root 本身；拒绝 symlink/特殊文件，最多 2048 文件、16 MiB、16 层。Guest 校验路径后写入 /home/sandbox/workspace；Run 结束后随容器销毁。
 - Host 每 2 秒发送不返回响应的私有 lease 通知，guest 10 秒没有 lease 则终止；guest PID1 退出由 Docker auto-remove 清理整容器。
   失联时不尝试继续任务；控制面既有 lease/reaper 决定重试。容器创建/启动错误输出只保留稳定错误。
 - `RunCoordinator` 的 Adapter factory 接收当前 Run，并可异步创建 facade；Factory 仍只在 composition root 选择。
   Worker 依据部署选择 sandbox，按 Run 的 adapterId 严格匹配。默认控制面 catalog 仍只开放 Reference。
 - Guest adapter manifest 从实际 adapter 取得，并将 runtimeKinds 映射为 sidecar；禁用 resume 声明以匹配无持久状态行为。
 - CI 用固定 Node 基础镜像构建只含受控仓库制品的镜像，最终使用 image inspect 返回的不可变 ID；不上传含厂商二进制的镜像。
-  默认镜像只带 Reference，Claude 验证镜像通过单独授权/官方完整性步骤安装，生产仍不开放。
+  默认镜像带 Reference/CodeBuddy，Claude 验证镜像通过单独授权/官方完整性步骤安装，生产仍不开放。
 
 ## 复用与备选
 

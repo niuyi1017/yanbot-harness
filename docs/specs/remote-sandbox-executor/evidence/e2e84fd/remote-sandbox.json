@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "image": "sha256:ff10ee1bd188cc5bf4d7e2cd3b323dbf723cb4339d096c7cd861e5410768fb37",
+  "waitImage": "sha256:a3f570e519f21670c97e7903c82b252c6ade5ca2f9b9120cd2442471ee0b0037",
+  "claudeImage": "sha256:b6af29557a472b6d5813473df0e2fd7608ef5e98364c5aa367c2588f59745ce0",
+  "sourceCommit": "e2e84fd6df5f27099fae0000e89250d3a5a79b1b",
+  "checks": [
+    "reference-conformance",
+    "real-claude-cli-no-credentials",
+    "nonroot-readonly-resource-policy",
+    "network-denied",
+    "snapshot-transfer",
+    "concurrent-isolation",
+    "cancel",
+    "parent-death-auto-remove",
+    "abandoned-create-reaper"
+  ],
+  "paidVendorEvidence": false
+}

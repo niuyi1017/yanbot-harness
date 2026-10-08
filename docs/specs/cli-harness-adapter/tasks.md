@@ -1,101 +1,66 @@
 # 第三方 CLI Harness Adapter 任务清单
 
-## 当前状态（2026-09-30）
+## 当前状态（2026-10-09）
 
-- [x] 审计现有Adapter SPI、Sidecar Schema、总体架构与双Runtime设计。
-- [x] 确认SDK型与CLI型Harness都是产品必须覆盖的接入形态。
-- [x] 补齐CLI Wrapper、进程监管、能力降级、凭据、跨平台和交付设计。
-- [~] Sidecar Client/Supervisor/Adapter Bridge 已有本机工程候选：进程监管、握手、请求关联、JSONL 分帧、
-  限额、超时、POSIX 进程组清理及 Reference Conformance 通过。Windows 原生 Job owner、真实 CLI Adapter 与双平台认证未完成。
-- [~] 通用 CLI Host 首轮工程候选完成本机 Fake CLI 验证：安全启动、显式环境、增量输出、限额、超时、取消与版本探针。
-  临时凭据目录、Windows owner、完整跨平台故障矩阵待补。
+SDK 型与 CLI 型均使用公共 Adapter SPI；Claude Code 2.1.284 是首个 Experimental CLI Adapter。
+Local 三平台和 Linux Remote 已取得无凭据工程证据。付费模型、生产 broker/egress、持久 Session 恢复与正式发布仍未完成。
 
 ## Phase 1：厂商能力探针
 
-- [x] 用户选择 Claude Code 2.1.284，官方 macOS 包完整性、机器接口与条款已核对；详见厂商子 Spec。
-- [ ] 探测非交互运行、流式JSON、工具事件、session ID、resume、cancel、权限交互、模型与usage。
-- [ ] 记录命令、输出fixtures、退出码和已知后台子进程，不保存真实凭据。
+- [x] 用户选择 Claude Code 2.1.284；核对官方机器接口、条款及固定平台包 SHA512。
+- [x] 实测非交互 JSONL、session ID、认证错误、退出码；保存无凭据结果，不收集已有用户凭据。
 - [x] 建立 `docs/architecture/claude-code-cli-capability-matrix.md` 和 `claude-code-cli-adapter` 子 Spec。
+- [ ] 真实付费文本/usage/cancel 验收；用户目前没有 Anthropic Key。工具/权限/恢复未开放。
 
-验收：明确每项能力为native/emulated/unsupported，并得出“可产品化”或“仅Experimental”的结论。
+验收：能力声明与证据一致，目前仅 Experimental，不声称厂商生产认证。
 
 ## Phase 2：Sidecar Client 与 Supervisor
 
-- [~] Windows CLI Job 宿主与 owner 已实现：独立厂商 stdin/stdout/stderr 和 lease/control，原子 Job 归属及空树证明；
-  本机控制协议测试通过，Windows 父强杀/派生进程回收、Host/ACL/Sidecar Conformance 待 CI 实际认证。
+- [x] `packages/adapter-sidecar` 进程启动、initialize 握手、请求关联、乱序响应与通知。
+- [x] 增量 JSONL、Schema/sequence 校验、有界队列/缓冲/stderr、请求/空闲/关闭超时及幂等 dispose。
+- [x] Bridge 与 Reference Fixture 通过 Conformance；响应前事件、取消、AbortSignal、提前退出、重复终态、溢出与异常退出收敛。
+- [x] 用有序 capabilities 响应作为终态屏障，覆盖管道分块的重复终态；Sidecar 29 项测试通过。
+- [x] POSIX 同组子孙进程回收；Windows 原生 Job owner、原子 Job 归属、空树证明、父强杀与派生进程实际 CI 通过。
+- [ ] POSIX Local 主进程被 SIGKILL 后的任意脱组进程 containment 认证。不能将 Windows Job 或 Linux Docker 结果推及此项。
 
-- [~] 在 `packages/adapter-sidecar` 实现进程启动、initialize 握手、请求关联和通知分发。首轮工程候选
-  已覆盖握手、并发/乱序响应和通知；Windows 无受信 owner 时明确失败。
-- [~] 实现增量 JSONL 分帧、Schema 校验、背压、长度/缓冲限制、stderr 限长和脱敏。拆分 UTF-8/CRLF、非法帧、
-  stderr/行长限制已测；完整背压与输出配额故障矩阵待补。
-- [~] 实现启动/请求/空闲/关闭超时和幂等 dispose。请求超时、Run 事件空闲超时、关闭超时和幂等关闭已测；
-  完整运行时限及异常终态故障矩阵待补。
-- [~] 实现 POSIX 进程组与 Windows 进程树清理，禁止 `shell: true` 和命令字符串拼接。macOS 已测试同组
-  子孙进程回收；脱组/忽略信号场景、Windows Job owner 与目标机无残留证据待补，不回退到 PID `taskkill`。
-- [~] 使用 Fake Sidecar 覆盖协议污染、半帧、崩溃、超时和僵尸进程。已覆盖大部分通信负例和 POSIX
-  子孙进程及本机 Reference Adapter Conformance；完整故障矩阵与 Windows runner 仍待补。
-- [x] 新增通用 `SidecarAdapter` Bridge 与无凭据 Reference Sidecar Fixture。正常 Run、响应前 Event、取消、
-      AbortSignal 与提前退出通过 `runAdapterConformance`/定向测试；错配、乱序、重复终态、队列溢出及异常退出失败收敛。
-      验收：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit`；Windows 和真实厂商仍按独立门禁跟踪。
-- [x] Bridge 增加可配置 Run 事件空闲超时，覆盖 Wrapper 存活但不发终态的情况；超时后取消并回收进程。
-
-首轮验证：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit` 与全仓 `pnpm check` 通过；Bridge 新增后
-Sidecar 包 28 项单元测试通过。这只证明本机工程候选。
-
-验收：Sidecar实现与Reference进程通过Adapter Conformance Kit；macOS与Windows CI无残留进程。
+验收：`pnpm --filter @yanbot-harness/adapter-sidecar test:unit`；实际 Windows [CI 37814307676](https://github.com/niuyi1017/yanbot-harness/actions/runs/37814307676)。
 
 ## Phase 3：通用 CLI Host
 
-- [x] 首轮工程候选：新增 Host 包与安全 spawn/owner、环境允许列表、受限 stdout/stderr 增量读取、超时/取消及
-      版本探针。`pnpm --filter @yanbot-harness/adapter-cli-host test:unit` 本机 20 项通过，1 项 Windows 专用门禁跳过。
-- [~] 新增 `packages/adapter-cli-host`，安全 spawn、版本探测、allowlist 环境与临时凭据目录已实现；Windows ACL 认证待补。
-- [~] 临时凭据目录：独占文件名/容量限制、POSIX 权限、成功/失败/取消清理与目录身份替换拒绝通过本机测试。
-  Host 包 31 项通过、1 项 Windows 专用测试跳过；Windows ACL 已实现，待目标系统验证。
-- [~] stdout 异步行解析接口、stderr 字节限额与丢弃、退出归一化已实现；厂商结构化诊断映射由后续 Wrapper 验收。
-- [~] 取消后停止派发输出，POSIX TERM/KILL 升级与同组协作子进程已测；主进程退出后组仍存在时报清理未验证，
-  所有退出路径均调用 owner 收尾。更强进程归属、Windows 与临时目录清理待补。
-- [~] Fake CLI 覆盖 CRLF、拆分 UTF-8、异步解析背压、噪声/解析失败、限额、空闲/总时限、取消和同组子进程；
-  不响应信号/主动脱组及厂商无终态矩阵待补。
+- [x] `packages/adapter-cli-host` 安全 spawn、精确版本探测、显式环境允许列表；不使用 shell 拼接。
+- [x] 私有凭据目录、POSIX 权限/Windows ACL、容量限制、目录身份替换拒绝和成功/失败/取消清理。
+- [x] 有界 stdin、stdout 异步行解析、stderr 限额、错误/退出归一化；缺少可执行文件在启动前明确失败。
+- [x] Fake CLI 覆盖 CRLF、拆分 UTF-8、背压、解析失败、配额、空闲/总时限、取消和协作子孙进程。
+- [~] POSIX TERM/KILL 升级和 Windows Job 回收已测；任意脱组/强杀保证仍按 Phase 2 跟踪。
 
-2026-09-30 本机工程候选验证：全仓 `pnpm check` 通过；该结果不替代 Windows/Linux 目标平台认证。
-
-验收：包内无厂商名分支；安全与故障fixture在macOS、Windows、Linux通过。
+验收：Host 无厂商解析分支；三平台工程 CI 和 Windows ACL/Job 实测通过。
 
 ## Phase 4：首个厂商 CLI Adapter
 
-- [x] 新增 `packages/adapter-claude-code-cli`，锁定 2.1.284 与 Experimental manifest。
-- [ ] 实现命令/config、机器事件、session、权限、错误和退出码映射。
-- [ ] 只对探针确认的能力声明native，其余明确降级。
-- [ ] 接入Local Runtime静态允许列表，不向SDK/平台CLI暴露厂商字段。
-- [ ] 建立真实凭据保护的手动冒烟与升级门禁。
+- [x] `packages/adapter-claude-code-cli`，固定 2.1.284 与 Experimental manifest。
+- [x] 只读文本命令、机器事件、临时 session、错误/退出码映射；恢复、工具、权限交互明确 unsupported。
+- [x] Local Runtime 静态允许列表；SDK/平台 CLI 不暴露厂商字段。
+- [x] 凭据文件、显式 `--live`、预算限制和版本校验的冒烟/升级门禁；用户无 Key，付费门禁未执行。
+- [x] 三平台真实无凭据 SDK/独立 Runtime 认证失败及持久化：[CI 37814307621](https://github.com/niuyi1017/yanbot-harness/actions/runs/37814307621)。
+- [~] 文本/usage native 声明保持 Experimental；真实付费增量和费用待验收。
 
-验收：同一个SDK/平台CLI示例只切换adapterId即可运行；真实能力矩阵与测试结果一致。
+验收：Wrapper/parser fixture 15 项通过；真实三平台错误路径与能力矩阵一致。
 
-## Phase 5：Remote Worker 与双Runtime认证
+## Phase 5：Remote Worker 与双 Runtime 认证
 
-- [ ] 将同一CLI Adapter安装进Remote Worker/沙箱镜像，锁定CLI版本和摘要。
-- [ ] 通过execution grant注入短期凭据与隔离登录目录，禁止在线自更新。
-- [ ] 验证取消、Worker崩溃、容器清理、Session恢复和事件重放。
-- [ ] 分别记录macOS Local、Windows Local和Linux Remote证据。
+- [x] 同一 CLI Adapter 装入 Linux Sandbox 测试镜像；固定 CLI 版本/SHA512 与不可变镜像 ID，镜像不发布。
+- [x] CodeBuddy SDK 与 Claude CLI 使用固定 Guest allowlist，经相同公共协议执行。
+- [x] 实际 Docker 验证隔离、取消、父强杀、容器回收；完整 SDK/HTTP/Redis/Worker 无凭据错误路径 5 项 E2E 全通过。
+- [x] macOS/Windows/Linux Local 与 Linux Remote 工程证据归档；Remote 见 `../remote-sandbox-executor/evidence/dac5b24/`。
+- [ ] execution grant 绑定短期凭据、受控模型出网、持久 Session/恢复与真实模型请求。
 
-验收：四象限架构中的SDK/CLI型、Local/Remote组合共享公共协议；跨租户、凭据和工作区隔离通过。
+验收：当前是离线容器基线；不代表完整 Remote 生产认证或四模式整体完成。
 
 ## Phase 6：交付与运营
 
-- [ ] 明确Wrapper和厂商CLI是打包、单独安装还是镜像内置，并完成许可证评审。
-- [ ] 发布manifest、版本兼容矩阵、安装检查、升级/回滚和故障排查文档。
-- [ ] 市场/管理端只允许签名Adapter和受支持可执行路径，不接受任意shell配置。
-- [ ] 将真实认证状态更新到交付兼容矩阵，不以Sidecar Schema存在代替可用证据。
+- [~] 已明确用户独立安装厂商 CLI、CI 测试镜像不发布；正式再分发许可证/签名门禁仍待完成。
+- [x] 工程 manifest、能力矩阵、安装检查、固定版本升级、回滚与故障边界见 `docs/delivery/four-mode-engineering-preview.md`。
+- [ ] 市场/管理端签名 Adapter 安装管理；当前只使用部署固定允许列表。
+- [x] 更新总 roadmap 与真实证据；保持 Experimental/Preview 声明，不把协议存在视为生产可用。
 
-验收：测试方在干净目标系统按文档完成安装、probe、运行、恢复/能力拒绝、取消和卸载清理。
-
-## 模型节点提醒
-
-本次架构审计与Spec使用 `gpt-5.6-sol + high` 足够。开始Phase 1真实CLI能力探针和Phase 2跨平台进程监管实现时，
-建议切换到 `gpt-6-astra + high`。
-
-## 2026-09-30 实际 CI 补充
-
-- Windows 原生 Job、父强杀/派生进程、Host、凭据 ACL 与 Sidecar 全部通过：[run 36702969484](https://github.com/niuyi1017/yanbot-harness/actions/runs/36702969484)，源提交 `02fccc2`。
-- Claude Code Wrapper/Host fixture 15 项通过；真实 macOS 无凭据 SDK 全链路返回认证失败，终态及持久化正确。
-- 用户没有 API Key，付费调用/usage/真实取消和 Remote 厂商认证门禁仍未完成。
+验收：正式发布仍需干净目标系统、真实凭据、恢复/取消/卸载清理和签名制品门禁。

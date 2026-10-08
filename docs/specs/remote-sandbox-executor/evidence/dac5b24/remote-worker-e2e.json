@@ -1,0 +1,85 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 2,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 5,
+  "numPassedTests": 5,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1791479448645,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Remote Reference Worker real queue E2E"],
+          "fullName": "Remote Reference Worker real queue E2E delivers one SDK run through Redis, HTTP grant scope and the independent Worker",
+          "status": "passed",
+          "title": "delivers one SDK run through Redis, HTTP grant scope and the independent Worker",
+          "duration": 1058.8109530000002,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Remote Reference Worker real queue E2E"],
+          "fullName": "Remote Reference Worker real queue E2E round-trips an interaction through polling without queue payload expansion",
+          "status": "passed",
+          "title": "round-trips an interaction through polling without queue payload expansion",
+          "duration": 2027.1244459999998,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Remote Reference Worker real queue E2E"],
+          "fullName": "Remote Reference Worker real queue E2E converges a running cancellation to one durable terminal event",
+          "status": "passed",
+          "title": "converges a running cancellation to one durable terminal event",
+          "duration": 2026.05778,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Remote Reference Worker real queue E2E"],
+          "fullName": "Remote Reference Worker real queue E2E delivers com.anthropic.claude-code-cli errors through SDK, HTTP, Redis, Worker and Docker",
+          "status": "passed",
+          "title": "delivers com.anthropic.claude-code-cli errors through SDK, HTTP, Redis, Worker and Docker",
+          "duration": 2027.05325,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Remote Reference Worker real queue E2E"],
+          "fullName": "Remote Reference Worker real queue E2E delivers cn.tencent.codebuddy errors through SDK, HTTP, Redis, Worker and Docker",
+          "status": "passed",
+          "title": "delivers cn.tencent.codebuddy errors through SDK, HTTP, Redis, Worker and Docker",
+          "duration": 2027.2695239999994,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1791479449948,
+      "endTime": 1791479459115.2695,
+      "status": "passed",
+      "message": "",
+      "name": "/home/runner/work/yanbot-harness/yanbot-harness/apps/cloud-server/test/remote-worker.e2e.test.ts"
+    }
+  ]
+}

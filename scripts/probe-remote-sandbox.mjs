@@ -110,6 +110,7 @@ if (process.argv.includes('--holder')) {
       assert.equal(info.Config.User, '65532:65532');
       assert.equal(info.HostConfig.ReadonlyRootfs, true);
       assert.equal(info.HostConfig.NetworkMode, 'none');
+      assert.equal(info.HostConfig.LogConfig.Type, 'none');
       assert.equal(info.HostConfig.PidsLimit, 256);
       assert.equal(info.HostConfig.Memory, 512 * 1024 * 1024);
       assert.equal(info.HostConfig.MemorySwap, 512 * 1024 * 1024);

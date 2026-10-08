@@ -1,12 +1,12 @@
 # Local / Remote Runtime 双形态兼容任务清单
 
-## 当前状态（2026-09-17）
+## 当前状态（2026-10-09）
 
 - [x] 审计总体需求、总体设计、SDK/CLI Spec、当前 contracts 与交付兼容矩阵。
 - [x] 明确“一套 SDK/CLI、两种 Runtime”是强制产品要求。
 - [x] 冻结需求、架构边界、迁移原则和验收维度。
-- [~] Remote Reference 控制面和 Worker 已有本机工程候选；正式 HTTPS/Mongo/Redis 部署、CodeBuddy 沙箱与
-  双平台认证未完成，当前交付仍为 Local-only Preview。
+- [~] Remote 控制面和 Worker 已有工程候选；Linux Docker 隔离与 CodeBuddy/Claude 无凭据链路已实测。
+  正式 HTTPS/Mongo 部署、真实厂商和双平台正式服务认证未完成，当前发布仍为 Local-only Preview。
 
 ## Phase 1：中立协议与迁移层
 
@@ -81,9 +81,9 @@
 
 ## Phase 5：Worker、沙箱与 CodeBuddy
 
-- [ ] 将现有 Reference `apps/cloud-worker` 升级为可隔离执行真实 CodeBuddy 的 Worker；队列、lease、心跳、
-      取消、重试与孤儿任务收敛已有 Reference 候选，但尚无真实厂商和容器隔离证据。
-- [ ] 每个 Run 使用非 root 隔离容器和临时工作区，限制 CPU、内存、磁盘、进程、网络和挂载。
+- [~] `apps/cloud-worker` 已能通过固定 Guest 执行 CodeBuddy/Claude；队列、lease、心跳、取消与孤儿收敛已有工程证据，
+  Docker 与完整 HTTP/Redis/Worker 无凭据链路通过（`../remote-sandbox-executor/evidence/dac5b24/`），真实模型尚未验收。
+- [x] 每个 Run 使用非 root 隔离容器和临时工作区，限制 CPU、内存、tmpfs、进程、网络和挂载；实际 Linux Docker CI 通过。
 - [ ] 仅通过 `adapter-api` 启动 CodeBuddy Adapter，并按 Run 注入短期凭据。
 - [ ] 实现 Session 写锁、隔离状态目录、TTL、容器重建恢复与凭据分离。
 - [ ] 完成真实 CodeBuddy 远端初始运行、续接、交互、取消、超时和故障恢复门禁。

@@ -35,6 +35,7 @@ describe('Docker sandbox deployment policy', () => {
       '--pull=never',
       '--rm',
       '--network=none',
+      '--log-driver=none',
       '--read-only',
       '--user=65532:65532',
       '--cap-drop=ALL',

@@ -1,6 +1,6 @@
 # Claude Code CLI 能力矩阵
 
-状态：Experimental，2026-09-30。候选固定版本 2.1.284。不是生产认证。
+状态：Experimental，2026-10-09。候选固定版本 2.1.284。不是生产认证。
 
 ## 官方依据与受测制品
 
@@ -32,3 +32,10 @@ usage 与费用为零。必须检查 is_error，不可仅依据 subtype 判定�
 
 用户 2026-09-30 明确暂无 API Key：付费成功、费用和真实取消门禁保持未完成。
 厂商二进制由用户独立安装，升级须重新锁定版本、验证官方完整性并重新运行全部能力门禁。
+
+## 三平台与 Remote 补充
+
+- macOS arm64、Windows x64、Linux x64 实际无凭据 Local SDK/独立 Runtime 探针通过：[CI 37814307621](https://github.com/niuyi1017/yanbot-harness/actions/runs/37814307621)。平台 SHA512 固定在 `scripts/probe-claude-code-platform.mjs`。
+- Windows Job owner、父强杀、ACL、Sidecar 通过：[CI 37814307676](https://github.com/niuyi1017/yanbot-harness/actions/runs/37814307676)。POSIX Local 父强杀整树保证未据此认证。
+- Linux Remote 断网 Docker 的真实 Claude 二进制、SDK/HTTP/Redis/Worker 无凭据失败与持久化通过：[CI 37814307695](https://github.com/niuyi1017/yanbot-harness/actions/runs/37814307695)，归档见 `../specs/remote-sandbox-executor/evidence/dac5b24/`。
+- 以上均没有付费请求，不扩大 resume、工具、交互或生产可用声明。
