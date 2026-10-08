@@ -52,6 +52,8 @@ const environmentSchema = z
     CLOUD_WORKSPACE_TTL_SECONDS: positiveInteger(86_400),
     CLOUD_GIT_ALLOWED_HOSTS: z.string().default(''),
     CLOUD_INTERNAL_API_ENABLED: booleanText,
+    CLOUD_EXPERIMENTAL_CLAUDE_CLI: booleanText,
+    CLOUD_EXPERIMENTAL_CODEBUDDY: booleanText,
     CLOUD_RELAY_ENABLED: booleanText,
     CLOUD_REDIS_URL: z.string().trim().min(1).optional(),
     CLOUD_QUEUE_NAME: z
@@ -90,6 +92,8 @@ export type CloudConfig = {
   workspaceTtlSeconds: number;
   gitAllowedHosts: readonly string[];
   internalApiEnabled: boolean;
+  experimentalClaudeCli?: boolean;
+  experimentalCodeBuddy?: boolean;
   relayEnabled: boolean;
   redisUrl?: string;
   queueName: string;
@@ -139,7 +143,11 @@ export function parseCloudConfig(environment: NodeJS.ProcessEnv): CloudConfig {
   if (new Set(gitAllowedHosts).size !== gitAllowedHosts.length) {
     throw new Error('Git allowlist hosts must be unique.');
   }
+  if (value.NODE_ENV === 'production' && (value.CLOUD_EXPERIMENTAL_CLAUDE_CLI || value.CLOUD_EXPERIMENTAL_CODEBUDDY))
+    throw new Error('Experimental vendor adapters are unavailable in production.');
   return {
+    experimentalClaudeCli: value.CLOUD_EXPERIMENTAL_CLAUDE_CLI,
+    experimentalCodeBuddy: value.CLOUD_EXPERIMENTAL_CODEBUDDY,
     nodeEnv: value.NODE_ENV,
     host: value.CLOUD_HOST,
     port: value.CLOUD_PORT,

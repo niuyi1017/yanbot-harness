@@ -44,6 +44,35 @@ const config: CloudConfig = {
 };
 
 describe('Cloud control plane', () => {
+  it('enables Claude only explicitly and validates per-session models and capabilities', async () => {
+    const disabled = await setup();
+    await expect(
+      disabled.service.createSession(disabled.principal, { adapterId: 'com.anthropic.claude-code-cli' }),
+    ).rejects.toMatchObject({ status: 404 });
+    const fixture = await setup({ experimentalClaudeCli: true });
+    const session = await fixture.service.createSession(fixture.principal, {
+      adapterId: 'com.anthropic.claude-code-cli',
+    });
+    expect(session.adapterId).toBe('com.anthropic.claude-code-cli');
+    expect(fixture.service.listModels(session.adapterId)).toEqual([]);
+    await expect(
+      fixture.service.createRun(fixture.principal, session.sessionId, {
+        prompt: 'test',
+        workspace: fixture.workspace.source,
+        permissionPolicy: 'read-only',
+        model: { adapterId: 'cn.yanbot.reference', modelId: 'deterministic' },
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIGURATION_INVALID' });
+    await expect(
+      fixture.service.createRun(fixture.principal, session.sessionId, {
+        prompt: 'test',
+        workspace: fixture.workspace.source,
+        permissionPolicy: 'interactive',
+      }),
+    ).rejects.toMatchObject({ code: 'CAPABILITY_UNSUPPORTED' });
+    expect(fixture.store.runs).toHaveLength(0);
+  });
+
   it('isolates tenants and enforces idempotency plus the session write lock', async () => {
     const { service, store, principal, workspace } = await setup();
     const session = await service.createSession(principal, { adapterId: 'cn.yanbot.reference' });

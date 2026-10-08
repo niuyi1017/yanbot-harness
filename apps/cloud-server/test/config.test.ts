@@ -12,6 +12,19 @@ const base = {
 };
 
 describe('Cloud Server configuration', () => {
+  it('blocks experimental CLI in production', () => {
+    expect(parseCloudConfig({ ...base, CLOUD_EXPERIMENTAL_CLAUDE_CLI: 'true' }).experimentalClaudeCli).toBe(true);
+    expect(() =>
+      parseCloudConfig({
+        ...base,
+        NODE_ENV: 'production',
+        CLOUD_TLS_TERMINATED: 'true',
+        CLOUD_TRUST_PROXY: 'true',
+        CLOUD_EXPERIMENTAL_CLAUDE_CLI: 'true',
+      }),
+    ).toThrow('Experimental');
+  });
+
   it('parses safe defaults and a normalized Git allowlist', () => {
     const config = parseCloudConfig({
       ...base,

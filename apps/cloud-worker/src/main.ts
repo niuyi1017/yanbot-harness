@@ -1,4 +1,5 @@
 import { DockerSandboxAdapter } from '@yanbot-harness/sandbox-docker';
+import { CodeBuddyAdapter } from '@yanbot-harness/adapter-codebuddy';
 import { ClaudeCodeCliAdapter } from '@yanbot-harness/adapter-claude-code-cli';
 import type { Run } from '@yanbot-harness/contracts';
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
@@ -25,9 +26,11 @@ const coordinator = new RunCoordinator(
         const adapter =
           run.adapterId === 'cn.yanbot.reference'
             ? new ReferenceAdapter()
-            : run.adapterId === 'com.anthropic.claude-code-cli'
-              ? new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' })
-              : undefined;
+            : run.adapterId === 'cn.tencent.codebuddy'
+              ? new CodeBuddyAdapter()
+              : run.adapterId === 'com.anthropic.claude-code-cli'
+                ? new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' })
+                : undefined;
         if (!adapter) throw new Error('Unsupported sandbox Adapter.');
         return new DockerSandboxAdapter(
           { ...config.sandbox!, snapshotRoot: config.sharedWorkspaceRoot, workspacePath: cwd },

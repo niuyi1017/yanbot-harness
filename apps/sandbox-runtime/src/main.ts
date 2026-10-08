@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ReferenceAdapter } from '@yanbot-harness/adapter-reference';
 import { ClaudeCodeCliAdapter } from '@yanbot-harness/adapter-claude-code-cli';
+import { AdapterEventFactory } from '@yanbot-harness/adapter-kit';
+import { HarnessAdapterError } from '@yanbot-harness/adapter-api';
 import type { HarnessAdapter, AdapterRuntime } from '@yanbot-harness/adapter-api';
 import { sidecarRequestSchema } from '@yanbot-harness/adapter-sidecar';
 import { HARNESS_PROTOCOL_VERSION, type AdapterEvent, type HarnessCapabilities } from '@yanbot-harness/contracts';
@@ -38,7 +40,10 @@ async function handle(value: unknown) {
       adapter = new ReferenceAdapter(
         process.env.HARNESS_SANDBOX_REFERENCE_WAIT === '1' ? { scenario: { kind: 'wait-for-cancel' } } : {},
       );
-    else if (value.adapterId === 'com.anthropic.claude-code-cli')
+    else if (value.adapterId === 'cn.tencent.codebuddy') {
+      const { CodeBuddyAdapter } = await import('@yanbot-harness/adapter-codebuddy');
+      adapter = new CodeBuddyAdapter();
+    } else if (value.adapterId === 'com.anthropic.claude-code-cli')
       adapter = new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' });
     else throw new Error('Unsupported adapter');
     return;
@@ -59,6 +64,9 @@ async function handle(value: unknown) {
     capabilities = {
       ...(await runtime.capabilities()),
       'sessions.resume': { level: 'unsupported', reason: 'Sandbox sessions are ephemeral.' },
+      ...(adapter.manifest.adapterId === 'cn.tencent.codebuddy'
+        ? { 'models.list': { level: 'unsupported' as const, reason: 'Sandbox model discovery is not certified.' } }
+        : {}),
     };
     return respond({
       protocolVersion: HARNESS_PROTOCOL_VERSION,
@@ -87,13 +95,37 @@ async function handle(value: unknown) {
       return reject();
     await respond({});
     const selectedRuntime = runtime;
+    const selectedAdapterId = adapter.manifest.adapterId;
     const done = (async () => {
-      for await (const event of selectedRuntime.startRun({ ...request.params, cwd: '/home/sandbox/workspace' })) {
-        const normalized: AdapterEvent =
-          event.type === 'session.initialized'
-            ? { ...event, payload: { ...event.payload, capabilities: capabilities! } }
-            : event;
-        await write({ jsonrpc: '2.0', method: 'event', params: normalized });
+      let emitted = false;
+      try {
+        for await (const event of selectedRuntime.startRun({ ...request.params, cwd: '/home/sandbox/workspace' })) {
+          emitted = true;
+          const normalized: AdapterEvent =
+            event.type === 'session.initialized'
+              ? { ...event, payload: { ...event.payload, capabilities: capabilities! } }
+              : event;
+          await write({ jsonrpc: '2.0', method: 'event', params: normalized });
+        }
+      } catch (error) {
+        if (emitted) throw error;
+        const factory = new AdapterEventFactory(request.params);
+        await write({
+          jsonrpc: '2.0',
+          method: 'event',
+          params: factory.create('run.started', { adapterId: selectedAdapterId }),
+        });
+        await write({
+          jsonrpc: '2.0',
+          method: 'event',
+          params: factory.create('run.failed', {
+            error: {
+              code: error instanceof HarnessAdapterError ? error.code : 'HARNESS_FAILED',
+              message: 'Sandbox Adapter could not start the requested run.',
+              retryable: false,
+            },
+          }),
+        });
       }
     })();
     active = { runId: request.params.runId, done };

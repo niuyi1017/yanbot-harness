@@ -8,6 +8,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { DockerSandboxAdapter, reapUnstartedContainers } from '../packages/sandbox-docker/dist/index.js';
+import { CodeBuddyAdapter } from '../packages/adapter-codebuddy/dist/index.js';
 import { ClaudeCodeCliAdapter } from '../packages/adapter-claude-code-cli/dist/index.js';
 import { ReferenceAdapter } from '../packages/adapter-reference/dist/index.js';
 import { runAdapterConformance } from '../packages/adapter-kit/dist/index.js';
@@ -64,6 +65,17 @@ if (process.argv.includes('--holder')) {
       request: request(),
     });
     assert.equal(report.events.at(-1).type, 'run.completed');
+    const sdkAdapter = new DockerSandboxAdapter(deployment, new CodeBuddyAdapter().manifest);
+    assert.equal((await sdkAdapter.probe({})).available, false);
+    const sdkRuntime = await sdkAdapter.createRuntime({});
+    const sdkEvents = [];
+    try {
+      for await (const event of sdkRuntime.startRun(request())) sdkEvents.push(event);
+    } finally {
+      await sdkRuntime.dispose();
+    }
+    assert.equal(sdkEvents.at(-1).type, 'run.failed');
+    assert.equal(sdkEvents.at(-1).payload.error.code, 'AUTHENTICATION_FAILED');
     const cliReport = await runAdapterConformance({
       adapter: new DockerSandboxAdapter(
         { ...deployment, image: claudeImage },
@@ -195,6 +207,7 @@ if (process.argv.includes('--holder')) {
           checks: [
             'reference-conformance',
             'real-claude-cli-no-credentials',
+            'codebuddy-sdk-missing-credential',
             'nonroot-readonly-resource-policy',
             'network-denied',
             'snapshot-transfer',

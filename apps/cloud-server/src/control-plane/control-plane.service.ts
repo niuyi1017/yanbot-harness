@@ -64,6 +64,43 @@ export const referenceModel = modelDescriptorSchema.parse({
   description: 'Offline model used for protocol and client tests.',
 });
 
+const claudeAdapterId = 'com.anthropic.claude-code-cli';
+const claudeAdapterSummary = adapterSummarySchema.parse({
+  manifest: {
+    protocolVersion: HARNESS_PROTOCOL_VERSION,
+    adapterId: claudeAdapterId,
+    adapterVersion: '0.1.0',
+    displayName: 'Claude Code CLI (Experimental)',
+    harness: { name: 'Claude Code', version: '2.1.284' },
+    runtimeKinds: ['sidecar'],
+  },
+  capabilities: {
+    'runs.cancel': { level: 'emulated' },
+    'streaming.text': { level: 'native' },
+    'usage.tokens': { level: 'native' },
+    'usage.cost': { level: 'native' },
+    'sessions.resume': { level: 'unsupported', reason: 'Sandbox sessions are ephemeral.' },
+    'models.list': { level: 'unsupported', reason: 'No certified discovery interface.' },
+  },
+});
+
+const codeBuddyAdapterSummary = adapterSummarySchema.parse({
+  manifest: {
+    protocolVersion: HARNESS_PROTOCOL_VERSION,
+    adapterId: 'cn.tencent.codebuddy',
+    adapterVersion: '0.1.0',
+    displayName: 'CodeBuddy SDK (Sandbox Experimental)',
+    harness: { name: 'CodeBuddy Agent SDK', version: '0.3.254' },
+    runtimeKinds: ['sidecar'],
+  },
+  capabilities: {
+    'runs.cancel': { level: 'native' },
+    'streaming.text': { level: 'native' },
+    'sessions.resume': { level: 'unsupported', reason: 'Sandbox sessions are ephemeral.' },
+    'models.list': { level: 'unsupported', reason: 'Sandbox model discovery is not certified.' },
+  },
+});
+
 @Injectable()
 export class ControlPlaneService {
   readonly #store: ControlPlaneStore;
@@ -88,22 +125,26 @@ export class ControlPlaneService {
   }
 
   listAdapters() {
-    return [referenceAdapterSummary];
+    return [
+      referenceAdapterSummary,
+      ...(this.#config.nodeEnv !== 'production' && this.#config.experimentalClaudeCli ? [claudeAdapterSummary] : []),
+      ...(this.#config.nodeEnv !== 'production' && this.#config.experimentalCodeBuddy ? [codeBuddyAdapterSummary] : []),
+    ];
   }
 
   listModels(selectedAdapterId: string) {
-    if (selectedAdapterId !== adapterId) throw resourceNotFound();
-    return [referenceModel];
+    if (!this.listAdapters().some((item) => item.manifest.adapterId === selectedAdapterId)) throw resourceNotFound();
+    return selectedAdapterId === adapterId ? [referenceModel] : [];
   }
 
   async createSession(principal: TenantPrincipal, value: unknown): Promise<Session> {
     const input = createSessionRequestSchema.parse(value);
-    if (input.adapterId !== adapterId) throw resourceNotFound();
+    if (!this.listAdapters().some((item) => item.manifest.adapterId === input.adapterId)) throw resourceNotFound();
     const timestamp = this.#now().toISOString();
     const session = sessionSchema.parse({
       protocolVersion: HARNESS_PROTOCOL_VERSION,
       sessionId: this.#generateId(),
-      adapterId,
+      adapterId: input.adapterId,
       ...(input.title === undefined ? {} : { title: input.title }),
       status: 'idle',
       createdAt: timestamp,
@@ -142,8 +183,6 @@ export class ControlPlaneService {
     if (!('workspace' in input) || input.workspace.kind === 'local-path-grant') {
       throw invalidConfiguration('Remote runs require a prepared workspace source.');
     }
-    if (input.model && input.model.adapterId !== adapterId)
-      throw invalidConfiguration('The selected model is invalid.');
     try {
       if (!principal.roles.some((role) => this.#config.runAllowedRoles.some((allowed) => allowed === role))) {
         throw admissionPermissionDenied();
@@ -168,6 +207,26 @@ export class ControlPlaneService {
         }
         const sessionRecord = await this.#store.findSession(principal.organizationId, sessionId);
         if (!sessionRecord) throw resourceNotFound();
+        const selectedAdapterId = sessionRecord.value.adapterId;
+        if (!this.listAdapters().some((item) => item.manifest.adapterId === selectedAdapterId))
+          throw resourceNotFound();
+        if (input.model && input.model.adapterId !== selectedAdapterId)
+          throw invalidConfiguration('The selected model is invalid.');
+        if (
+          selectedAdapterId !== adapterId &&
+          (input.permissionPolicy !== 'read-only' ||
+            input.resume ||
+            input.extensions.length ||
+            input.configScopes.length ||
+            (input.maxTurns !== undefined && input.maxTurns !== 1) ||
+            input.workspace.kind !== 'uploaded-snapshot')
+        ) {
+          throw new CloudError(
+            422,
+            'CAPABILITY_UNSUPPORTED',
+            'Experimental vendor Remote runs require a read-only snapshot, one turn, and no resume or extensions.',
+          );
+        }
         if (sessionRecord.value.status === 'running') throw conflict('The session already has an active run.');
         const workspace = await this.#workspaces.requireReady(principal.organizationId, input.workspace);
         const now = this.#now();
@@ -176,7 +235,7 @@ export class ControlPlaneService {
           protocolVersion: HARNESS_PROTOCOL_VERSION,
           runId: this.#generateId(),
           sessionId,
-          adapterId,
+          adapterId: selectedAdapterId,
           status: 'queued',
           prompt: input.prompt,
           ...(input.model === undefined ? {} : { model: input.model }),

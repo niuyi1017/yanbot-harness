@@ -141,6 +141,40 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
       failureCode: 'RUN_CANCELLED',
     });
   }, 15_000);
+
+  it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE).each(['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'])(
+    'delivers %s errors through SDK, HTTP, Redis, Worker and Docker',
+    async (selectedAdapterId) => {
+      await stopWorker(worker);
+      worker = spawnWorker(redis.url, queueName, origin, root, undefined, process.env.HARNESS_SANDBOX_CLAUDE_IMAGE);
+      const client = await createClient(auth, origin);
+      const prepared = await client.prepareWorkspaceSnapshot({
+        manifest: { schemaVersion: 1, entries: [] },
+        files: [],
+      });
+      const session = await client.createSession({ adapterId: selectedAdapterId });
+      const handle = await client.createRun(session.sessionId, {
+        prompt: 'Return OK.',
+        workspace: prepared.workspace,
+        permissionPolicy: 'read-only',
+        maxTurns: 1,
+      });
+      const events: AdapterEvent[] = [];
+      for await (const event of handle.events({ signal: AbortSignal.timeout(45_000) })) events.push(event);
+      expect(events[0]?.type).toBe('run.started');
+      expect(events.at(-1)).toMatchObject({
+        type: 'run.failed',
+        payload: { error: { code: 'AUTHENTICATION_FAILED' } },
+      });
+      await expect(handle.refresh()).resolves.toMatchObject({
+        status: 'failed',
+        adapterId: selectedAdapterId,
+      });
+      expect(JSON.stringify(store.outbox)).not.toContain('Return OK.');
+      expect(store.runAttempts.find((attempt) => attempt.runId === handle.run.runId)?.active).toBe(false);
+    },
+    60_000,
+  );
 });
 
 async function createClient(auth: AuthService, origin: string): Promise<HarnessClient> {
@@ -167,6 +201,7 @@ function spawnWorker(
   internalOrigin: string,
   workspaceRoot: string,
   scenario?: 'question' | 'wait-for-cancel',
+  sandboxImage?: string,
 ): ChildProcess {
   return spawn(process.execPath, ['apps/cloud-worker/dist/main.js'], {
     cwd: path.resolve(import.meta.dirname, '../../..'),
@@ -180,7 +215,14 @@ function spawnWorker(
       WORKER_CONCURRENCY: '1',
       WORKER_HEARTBEAT_MS: '50',
       WORKER_INTERACTION_POLL_MS: '20',
-      WORKER_RUN_TIMEOUT_MS: '5000',
+      WORKER_RUN_TIMEOUT_MS: sandboxImage ? '30000' : '5000',
+      ...(sandboxImage
+        ? {
+            WORKER_EXECUTION_MODE: 'sandbox',
+            WORKER_SANDBOX_IMAGE: sandboxImage,
+            WORKER_DOCKER_PATH: '/usr/bin/docker',
+          }
+        : {}),
       WORKER_SHARED_WORKSPACE_ROOT: workspaceRoot,
       ...(scenario === undefined ? {} : { WORKER_TEST_SCENARIO: scenario }),
     },
@@ -198,6 +240,8 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
   const store = new MemoryControlPlaneStore();
   const config: CloudConfig = {
     nodeEnv: 'test',
+    experimentalClaudeCli: Boolean(process.env.HARNESS_SANDBOX_CLAUDE_IMAGE),
+    experimentalCodeBuddy: Boolean(process.env.HARNESS_SANDBOX_CLAUDE_IMAGE),
     host: '127.0.0.1',
     port: 0,
     trustProxy: false,
@@ -217,7 +261,7 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     queueName: queue,
     relayIntervalMs: 20,
     relayLeaseMs: 1_000,
-    runLeaseMs: 500,
+    runLeaseMs: process.env.HARNESS_SANDBOX_CLAUDE_IMAGE ? 5000 : 500,
     attemptRecoveryMs: 1_000,
     maxAttempts: 3,
     retryDelayMs: 20,

@@ -112,6 +112,9 @@ importers:
       '@yanbot-harness/adapter-claude-code-cli':
         specifier: workspace:*
         version: link:../../packages/adapter-claude-code-cli
+      '@yanbot-harness/adapter-codebuddy':
+        specifier: workspace:*
+        version: link:../../packages/adapter-codebuddy
       '@yanbot-harness/adapter-reference':
         specifier: workspace:*
         version: link:../../packages/adapter-reference
@@ -182,6 +185,12 @@ importers:
       '@yanbot-harness/adapter-claude-code-cli':
         specifier: workspace:*
         version: link:../../packages/adapter-claude-code-cli
+      '@yanbot-harness/adapter-codebuddy':
+        specifier: workspace:*
+        version: link:../../packages/adapter-codebuddy
+      '@yanbot-harness/adapter-kit':
+        specifier: workspace:*
+        version: link:../../packages/adapter-kit
       '@yanbot-harness/adapter-reference':
         specifier: workspace:*
         version: link:../../packages/adapter-reference

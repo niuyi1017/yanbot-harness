@@ -12,7 +12,7 @@
 3. 只读取经过 realpath 检查的指定 snapshot 子目录，经有界 stdin 传入 Guest tmpfs；不挂载宿主目录、Docker socket、HOME 或凭据目录。
 4. prompt 经 stdin 公共 RunRequest；Docker inspect/环境/argv 不包含 prompt、grant、长期 Key。
 5. 取消、正常结束和失败都按不可变容器 ID 清理并确认容器消失。Worker 被强杀后，guest lease 超时退出触发 auto-remove。
-6. Guest 只允许 Reference SDK Adapter 和独立安装的 Claude CLI Adapter。无凭据 CLI 认证失败可在隔离容器内验证。
+6. Guest 固定允许 Reference、CodeBuddy SDK 与独立安装的 Claude CLI Adapter。无凭据 CLI 认证失败可在隔离容器内验证。
 7. Worker 显式 opt-in sandbox；默认 Reference 行为兼容。Git/恢复/厂商凭据/出网未认证时明确拒绝，不在宿主降级执行。
 8. CI 验证实际 rootfs/网络/UID/资源配置、取消、父强杀、两个并发容器隔离、终态与清理；保存 source commit/镜像 ID。
 
