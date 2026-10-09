@@ -1,0 +1,66 @@
+[
+  {
+    "conclusion": "success",
+    "databaseId": 37865860870,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "CI",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860870"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860844,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Unified local installation",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860844"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860787,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Remote Mongo persistence",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860787"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860781,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Remote sandbox containment",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860781"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860661,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Claude CLI experimental probe",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860661"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860855,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Native containment",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860855"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860794,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Dual Runtime Matrix Evidence",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860794"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37865860769,
+    "headSha": "be56b8187c6631e03898126c1e41ca7fedac4f17",
+    "name": "Distribution mechanism probes",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37865860769"
+  }
+]

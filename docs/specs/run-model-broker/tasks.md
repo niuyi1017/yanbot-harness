@@ -6,4 +6,4 @@
 - [x] T4：实际 Mongo 并发/重连计数、取消/租约失效/客户端断开、错误和限额回归；CI 26 项全通过、零跳过，见 `evidence/558c962/`。
 - [x] T5：配置/运维/限制见 `operations.md`，证据已归档并更新 roadmap；实现提交 `6d3e262` 已推送。
 
-后续独立阶段：Sandbox Guest/Worker 传输桥、CodeBuddy 策略、真实 Key 冒烟与生产认证。
+Sandbox Guest/Worker 传输桥已完成 Claude 工程验收，见 [桥接任务](../sandbox-model-bridge/tasks.md)。后续独立阶段：CodeBuddy 策略、真实 Key 冒烟与生产认证。

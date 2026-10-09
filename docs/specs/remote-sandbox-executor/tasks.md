@@ -9,4 +9,5 @@
 - [x] Claude CLI、CodeBuddy SDK 经过 SDK → HTTP → Redis → Worker → Docker；无凭据错误持久化，5 项 E2E 全通过，无跳过。
 - [x] 同一完整链路接入实际 Mongo 8.0.32 Store，5 项全通过；禁用 Docker 持久日志的实际检查通过。见 `evidence/1386dbb/`。
 - [x] 安装/运维/已知限制、总体 roadmap 与证据归档：`docs/delivery/four-mode-engineering-preview.md`。
-- [ ] 后续生产门禁：出网策略与 credential broker、真实厂商认证、持久 Session 与恢复、真实 Mongo/TLS 部署。离线基线不能代表四模式整体完成。
+- [x] 服务端 Run Broker 与 Claude Guest/Worker 私有传输桥工程验收，见 [桥接任务](../sandbox-model-bridge/tasks.md)；容器保持断网，合成上游完整 Worker E2E 7 项通过。
+- [ ] 后续生产门禁：CodeBuddy 模型代理、Broker 生产认证、真实厂商认证、持久 Session 与恢复、真实 Mongo/TLS 部署。工程基线不能代表四模式整体完成。

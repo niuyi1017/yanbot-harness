@@ -5,7 +5,7 @@
 验收证据：[`558c962`](evidence/558c962/README.md)，真实 Mongo 与代理共 26 项通过、零跳过。
 
 Cloud Server 内部模型代理支持 Claude 文本 Messages JSON/SSE。它持有 Key，Worker 只使用已 claim 的 execution grant。
-此阶段尚未连接 Sandbox Guest 的模型传输桥；当前容器仍为 network=none，因此不会因启用此服务而自动获得真实模型调用能力。
+Sandbox Guest 的可选模型传输桥见 [桥接说明](../sandbox-model-bridge/operations.md)。容器仍为 network=none，需另外显式开启 Worker 实验开关。
 CodeBuddy 策略和真实付费调用尚未认证。production 拒绝该实验配置。
 
 ## 部署策略
@@ -62,4 +62,4 @@ CLOUD_MODEL_BROKER_POLICIES_FILE=/absolute/private/model-policies.json
 - 本机：`pnpm --filter @yanbot-harness/cloud-server exec vitest run test/model-broker-core.test.ts test/model-broker-http.test.ts`。
 - CI `Remote Mongo persistence` 对同一 HTTP 套件使用真实 Mongo Store，强制零跳过；上游是 loopback fixture，Key 全为合成值，没有厂商付费证据。
 - 移除策略文件配置并按部署流程重启，停止签发新 model.invoke action 并关闭代理。服务关闭时主动中断活动连接；保留 Run 计数和审计数据。
-- 后续接入 Guest 私有传输桥时应沿用该授权与计数入口，继续单独验证断网容器内的真实 CLI 行为。
+- Guest 私有传输桥沿用该授权与计数入口；真实付费厂商行为仍单独验收。
