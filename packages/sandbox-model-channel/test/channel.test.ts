@@ -94,6 +94,21 @@ describe('private sandbox model channel', () => {
     }
     expect((await f.request()).status).toBe(429);
   });
+  it.each(['overflow', 'content-type'])(
+    'rejects an invalid upstream %s without forwarding diagnostics',
+    async (kind) => {
+      const f = await pair(
+        async () =>
+          new Response(kind === 'overflow' ? 'x'.repeat(8 * 1024 * 1024 + 1) : 'sensitive', {
+            headers: { 'content-type': kind === 'overflow' ? 'application/json' : 'text/html' },
+          }),
+      );
+      const response = await f.request();
+      expect(response.status).toBe(502);
+      expect(await response.text()).toBe('');
+    },
+  );
+
   it('rejects concurrency and aborts the bound upstream when the HTTP client disconnects', async () => {
     let upstreamSignal: AbortSignal | undefined;
     const f = await pair(async (_body, signal) => {

@@ -63,6 +63,18 @@ describe('Claude Code stream normalization', () => {
     if (frame !== init) await line(init);
     await expect(line(frame)).rejects.toThrow();
   });
+  it.each([
+    ['completed', false, false],
+    ['completed', true, true],
+    ['api_error', false, true],
+    ['max_turns', false, true],
+    ['budget_exceeded', false, true],
+  ])('checks observed terminal reason %s with is_error=%s', async (terminal_reason, is_error, expected) => {
+    const { line, parser } = setup();
+    await line(init);
+    await line({ ...result, terminal_reason, is_error });
+    expect(parser.vendorFailed).toBe(expected);
+  });
   it('rejects duplicate results', async () => {
     const { line } = setup();
     await line(init);

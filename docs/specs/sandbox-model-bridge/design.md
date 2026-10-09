@@ -10,3 +10,5 @@
 - 不跨仓库修改。新增 package 通过 workspace exports 消费，Docker build 使用现有 pnpm deploy。
 
 官方配置依据：https://code.claude.com/docs/en/env-vars 、https://code.claude.com/docs/en/llm-gateway 。实际兼容性以 pinned 2.1.284 CLI 探针为准。
+
+固定 2.1.284 的真实合成上游探针观察到成功结束字段 `terminal_reason=completed`（subtype=success、is_error=false、进程退出 0）；Parser 将它纳入成功枚举，同时保留 API 错误、预算/轮次结束与 is_error 拒绝。

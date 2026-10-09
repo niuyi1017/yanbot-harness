@@ -72,7 +72,8 @@ export class ClaudeEventParser {
     if (
       frame.terminal_reason !== undefined &&
       frame.terminal_reason !== 'success' &&
-      frame.terminal_reason !== 'end_turn'
+      frame.terminal_reason !== 'end_turn' &&
+      frame.terminal_reason !== 'completed'
     ) {
       this.vendorFailed = true;
     }
