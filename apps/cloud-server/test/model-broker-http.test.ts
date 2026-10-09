@@ -59,6 +59,20 @@ describe.skipIf(process.platform === 'win32')('Run model broker HTTP boundary', 
     expect(persisted).not.toContain(f.issued.executionGrant);
     expect(JSON.stringify(audits)).not.toContain('private-test-prompt');
   });
+  it('authorizes CodeBuddy only through its own explicit upstream policy', async () => {
+    const f = await setup('json', 'cn.tencent.codebuddy');
+    const response = await f.request();
+    expect(response.status).toBe(200);
+    await response.text();
+    const other = await f.createRun(f.principal, CLAUDE_ADAPTER_ID);
+    const rejected = await fetch(f.url.replace(f.run.runId, other.run.runId), {
+      method: 'POST',
+      headers: { ...f.headers, authorization: `Bearer ${other.issued.executionGrant}` },
+      body: JSON.stringify(requestBody),
+    });
+    expect(rejected.status).toBe(403);
+    expect(f.received).toHaveLength(1);
+  });
   it('rejects bad tokens, worker, run and attempt before credential access', async () => {
     const f = await setup();
     await rm(f.keyFile);
@@ -186,7 +200,7 @@ async function waitFor(predicate: () => boolean) {
   throw new Error('The test upstream did not close.');
 }
 
-async function setup(mode: 'json' | 'stream' | 'error' | 'endless' = 'json') {
+async function setup(mode: 'json' | 'stream' | 'error' | 'endless' = 'json', adapterId: string = CLAUDE_ADAPTER_ID) {
   const root = await mkdtemp(path.join(tmpdir(), 'harness-broker-test-'));
   cleanup.push(() => rm(root, { recursive: true, force: true }));
   const principal: TenantPrincipal = {
@@ -205,7 +219,8 @@ async function setup(mode: 'json' | 'stream' | 'error' | 'endless' = 'json') {
       policies: [
         {
           organizationId: principal.organizationId,
-          adapterId: CLAUDE_ADAPTER_ID,
+          adapterId,
+          upstream: 'anthropic-messages',
           models: [model],
           apiKeyFile: keyFile,
           maxRequests: 2,
@@ -229,6 +244,7 @@ async function setup(mode: 'json' | 'stream' | 'error' | 'endless' = 'json') {
     CLOUD_WORKSPACE_ROOT: path.join(root, 'workspaces'),
     CLOUD_INTERNAL_API_ENABLED: 'true',
     CLOUD_EXPERIMENTAL_CLAUDE_CLI: 'true',
+    CLOUD_EXPERIMENTAL_CODEBUDDY: 'true',
     CLOUD_MODEL_BROKER_POLICIES_FILE: policiesFile,
     CLOUD_RUN_LEASE_MS: '60000',
     CLOUD_ATTEMPT_RECOVERY_MS: '60000',
@@ -313,17 +329,17 @@ async function setup(mode: 'json' | 'stream' | 'error' | 'endless' = 'json') {
   const control = module.get(ControlPlaneService);
   const grants = module.get(ExecutionGrantService);
   const workspaces = module.get(WorkspaceService);
-  const createRun = async (owner: TenantPrincipal) => {
+  const createRun = async (owner: TenantPrincipal, selectedAdapterId = adapterId) => {
     const workspace = await workspaces.prepareSnapshot(owner, {
       manifest: { schemaVersion: 1, entries: [] },
       files: [],
     });
-    const session = await control.createSession(owner, { adapterId: CLAUDE_ADAPTER_ID });
+    const session = await control.createSession(owner, { adapterId: selectedAdapterId });
     const { run } = await control.createRun(owner, session.sessionId, {
       prompt: 'Run prompt',
       workspace: workspace.source,
       permissionPolicy: 'read-only',
-      model: { adapterId: CLAUDE_ADAPTER_ID, modelId: model },
+      model: { adapterId: selectedAdapterId, modelId: model },
     });
     await store.insertRunAttempt({
       organizationId: owner.organizationId,

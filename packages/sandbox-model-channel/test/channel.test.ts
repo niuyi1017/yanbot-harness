@@ -8,7 +8,10 @@ const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const stop of cleanup.splice(0).reverse()) await stop();
 });
-async function pair(invoke: ConstructorParameters<typeof HostModelChannel>[0]) {
+async function pair(
+  invoke: ConstructorParameters<typeof HostModelChannel>[0],
+  protocol: 'claude' | 'codebuddy' = 'claude',
+) {
   const host = new HostModelChannel(invoke, async (frame) => {
     guest.accept(frame);
   });
@@ -20,6 +23,7 @@ async function pair(invoke: ConstructorParameters<typeof HostModelChannel>[0]) {
       new Promise<void>((resolve, reject) =>
         host.write(`${JSON.stringify(frame)}\n`, (error) => (error ? reject(error) : resolve())),
       ),
+    protocol,
   );
   const origin = await guest.listen();
   guest.setEnabled(true);
@@ -27,7 +31,11 @@ async function pair(invoke: ConstructorParameters<typeof HostModelChannel>[0]) {
     await guest.close();
     host.destroy();
   });
-  const request = (value: unknown = body, init: RequestInit = {}, route = '/v1/messages') =>
+  const request = (
+    value: unknown = body,
+    init: RequestInit = {},
+    route = protocol === 'codebuddy' ? '/chat/completions' : '/v1/messages',
+  ) =>
     fetch(origin + route, {
       method: 'POST',
       headers: { 'x-api-key': guest.token, 'content-type': 'application/json' },
@@ -37,6 +45,24 @@ async function pair(invoke: ConstructorParameters<typeof HostModelChannel>[0]) {
   return { request, host, guest, errors };
 }
 describe('private sandbox model channel', () => {
+  it('bridges CodeBuddy JSON through the private channel and validates its route', async () => {
+    const f = await pair(async (value) => {
+      expect(value).toEqual(body);
+      return Response.json({
+        id: 'msg-test',
+        type: 'message',
+        role: 'assistant',
+        model: body.model,
+        content: [{ type: 'text', text: 'hello' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 2, output_tokens: 1 },
+      });
+    }, 'codebuddy');
+    const response = await f.request();
+    expect((await response.json()).choices[0].message.content).toBe('hello');
+    expect((await f.request(body, {}, '/v1/messages')).status).toBe(403);
+    expect(f.errors).toEqual([]);
+  });
   it.each(['application/json', 'text/event-stream'])(
     'streams %s across bounded frames with ACKs and preserves UTF8',
     async (contentType) => {

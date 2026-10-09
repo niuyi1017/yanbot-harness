@@ -88,7 +88,10 @@ export class RunCoordinator {
         abortSignal: abort.signal,
       };
       let modelRequest: ModelRequest | undefined;
-      if (this.config.modelBridgeEnabled && run.adapterId === 'com.anthropic.claude-code-cli') {
+      if (
+        this.config.modelBridgeEnabled &&
+        ['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'].includes(run.adapterId)
+      ) {
         if (
           !run.model ||
           !client.model ||

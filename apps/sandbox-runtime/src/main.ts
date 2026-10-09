@@ -46,7 +46,11 @@ async function handle(value: unknown) {
       );
     else if (value.adapterId === 'cn.tencent.codebuddy') {
       const { CodeBuddyAdapter } = await import('@yanbot-harness/adapter-codebuddy');
-      adapter = new CodeBuddyAdapter();
+      if ('modelBridge' in value && value.modelBridge === true) {
+        modelChannel = new GuestModelChannel(write, 'codebuddy');
+        const loopbackOrigin = await modelChannel.listen();
+        adapter = new CodeBuddyAdapter({ modelBridge: { loopbackOrigin, token: modelChannel.token } });
+      } else adapter = new CodeBuddyAdapter();
     } else if (value.adapterId === 'com.anthropic.claude-code-cli') {
       if ('modelBridge' in value && value.modelBridge === true) {
         modelChannel = new GuestModelChannel(write);

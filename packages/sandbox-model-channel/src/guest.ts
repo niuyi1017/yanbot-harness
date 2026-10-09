@@ -1,3 +1,4 @@
+import { CodeBuddyResponse, normalizeCodeBuddyText } from './codebuddy.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer, type ServerResponse } from 'node:http';
@@ -59,6 +60,8 @@ type Pending = {
   started: boolean;
   busy: boolean;
   sent: boolean;
+  converted?: CodeBuddyResponse;
+  stream?: boolean;
 };
 /** Loopback is inside the disconnected container, never published on the host. */
 export class GuestModelChannel {
@@ -69,14 +72,19 @@ export class GuestModelChannel {
   #closed = false;
   #requests = 0;
   #origin: string | undefined;
-  constructor(private readonly send: SendFrame) {
+  constructor(
+    private readonly send: SendFrame,
+    private readonly protocol: 'claude' | 'codebuddy' = 'claude',
+  ) {
     this.#server = createServer({ maxHeaderSize: 8192 }, (request, response) => {
       void (async () => {
         if (
           !this.#enabled ||
           this.#closed ||
           request.method !== 'POST' ||
-          !['/v1/messages', '/v1/messages?beta=true'].includes(request.url ?? '') ||
+          !(
+            this.protocol === 'codebuddy' ? ['/chat/completions'] : ['/v1/messages', '/v1/messages?beta=true']
+          ).includes(request.url ?? '') ||
           request.headers['x-api-key'] !== this.token
         ) {
           response.writeHead(403).end();
@@ -112,7 +120,9 @@ export class GuestModelChannel {
             chunks.push(Buffer.from(chunk));
           }
           pending.abort.signal.throwIfAborted();
-          const body = normalizeClaudeText(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+          const raw: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          const body = this.protocol === 'codebuddy' ? normalizeCodeBuddyText(raw) : normalizeClaudeText(raw);
+          if (this.protocol === 'codebuddy') pending.stream = (body as Record<string, unknown>).stream === true;
           pending.sent = true;
           await this.send({ method: 'model.request', id: pending.id, body });
         } catch {
@@ -153,6 +163,10 @@ export class GuestModelChannel {
           // Send the ACK before closing the HTTP consumer.
         } else if (frame.contentType) {
           if (pending.started || frame.sequence !== 0) throw new Error();
+          if (this.protocol === 'codebuddy') {
+            if ((frame.contentType === 'text/event-stream') !== pending.stream) throw new Error();
+            pending.converted = new CodeBuddyResponse(pending.stream === true);
+          }
           pending.started = true;
           pending.response.writeHead(200, { 'content-type': frame.contentType, 'cache-control': 'no-store' });
         } else {
@@ -161,8 +175,14 @@ export class GuestModelChannel {
             const bytes = Buffer.from(frame.data, 'base64');
             pending.bytes += bytes.length;
             if (bytes.length > CHUNK_LIMIT || pending.bytes > RESPONSE_LIMIT) throw new Error();
-            if (!pending.response.write(bytes)) await once(pending.response, 'drain', { signal: pending.abort.signal });
+            const output = pending.converted ? pending.converted.push(bytes) : bytes;
+            if (output.length && !pending.response.write(output))
+              await once(pending.response, 'drain', { signal: pending.abort.signal });
           }
+        }
+        if (frame.end && pending.converted) {
+          const output = pending.converted.finish();
+          if (!pending.response.write(output)) await once(pending.response, 'drain', { signal: pending.abort.signal });
         }
         pending.busy = false;
         await this.send({ method: 'model.ack', id: frame.id, sequence: frame.sequence });

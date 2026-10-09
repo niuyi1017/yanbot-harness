@@ -492,3 +492,50 @@ describe('CodeBuddyAdapter', () => {
     expect(JSON.stringify(report.events)).not.toContain('fixture-secret');
   });
 });
+
+describe('CodeBuddy deployment model bridge', () => {
+  const modelBridge = { loopbackOrigin: 'http://127.0.0.1:12345', token: 'a'.repeat(64) };
+  const input = { ...request, permissionPolicy: 'read-only' as const, configScopes: [] };
+  it('pins isolated text settings and denies all tools without requiring a provider key', async () => {
+    const fake = facadeWith([{ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 10 }]);
+    const a = adapter(fake.sdk, { modelBridge });
+    expect((await a.probe({})).available).toBe(true);
+    const runtime = await a.createRuntime({});
+    const events = [];
+    for await (const event of runtime.startRun(input)) events.push(event);
+    const actual = fake.getLastInput()!;
+    expect(actual).toMatchObject({
+      textBridge: true,
+      maxTurns: 1,
+      settingSources: [],
+      env: {
+        CODEBUDDY_API_KEY: modelBridge.token,
+        CODEBUDDY_BASE_URL: modelBridge.loopbackOrigin,
+        CODEBUDDY_CODE_MAX_OUTPUT_TOKENS: '1024',
+      },
+    });
+    expect(await actual.canUseTool('Read', {}, { toolUseID: 'test' })).toMatchObject({ behavior: 'deny' });
+    expect((await runtime.capabilities())['usage.cost'].level).toBe('unsupported');
+    expect(JSON.stringify(events)).not.toContain('costUsd');
+    await runtime.dispose();
+  });
+  it('rejects external endpoints, unsafe runs, settings and resume', async () => {
+    for (const loopbackOrigin of ['https://example.com', 'http://127.0.0.1:65536', 'http://127.0.0.1:1/path'])
+      expect(() => new CodeBuddyAdapter({ modelBridge: { ...modelBridge, loopbackOrigin } })).toThrow();
+    const fake = facadeWith([]);
+    const runtime = await adapter(fake.sdk, { modelBridge }).createRuntime({});
+    for (const extra of [
+      { model: undefined },
+      { permissionPolicy: 'interactive' as const },
+      { configScopes: ['user'] as const },
+      { adapterSessionId: 'resume' },
+      { maxTurns: 2 },
+    ]) {
+      await expect(async () => {
+        for await (const event of runtime.startRun({ ...input, ...extra } as typeof input)) void event;
+      }).rejects.toThrow();
+    }
+    expect(fake.getLastInput()).toBeUndefined();
+    await runtime.dispose();
+  });
+});

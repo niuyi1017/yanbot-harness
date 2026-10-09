@@ -16,7 +16,8 @@ export const brokerPoliciesSchema = z
         z
           .object({
             organizationId: z.string().uuid(),
-            adapterId: z.literal(CLAUDE_ADAPTER_ID),
+            adapterId: z.enum([CLAUDE_ADAPTER_ID, 'cn.tencent.codebuddy']),
+            upstream: z.literal('anthropic-messages').optional(),
             models: z.array(modelId).min(1).max(16),
             apiKeyFile: privatePath,
             maxRequests: z.number().int().min(1).max(8),
@@ -29,6 +30,8 @@ export const brokerPoliciesSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.policies.some((p) => p.adapterId === 'cn.tencent.codebuddy' && !p.upstream))
+      context.addIssue({ code: 'custom', message: 'CodeBuddy requires explicit anthropic-messages upstream.' });
     const keys = value.policies.map((policy) => `${policy.organizationId}:${policy.adapterId}`);
     if (new Set(keys).size !== keys.length) context.addIssue({ code: 'custom', message: 'Duplicate broker policy.' });
   });

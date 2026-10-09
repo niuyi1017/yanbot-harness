@@ -7,7 +7,7 @@
 ## 模块
 
 - adapter-codebuddy 增加仅部署构造参数 modelBridge（127.0.0.1 origin + 随机 token）；严格校验运行输入，固定禁用工具/思考/持久化，显式 Node executable，覆盖环境端点与输出限额；默认 SDK 用法不变。
-- sandbox-model-channel 增加 CodeBuddy 文本请求归一化及 Anthropic → Chat 响应转换。只保留允许字段；system 独立，tools/function/image 拒绝。SSE 增量 UTF-8 解码、有限缓冲、完整终止校验，保留 ACK 背压与取消。JSON 同样只接受文本响应。
+- sandbox-model-channel 增加 CodeBuddy 文本请求归一化及 Anthropic → Chat 响应转换。只保留允许字段；实测消息级 agent 与 conversationRequestId 为字符串元数据，校验长度后移除；system 独立，tools/function/image 拒绝。SSE 增量 UTF-8 解码、有限缓冲、完整终止校验，保留 ACK 背压与取消。JSON 同样只接受文本响应。
 - Guest boot、Docker Adapter、Worker 启用已有模型通道；授权仍由 Worker 绑定，不接受 Guest URL/真实凭据。
 - Broker policy 扩展 cn.tencent.codebuddy；该 Adapter 必须显式 upstream: anthropic-messages，对应实验开关必须开启。固定上游与现有配额/脱敏/租约逻辑复用，不新建转发端点。
 

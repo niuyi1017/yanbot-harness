@@ -151,12 +151,12 @@ export function parseCloudConfig(environment: NodeJS.ProcessEnv): CloudConfig {
     value.CLOUD_MODEL_BROKER_POLICIES_FILE &&
     (value.NODE_ENV === 'production' ||
       !value.CLOUD_INTERNAL_API_ENABLED ||
-      !value.CLOUD_EXPERIMENTAL_CLAUDE_CLI ||
+      (!value.CLOUD_EXPERIMENTAL_CLAUDE_CLI && !value.CLOUD_EXPERIMENTAL_CODEBUDDY) ||
       !path.isAbsolute(value.CLOUD_MODEL_BROKER_POLICIES_FILE) ||
       value.CLOUD_MODEL_BROKER_POLICIES_FILE.includes('\0'))
   )
     throw new Error(
-      'Experimental model broker requires a development/test internal Claude deployment and an absolute policy file.',
+      'Experimental model broker requires a development/test internal vendor deployment and an absolute policy file.',
     );
   return {
     ...(value.CLOUD_MODEL_BROKER_POLICIES_FILE

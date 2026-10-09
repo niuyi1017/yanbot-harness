@@ -214,9 +214,9 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     });
   }, 15_000);
 
-  it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE)(
-    'runs pinned Claude through the disconnected Guest, Worker and scoped Broker',
-    async () => {
+  it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE).each(['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'])(
+    'runs pinned %s through the disconnected Guest, Worker and scoped Broker',
+    async (selectedAdapterId) => {
       await stopWorker(worker);
       worker = spawnWorker(
         redis.url,
@@ -232,13 +232,13 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
         manifest: { schemaVersion: 1, entries: [] },
         files: [],
       });
-      const session = await client.createSession({ adapterId: 'com.anthropic.claude-code-cli' });
+      const session = await client.createSession({ adapterId: selectedAdapterId });
       brokerRequests.length = 0;
       const handle = await client.createRun(session.sessionId, {
         prompt: 'Return BRIDGE_OK.',
         workspace: prepared.workspace,
         permissionPolicy: 'read-only',
-        model: { adapterId: 'com.anthropic.claude-code-cli', modelId: brokerModel },
+        model: { adapterId: selectedAdapterId, modelId: brokerModel },
       });
       const events: AdapterEvent[] = [];
       for await (const event of handle.events({ signal: AbortSignal.timeout(45_000) })) events.push(event);
@@ -259,9 +259,9 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     60_000,
   );
 
-  it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE)(
-    'cancels an in-flight sandbox model stream and revokes its broker connection',
-    async () => {
+  it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE).each(['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'])(
+    'cancels an in-flight %s sandbox model stream and revokes its broker connection',
+    async (selectedAdapterId) => {
       brokerWait = true;
       brokerAborted = false;
       try {
@@ -270,12 +270,12 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
           manifest: { schemaVersion: 1, entries: [] },
           files: [],
         });
-        const session = await client.createSession({ adapterId: 'com.anthropic.claude-code-cli' });
+        const session = await client.createSession({ adapterId: selectedAdapterId });
         const handle = await client.createRun(session.sessionId, {
           prompt: 'Return BRIDGE_OK.',
           workspace: prepared.workspace,
           permissionPolicy: 'read-only',
-          model: { adapterId: 'com.anthropic.claude-code-cli', modelId: brokerModel },
+          model: { adapterId: selectedAdapterId, modelId: brokerModel },
         });
         const events: AdapterEvent[] = [];
         for await (const event of handle.events({ signal: AbortSignal.timeout(45_000) })) {
@@ -404,16 +404,15 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
       modelBrokerPoliciesFile,
       JSON.stringify({
         version: 1,
-        policies: [
-          {
-            organizationId: brokerOrganization,
-            adapterId: 'com.anthropic.claude-code-cli',
-            models: [brokerModel],
-            apiKeyFile,
-            maxRequests: 2,
-            maxOutputTokens: 1024,
-          },
-        ],
+        policies: ['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'].map((adapterId) => ({
+          organizationId: brokerOrganization,
+          adapterId,
+          upstream: 'anthropic-messages',
+          models: [brokerModel],
+          apiKeyFile,
+          maxRequests: 2,
+          maxOutputTokens: 1024,
+        })),
       }),
       { mode: 0o600 },
     );

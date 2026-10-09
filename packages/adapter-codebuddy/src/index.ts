@@ -65,6 +65,8 @@ const capabilities: HarnessCapabilities = {
 };
 
 export type CodeBuddyAdapterOptions = {
+  /** Deployment-only token and loopback endpoint for the disconnected text bridge. */
+  modelBridge?: { loopbackOrigin: string; token: string };
   sdk?: CodeBuddySdkFacade;
   now?: () => Date;
   generateId?: () => string;
@@ -100,11 +102,18 @@ export class CodeBuddyAdapter implements HarnessAdapter {
   readonly #options: CodeBuddyAdapterOptions;
 
   constructor(options: CodeBuddyAdapterOptions = {}) {
+    if (
+      options.modelBridge &&
+      (!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(options.modelBridge.loopbackOrigin) ||
+        Number(new URL(options.modelBridge.loopbackOrigin).port) > 65535 ||
+        !/^[a-f0-9]{64}$/.test(options.modelBridge.token))
+    )
+      throw new Error('Invalid model bridge deployment.');
     this.#options = options;
   }
 
   async probe(context: AdapterRuntimeContext): Promise<AdapterProbeResult> {
-    const missing = credentialKeys.filter((key) => !context.credentials?.[key]);
+    const missing = this.#options.modelBridge ? [] : credentialKeys.filter((key) => !context.credentials?.[key]);
     return missing.length === 0
       ? { available: true, harnessVersion: SDK_VERSION }
       : {
@@ -144,6 +153,7 @@ type ActiveRun = {
 };
 
 class CodeBuddyRuntime implements AdapterRuntime {
+  readonly #bridge: CodeBuddyAdapterOptions['modelBridge'];
   readonly #context: AdapterRuntimeContext;
   readonly #sdk: CodeBuddySdkFacade;
   readonly #now: (() => Date) | undefined;
@@ -157,7 +167,8 @@ class CodeBuddyRuntime implements AdapterRuntime {
   #disposed = false;
 
   constructor(context: AdapterRuntimeContext, options: CodeBuddyAdapterOptions) {
-    this.#context = context;
+    this.#bridge = options.modelBridge;
+    this.#context = this.#bridge ? { ...context, credentials: { CODEBUDDY_API_KEY: this.#bridge.token } } : context;
     this.#sdk = options.sdk ?? defaultCodeBuddySdkFacade;
     this.#now = options.now;
     this.#generateId = options.generateId;
@@ -177,7 +188,20 @@ class CodeBuddyRuntime implements AdapterRuntime {
   }
 
   async capabilities(): Promise<HarnessCapabilities> {
-    return capabilities;
+    return this.#bridge
+      ? {
+          ...capabilities,
+          ...Object.fromEntries(
+            [
+              'sessions.resume',
+              'streaming.tool-events',
+              'interactions.permissions',
+              'interactions.questions',
+              'usage.cost',
+            ].map((key) => [key, { level: 'unsupported' as const, reason: 'Experimental text model bridge.' }]),
+          ),
+        }
+      : capabilities;
   }
 
   startRun(input: AdapterRunInput): AsyncIterable<AdapterEvent> {
@@ -246,6 +270,21 @@ class CodeBuddyRuntime implements AdapterRuntime {
   async *#run(input: AdapterRunInput): AsyncIterable<AdapterEvent> {
     this.#assertUsable();
     if (this.#active) throw new Error('The CodeBuddy runtime only supports one active run.');
+    if (
+      this.#bridge &&
+      (!input.model ||
+        input.permissionPolicy !== 'read-only' ||
+        input.adapterSessionId ||
+        input.extensions.length ||
+        input.configScopes.length ||
+        (input.maxTurns !== undefined && input.maxTurns !== 1) ||
+        Object.keys(this.#context.config ?? {}).length)
+    )
+      throw new HarnessAdapterError({
+        code: 'CONFIGURATION_INVALID',
+        message: 'Model bridge requires an explicit model and isolated read-only text run.',
+        retryable: false,
+      });
     if (input.model && input.model.adapterId !== ADAPTER_ID) {
       throw new HarnessAdapterError({
         code: 'CONFIGURATION_INVALID',
@@ -279,6 +318,16 @@ class CodeBuddyRuntime implements AdapterRuntime {
       ...(input.adapterSessionId === undefined ? {} : { resume: input.adapterSessionId }),
       ...(systemPrompt === undefined ? {} : { systemPrompt }),
       ...this.#optionalSdkConfig(),
+      ...(this.#bridge
+        ? {
+            textBridge: true,
+            maxTurns: 1,
+            canUseTool: async () => ({
+              behavior: 'deny' as const,
+              message: 'Tools are disabled for the model bridge.',
+            }),
+          }
+        : {}),
     };
 
     const startedEvent = factory.create('run.started', {
@@ -385,7 +434,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
             queue.push(
               factory.create('session.initialized', {
                 ...(stringValue(message.session_id) ? { adapterSessionId: stringValue(message.session_id) } : {}),
-                capabilities,
+                capabilities: await this.capabilities(),
               }),
             );
           }
@@ -628,7 +677,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
       inputTokens: numberValue(sdkUsage.input_tokens),
       outputTokens: numberValue(sdkUsage.output_tokens),
       cachedInputTokens: numberValue(sdkUsage.cache_read_input_tokens),
-      costUsd: numberValue(message.total_cost_usd),
+      costUsd: this.#bridge ? undefined : numberValue(message.total_cost_usd),
       durationMs: numberValue(message.duration_ms),
       turns: numberValue(message.num_turns),
     });
@@ -645,6 +694,18 @@ class CodeBuddyRuntime implements AdapterRuntime {
   }
 
   #buildEnv(): Record<string, string> {
+    if (this.#bridge)
+      return {
+        CODEBUDDY_API_KEY: this.#bridge.token,
+        CODEBUDDY_BASE_URL: this.#bridge.loopbackOrigin,
+        CODEBUDDY_INTERNET_ENVIRONMENT: 'external',
+        CODEBUDDY_CODE_MAX_OUTPUT_TOKENS: '1024',
+        MAX_THINKING_TOKENS: '0',
+        DISABLE_TELEMETRY: '1',
+        CODEBUDDY_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+        ELECTRON_RUN_AS_NODE: '1',
+        SERVER__PORT: '0',
+      };
     const apiKey = this.#context.credentials?.CODEBUDDY_API_KEY;
     if (!apiKey) {
       throw new HarnessAdapterError({

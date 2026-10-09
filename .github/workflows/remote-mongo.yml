@@ -26,7 +26,7 @@ jobs:
           HARNESS_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=harness-ci&directConnection=true
         run: pnpm --filter @yanbot-harness/cloud-server exec vitest run test/mongo.integration.test.ts test/model-broker-core.test.ts test/model-broker-http.test.ts --reporter=default --reporter=json --outputFile=../../evidence/mongo-conformance.json
       - name: Require actual tests with no skips
-        run: node -e 'const r=JSON.parse(require("fs").readFileSync("evidence/mongo-conformance.json"));if(!r.success||r.numPassedTests<26||r.numPendingTests||r.numFailedTests)process.exit(1)'
+        run: node -e 'const r=JSON.parse(require("fs").readFileSync("evidence/mongo-conformance.json"));if(!r.success||r.numPassedTests<28||r.numPendingTests||r.numFailedTests)process.exit(1)'
       - uses: actions/upload-artifact@v7
         if: always()
         with:

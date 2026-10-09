@@ -37,6 +37,28 @@ function transport(response: Response): ModelTransport {
 }
 
 describe('Model broker policies and transport', () => {
+  it('requires an explicit Anthropic upstream for CodeBuddy and rejects arbitrary providers', () => {
+    const entry = { ...policy, adapterId: 'cn.tencent.codebuddy' };
+    expect(() => brokerPoliciesSchema.parse({ version: 1, policies: [entry] })).toThrow();
+    expect(
+      brokerPoliciesSchema.parse({ version: 1, policies: [{ ...entry, upstream: 'anthropic-messages' }] }).policies[0]
+        ?.adapterId,
+    ).toBe(entry.adapterId);
+    expect(() =>
+      brokerPoliciesSchema.parse({ version: 1, policies: [{ ...entry, upstream: 'http://evil' }] }),
+    ).toThrow();
+    expect(
+      parseCloudConfig({
+        NODE_ENV: 'test',
+        MONGODB_URI: 'mongodb://unused',
+        CLOUD_TOKEN_PEPPER: 'p'.repeat(32),
+        CLOUD_WORKSPACE_ROOT: '/tmp/test',
+        CLOUD_INTERNAL_API_ENABLED: 'true',
+        CLOUD_EXPERIMENTAL_CODEBUDDY: 'true',
+        CLOUD_MODEL_BROKER_POLICIES_FILE: '/private/policies',
+      }).modelBrokerPoliciesFile,
+    ).toBe('/private/policies');
+  });
   it('redacts every byte split, overlapping prefixes, repeated secrets and preserves UTF-8', () => {
     const source = Buffer.from(`中文${key} ${grant} ${key}🐟end`);
     const expected = '中文[REDACTED] [REDACTED] [REDACTED]🐟end';

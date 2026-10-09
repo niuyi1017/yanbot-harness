@@ -33,12 +33,24 @@ export class ModelBrokerService implements OnModuleInit, OnModuleDestroy {
   }
   async onModuleInit(): Promise<void> {
     if (!this.config.modelBrokerPoliciesFile) return;
-    if (this.config.nodeEnv === 'production' || !this.config.internalApiEnabled || !this.config.experimentalClaudeCli)
-      throw new Error('The model broker requires an experimental internal Claude deployment.');
+    if (
+      this.config.nodeEnv === 'production' ||
+      !this.config.internalApiEnabled ||
+      (!this.config.experimentalClaudeCli && !this.config.experimentalCodeBuddy)
+    )
+      throw new Error('The model broker requires an experimental internal vendor deployment.');
     try {
       this.#policies = brokerPoliciesSchema.parse(
         JSON.parse(await readPrivateFile(this.config.modelBrokerPoliciesFile, 256 * 1024)),
       ).policies;
+      if (
+        this.#policies.some((p) =>
+          p.adapterId === 'cn.tencent.codebuddy'
+            ? !this.config.experimentalCodeBuddy
+            : !this.config.experimentalClaudeCli,
+        )
+      )
+        throw new Error('Adapter not enabled.');
     } catch {
       throw new Error('The private model broker policy file is invalid.');
     }

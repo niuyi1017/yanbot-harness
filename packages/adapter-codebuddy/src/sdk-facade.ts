@@ -13,6 +13,7 @@ export type CodeBuddyCanUseTool = (
 ) => Promise<CodeBuddyPermissionResult>;
 
 export type CodeBuddyQueryInput = {
+  textBridge?: boolean;
   prompt: string;
   cwd?: string;
   model?: string;
@@ -81,6 +82,15 @@ export const defaultCodeBuddySdkFacade: CodeBuddySdkFacade = {
       env: input.env,
       abortController: input.abortController,
       includePartialMessages: true,
+      ...(input.textBridge
+        ? {
+            tools: [],
+            thinking: { type: 'disabled' as const },
+            persistSession: false,
+            maxBudgetUsd: 0.1,
+            executable: process.execPath,
+          }
+        : {}),
       canUseTool: input.canUseTool as CanUseTool,
       ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
       ...(input.model === undefined ? {} : { model: input.model }),

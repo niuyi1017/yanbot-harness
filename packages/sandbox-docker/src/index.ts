@@ -130,7 +130,8 @@ export class DockerSandboxAdapter implements HarnessAdapter {
             windowsHide: true,
           });
           if (this.modelRequest) {
-            if (this.manifest.adapterId !== 'com.anthropic.claude-code-cli') throw failure();
+            if (!['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'].includes(this.manifest.adapterId))
+              throw failure();
             channel = new HostModelChannel(
               this.modelRequest,
               (frame) =>
