@@ -6,7 +6,7 @@
 
 Cloud Server 内部模型代理支持 Claude 文本 Messages JSON/SSE。它持有 Key，Worker 只使用已 claim 的 execution grant。
 Sandbox Guest 的可选模型传输桥见 [桥接说明](../sandbox-model-bridge/operations.md)。容器仍为 network=none，需另外显式开启 Worker 实验开关。
-CodeBuddy 策略和真实付费调用尚未认证。production 拒绝该实验配置。
+CodeBuddy 的显式 Anthropic 上游策略与文本桥见 [CodeBuddy 部署说明](../codebuddy-model-bridge/operations.md)。真实付费调用尚未认证；production 拒绝实验配置。
 
 ## 部署策略
 

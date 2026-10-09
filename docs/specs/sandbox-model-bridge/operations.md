@@ -1,6 +1,6 @@
 # 断网沙箱模型桥（Experimental）
 
-验收：[固定源码与 CI 证据](evidence/be56b81/README.md)。
+Claude 初版验收：[固定源码与 CI 证据](evidence/be56b81/README.md)。后续 CodeBuddy 扩展见 [部署说明](../codebuddy-model-bridge/operations.md)。
 
 ## 已实现的路径
 
@@ -41,8 +41,8 @@ WORKER_MODEL_BRIDGE_ENABLED=true
 ## 验收和回退
 
 - `pnpm --filter @yanbot-harness/sandbox-model-channel test:unit`：HTTP/帧规范化、JSON/SSE、背压、限额、并发、断开、错误和畸形帧。
-- `Remote sandbox containment` CI：真实 Docker、Mongo、Redis、独立 Worker 和固定 Claude CLI；完整远端套件强制 7 项通过、零跳过，其中新增成功和流式取消两项使用合成上游。
-- `Remote Mongo persistence` CI 保留 Broker 授权/原子限额/租约/脱敏的 26 项实库验证。
+- `Remote sandbox containment` CI：真实 Docker、Mongo、Redis、独立 Worker 和固定 Claude CLI；Claude 初版为 7 项；加入 CodeBuddy 后要求 9 项通过、零跳过，两个 Adapter 的成功和流式取消使用合成上游。
+- `Remote Mongo persistence` CI 保留 Broker 授权/原子限额/租约/脱敏的 28 项实库验证（初版 26 项，新增 CodeBuddy policy 和 Adapter 隔离两项）。
 - 关闭 Worker 开关并按部署流程重启可停止后续桥接；移除 Broker 策略配置并重启 Cloud 可停止授权和服务。保留 Mongo 请求计数与审计。
 
 真实厂商 Key 调用与生产认证仍需独立证据；本阶段没有开放容器外网。

@@ -109,8 +109,9 @@ Local CodeBuddy Key 可由测试方修改受保护 Key 文件，只有 Runtime �
 Worker/Sandbox 只获得本次 Run 必需的短期或按次注入凭据。任何厂商 Key 都不是平台 SDK 的参数。
 
 2026-10-09 起新增 Run 模型代理工程阶段：长期 Key 由服务端 Broker 读取，Worker 使用已 claim 的 execution grant
-调用固定内部模型入口，服务端绑定组织、Run、attempt、worker、模型、额度和租约。首版 Claude 文本策略只实现服务端入口；
-Sandbox 仍保持断网，Guest 传输桥与真实模型调用另设门禁。详见 `../specs/run-model-broker/`。
+调用固定内部模型入口，服务端绑定组织、Run、attempt、worker、模型、额度和租约。Claude CLI 和 CodeBuddy SDK
+均已接入断网 Guest 模型桥；CodeBuddy 的固定 SDK Chat 文本格式由 Guest 转成 Anthropic Messages。长期 Key 不进入容器，
+容器内只有随机 loopback token。真实模型、持久 Session 与生产认证另设门禁。详见 `../specs/codebuddy-model-bridge/`。
 
 上表是推荐的凭据流向；现有 managed API 的 `environment` 可由宿主显式传入，且默认继承宿主环境。
 若宿主已持有 inline Key，则不能声称 SDK 进程从未持有它。新 local 默认传受控环境和凭据文件引用；SDK 的

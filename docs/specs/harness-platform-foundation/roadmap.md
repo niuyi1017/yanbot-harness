@@ -282,8 +282,8 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 | P1D 统一本地安装          | `[~]` | preview.3 三平台签名候选、npm/pnpm/离线与 portable Reference 通过                                                             | 完整 containment/业务回滚、Windows 阻网、正式身份/实机              |
 | P2 CLI Sidecar 基础设施   | `[~]` | Client/Supervisor/Bridge、CLI Host、私有凭据目录与 Windows Job/ACL 实际 CI 通过                                               | POSIX Local 脱组/父强杀保证与正式厂商认证                           |
 | P3 首个 CLI 厂商          | `[~]` | Claude Code 2.1.284 Wrapper/Host 与三平台无凭据 SDK 路径通过                                                                  | 有自有 Key 后执行真实文本/usage/cancel；保持 Experimental           |
-| P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Worker 与真实 Mongo/Redis/HTTP E2E 通过；8 项 Mongo 专项与 5 项完整链路证据已归档              | 生产 TLS/ACL、多节点故障切换和 macOS/Windows 正式 Remote 客户端验收 |
-| P5 Remote CodeBuddy       | `[~]` | 真实 Linux Docker、资源/工作区隔离、取消/父强杀回收、SDK/CLI 无凭据完整 E2E 通过                                              | CodeBuddy 模型代理、持久 Session、真实 CodeBuddy 与生产认证         |
+| P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Worker 与真实 Mongo/Redis/HTTP E2E 通过；28 项数据库/代理与 9 项完整远端链路证据已归档         | 生产 TLS/ACL、多节点故障切换和 macOS/Windows 正式 Remote 客户端验收 |
+| P5 Remote CodeBuddy       | `[~]` | Claude/CodeBuddy 断网文本桥、9 项远端 E2E 与 28 项 Mongo/Broker 验收通过；Key 留在服务端                                      | 持久 Session、真实供应商与生产认证                                  |
 | P6 四象限认证             | `[~]` | 已归档四模式工程证据和限制；生产与付费矩阵不完整                                                                              | 真实模型、Windows 实机与正式 Remote service 认证                    |
 | P7 产品/运营              | `[ ]` | 未脚手架化                                                                                                                    | Local Web 可在 P1 后并行，其余按依赖进入                            |
 
@@ -291,8 +291,9 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
 2. **推进四象限生产门禁**：P2 基础设施、P3 Claude 三平台无凭据路径、P5 Linux Sandbox 与 SDK/CLI 厂商完整远端错误路径已通过。
-   服务端 credential/model broker 与 Claude 断网 Sandbox 私有传输桥已通过工程验收；下一步独立 Spec 补齐 CodeBuddy 上游策略、
-   持久 Session 与恢复，并取得真实模型及正式 Mongo/TLS 证据。
+   服务端 credential/model broker、Claude 与 CodeBuddy 断网文本桥已实现；CodeBuddy 显式复用 Anthropic Messages 上游，
+   Spec 与限制见 [`codebuddy-model-bridge/tasks.md`](../codebuddy-model-bridge/tasks.md)。下一步独立 Spec 补齐持久 Session
+   与恢复，并取得真实模型及生产 TLS/ACL 证据。
    用户暂无 Anthropic Key，只阻塞付费厂商验收；不将此与尚未开发的生产能力混为同一个外部阻塞。
    P1D 发布门禁和 P4 正式 Remote service 认证仍单独跟踪。
 

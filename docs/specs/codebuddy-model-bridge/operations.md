@@ -2,6 +2,8 @@
 
 本能力使用固定 SDK `@tencent-ai/agent-sdk@0.3.254`，通过现有固定 Anthropic Messages Broker 执行只读文本 Run。它不代表腾讯原生网关或计费认证。默认关闭，仅 development/test 可用。
 
+工程验收见 [固定源码与 CI 证据](evidence/e69f7cf/README.md)。
+
 ## 开关与策略
 
 沿用 [Sandbox 模型桥部署](../sandbox-model-bridge/operations.md) 的独立 Worker、固定镜像、Redis/Mongo、内部授权和私有文件权限要求：

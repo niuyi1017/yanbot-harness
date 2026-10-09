@@ -85,7 +85,8 @@
 - [~] `apps/cloud-worker` 已能通过固定 Guest 执行 CodeBuddy/Claude；队列、lease、心跳、取消与孤儿收敛已有工程证据，
   Docker 与完整 HTTP/Redis/Worker 无凭据链路通过（`../remote-sandbox-executor/evidence/dac5b24/`），真实模型尚未验收。
 - [x] 每个 Run 使用非 root 隔离容器和临时工作区，限制 CPU、内存、tmpfs、进程、网络和挂载；实际 Linux Docker CI 通过。
-- [ ] 仅通过 `adapter-api` 启动 CodeBuddy Adapter，并按 Run 注入短期凭据。
+- [x] 仅通过 `adapter-api` 启动 CodeBuddy Adapter；私有模型桥使用容器内随机 token，长期 Key 仅由服务端 Broker 读取。
+      固定 SDK 0.3.254 的文本成功/取消已通过真实 Docker + Mongo + Redis + 独立 Worker 合成上游验收；策略与证据见 `../codebuddy-model-bridge/`。
 - [ ] 实现 Session 写锁、隔离状态目录、TTL、容器重建恢复与凭据分离。
 - [ ] 完成真实 CodeBuddy 远端初始运行、续接、交互、取消、超时和故障恢复门禁。
 
