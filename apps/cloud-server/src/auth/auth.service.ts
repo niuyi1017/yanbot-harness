@@ -105,6 +105,15 @@ export class AuthService {
     return result;
   }
 
+  async logout(value: unknown): Promise<{ loggedOut: true }> {
+    const input = refreshSchema.parse(value);
+    await this.#store.transaction(async () => {
+      const grant = await this.#store.findRefreshGrant(this.digest(input.refreshToken));
+      if (grant) await this.#store.revokeTokenFamily(grant.familyId, this.#now());
+    });
+    return { loggedOut: true };
+  }
+
   async authenticate(authorization: string | undefined): Promise<TenantPrincipal> {
     const match = /^Bearer ([^\s]+)$/u.exec(authorization ?? '');
     if (!match?.[1]) throw authenticationFailed();

@@ -27,6 +27,12 @@ export class AuthController {
     return this.#audited('auth.token.refresh', response, () => this.#auth.refresh(body));
   }
 
+  @Post('/logout')
+  @HttpCode(200)
+  async logout(@Body() body: unknown, @Res({ passthrough: true }) response: Response): Promise<unknown> {
+    return this.#audited('auth.logout', response, () => this.#auth.logout(body));
+  }
+
   async #audited<T>(action: string, response: Response, operation: () => Promise<T>): Promise<T> {
     try {
       const result = await operation();

@@ -3,6 +3,9 @@ import type { ConfigScope, PermissionPolicy } from '@yanbot-harness/sdk';
 export type CliCommand =
   | { name: 'help' }
   | { name: 'version' }
+  | ({ name: 'login'; organizationId: string; deviceId: string } & CommonOptions)
+  | ({ name: 'logout' } & CommonOptions)
+  | ({ name: 'auth-status' } & CommonOptions)
   | ({ name: 'adapters' | 'sessions' } & CommonOptions)
   | ({ name: 'models'; adapterId: string } & CommonOptions)
   | ({ name: 'run-status'; runId: string } & CommonOptions)
@@ -73,6 +76,18 @@ export function parseArguments(argv: readonly string[], cwd = process.cwd()): Cl
   };
   assertOnly(parsed, commonOptionNames(name));
 
+  if (name === 'login' || name === 'logout' || name === 'auth-status') {
+    noPositionals(parsed, name);
+    if (!remoteOrigin && !profileName) throw new CliUsageError(`${name} requires --remote or a Remote --profile.`);
+    if (name === 'login')
+      return {
+        name,
+        organizationId: requiredOption(parsed, 'organization'),
+        deviceId: requiredOption(parsed, 'device'),
+        ...common,
+      };
+    return { name, ...common };
+  }
   if (name === 'adapters' || name === 'sessions') {
     noPositionals(parsed, name);
     return { name, ...common };
@@ -179,6 +194,7 @@ function commonOptionNames(command: string | undefined): Set<string> {
       'config-scope',
       'resume',
     ],
+    login: ['organization', 'device'],
     models: ['adapter'],
     cancel: ['reason'],
   };

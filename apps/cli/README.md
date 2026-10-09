@@ -55,3 +55,30 @@ Adapter/upstream, `40` Runtime/network/protocol.
 
 The CLI depends on the SDK and the shared workspace-snapshot serializer. It requires a separately delivered Runtime
 and never imports an Adapter or vendor SDK.
+
+## Remote login
+
+Use an administrator-provisioned device identity:
+
+```sh
+yanbot-harness login --remote https://runtime.example.test --organization ORGANIZATION_UUID --device DEVICE_UUID
+yanbot-harness auth-status --remote https://runtime.example.test --json
+yanbot-harness logout --remote https://runtime.example.test
+```
+
+Login reads a masked device secret from the terminal. Automation can supply
+`YANBOT_HARNESS_DEVICE_SECRET`; never put the secret on the command line. An
+explicit Remote `--profile` works for all three commands. Credentials are saved
+per origin in `~/.yanbot-harness/credentials` (override:
+`YANBOT_HARNESS_CREDENTIALS_DIRECTORY`). POSIX storage requires the current owner
+and private permissions; Windows verifies a private current-user ACL. Existing
+unsafe directories are rejected. Access tokens supplied through the profile's
+environment variable take precedence over saved login.
+
+Token refresh is serialized across CLI processes. A crashed process may leave an
+origin-specific `.lock` file: verify its recorded PID is no longer running before
+removing it. A refresh interrupted after the server rotates the token may require
+logout and login again. Logout revokes the complete token family remotely before
+removing local credentials; if the service is unavailable, the local record is
+retained so revocation can be retried. `auth-status` reports local refresh expiry;
+it does not prove that the server still accepts the identity.

@@ -7,6 +7,7 @@ import {
 } from '@yanbot-harness/sdk';
 import { isIP } from 'node:net';
 
+import { RemoteCredentials, promptDeviceSecret } from './auth.js';
 import { CliUsageError, parseArguments, type CliCommand } from './arguments.js';
 import { promptForInteraction } from './interactions.js';
 import { EventRenderer, type CliIo, writeAdapters, writeJson, writeModels, writeRun, writeSessions } from './output.js';
@@ -42,6 +43,25 @@ export async function runCli(
     }
     if (command.name === 'version') {
       io.stdout.write(`${CLI_VERSION}\n`);
+      return CLI_EXIT.success;
+    }
+    if (command.name === 'login' || command.name === 'logout' || command.name === 'auth-status') {
+      const environment = options.environment ?? process.env;
+      const profile = command.profileName
+        ? await loadCliProfile(command.profileName, {
+            ...(command.profileFile === undefined ? {} : { profileFile: command.profileFile }),
+            environment,
+          })
+        : explicitProfile(command);
+      if (profile.mode !== 'remote') throw new CliUsageError('Authentication commands require a Remote target.');
+      const credentials = new RemoteCredentials(profile.origin, environment, options.fetch);
+      if (command.name === 'login') {
+        const secret = environment.YANBOT_HARNESS_DEVICE_SECRET ?? (await promptDeviceSecret(io));
+        await credentials.login(command.organizationId, command.deviceId, secret);
+      } else if (command.name === 'logout') await credentials.logout();
+      const status = await credentials.status();
+      if (command.json) writeJson(io, status);
+      else io.stdout.write(`${status.origin}: ${status.loggedIn ? 'logged in' : 'logged out'}\n`);
       return CLI_EXIT.success;
     }
     const connection = await connect(command, options.environment, options.fetch);
@@ -85,7 +105,11 @@ async function connect(
     const client = await HarnessClient.connect({
       mode: 'remote',
       origin: profile.origin,
-      tokenProvider: environmentTokenProvider(environment, profile.tokenEnvironment),
+      tokenProvider: environmentTokenProvider(
+        environment,
+        profile.tokenEnvironment,
+        new RemoteCredentials(profile.origin, environment, fetchImplementation),
+      ),
       ...(fetchImplementation === undefined ? {} : { fetch: fetchImplementation }),
     });
     return { client, executionMode: 'remote', close: async () => undefined };
@@ -127,11 +151,15 @@ function explicitProfile(command: Exclude<CliCommand, { name: 'help' | 'version'
   };
 }
 
-function environmentTokenProvider(environment: Readonly<Record<string, string | undefined>>, variable: string) {
+function environmentTokenProvider(
+  environment: Readonly<Record<string, string | undefined>>,
+  variable: string,
+  credentials: RemoteCredentials,
+) {
   return async () => {
     const accessToken = environment[variable];
     if (!accessToken) {
-      throw new HarnessSdkError('authentication', `Remote Runtime credential ${variable} is not available.`);
+      return credentials.token();
     }
     return { accessToken };
   };
@@ -155,7 +183,7 @@ function assertLegacyLoopbackOrigin(origin: string): void {
 }
 
 async function execute(
-  command: Exclude<CliCommand, { name: 'help' | 'version' }>,
+  command: Exclude<CliCommand, { name: 'help' | 'version' | 'login' | 'logout' | 'auth-status' }>,
   client: HarnessClient,
   executionMode: 'local' | 'remote',
   io: CliIo,
@@ -283,6 +311,9 @@ function exitForHarnessCode(code: HarnessErrorCode): number {
 const helpText = `Yanbot Harness CLI ${CLI_VERSION}
 
 Usage:
+  yanbot-harness login --remote HTTPS_URL --organization UUID --device UUID
+  yanbot-harness logout --remote HTTPS_URL
+  yanbot-harness auth-status --remote HTTPS_URL [--json]
   yanbot-harness run <prompt> [--adapter ID] [--session ID] [--workspace PATH]
       [--snapshot PATH | --git-repository HTTPS_URL --git-commit SHA]
       [--cwd RELATIVE] [--model ID] [--permission interactive|auto-edit|read-only]
@@ -294,7 +325,7 @@ Usage:
   yanbot-harness cancel <run-id> [--reason TEXT] [--json]
 
 Connection:
-  --remote HTTPS_URL  Use a Remote Runtime with YANBOT_HARNESS_ACCESS_TOKEN.
+  --remote HTTPS_URL  Use a Remote Runtime with saved login or YANBOT_HARNESS_ACCESS_TOKEN.
   --profile NAME      Load a versioned Local/Remote target profile.
   --profile-file PATH Use this profile file with --profile.
   --descriptor PATH  Use a protected local Runtime descriptor.
@@ -305,6 +336,8 @@ Connection:
 
 Remote run requires an explicit --snapshot directory or immutable Git repository and commit.
 The implicit cwd and --workspace Local path are never sent to a Remote Runtime.
+Login prompts for the device secret (automation: YANBOT_HARNESS_DEVICE_SECRET).
+Saved credentials refresh automatically; environment access tokens take precedence.
 Access tokens are never accepted as command-line arguments or stored in profile files.
 
 Output:

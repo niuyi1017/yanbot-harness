@@ -73,6 +73,23 @@ describe('Cloud authentication', () => {
     await expect(auth.authenticate(`Bearer ${second.accessToken}`)).rejects.toBeInstanceOf(CloudError);
   });
 
+  it('logout revokes every access/refresh grant in the family and is idempotent', async () => {
+    const { auth, identity } = await setup();
+    const first = await auth.exchange({
+      organizationId: identity.organizationId,
+      deviceId: identity.deviceId,
+      deviceSecret: identity.deviceSecret,
+    });
+    const second = await auth.refresh({ refreshToken: first.refreshToken });
+    await expect(auth.logout({ refreshToken: first.refreshToken })).resolves.toEqual({ loggedOut: true });
+    for (const tokens of [first, second]) {
+      await expect(auth.authenticate(`Bearer ${tokens.accessToken}`)).rejects.toMatchObject({ status: 401 });
+      await expect(auth.refresh({ refreshToken: tokens.refreshToken })).rejects.toMatchObject({ status: 401 });
+    }
+    await expect(auth.logout({ refreshToken: second.refreshToken })).resolves.toEqual({ loggedOut: true });
+    await expect(auth.logout({ refreshToken: 'unknown' })).resolves.toEqual({ loggedOut: true });
+  });
+
   it('uses the same failure for unknown device, bad secret and malformed bearer', async () => {
     const { auth, identity } = await setup();
     for (const operation of [

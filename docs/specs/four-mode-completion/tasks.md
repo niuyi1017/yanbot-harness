@@ -1,7 +1,7 @@
 # Tasks
 
 - [x] T0 Record scope and design before implementation; commit this specification.
-- [ ] T1 CLI login/status/logout, private credential store, serialized refresh, server family revocation. Files: CLI arguments/index/new auth modules; cloud auth service/controller. Verify CLI and auth tests including redirection, expiry, concurrent refresh and file protection.
+- [x] T1 CLI login/status/logout, private credential store, serialized refresh, server family revocation. Files: CLI arguments/index/new auth modules; cloud auth service/controller. Verify CLI and auth tests including redirection, expiry, concurrent refresh and file protection.
 - [ ] T2 Pinned Git workspace materialization. Files: cloud workspace service/new fetcher, Worker source handling. Verify actual pinned checkout, path/link/size/host rejection and remote execution.
 - [ ] T3 Persistent Session checkpoint protocol/store and container reconstruction. Files: contracts, cloud persistence/execution, Worker, sandbox host/guest. Verify tenant isolation, resume, TTL and stale-worker fencing including Mongo transactions.
 - [ ] T4 Tool protocol and full vendor interactions. Files: model Broker/channel, Claude CLI host/adapter and CodeBuddy adapter. Verify actual pinned vendor tools, permission allow/deny, questions, cancellation and resumed run against a synthetic upstream.
