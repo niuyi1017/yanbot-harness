@@ -42,6 +42,7 @@ const brokerSecret = 'synthetic-e2e-broker-secret-not-real';
 let brokerWait = false;
 let brokerAborted = false;
 const brokerRequests: unknown[] = [];
+const workerDiagnostics = new WeakMap<ChildProcess, string>();
 
 function modelResponse(body: { model: string; stream?: boolean }, signal: AbortSignal): Response {
   const message = {
@@ -282,7 +283,15 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
           events.push(event);
           if (event.type === 'assistant.delta') await handle.cancel('model bridge test');
         }
-        expect(events.at(-1)?.type).toBe('run.cancelled');
+        expect(
+          events.at(-1)?.type,
+          JSON.stringify({
+            workerExit: worker.exitCode,
+            workerSignal: worker.signalCode,
+            stderr: workerDiagnostics.get(worker),
+            runStatus: (await handle.refresh()).status,
+          }),
+        ).toBe('run.cancelled');
         await expect.poll(() => brokerAborted, { timeout: 10_000 }).toBe(true);
       } finally {
         brokerWait = false;
@@ -354,7 +363,7 @@ function spawnWorker(
   sandboxImage?: string,
   modelBridgeEnabled = false,
 ): ChildProcess {
-  return spawn(process.execPath, ['apps/cloud-worker/dist/main.js'], {
+  const child = spawn(process.execPath, ['apps/cloud-worker/dist/main.js'], {
     cwd: path.resolve(import.meta.dirname, '../../..'),
     env: {
       ...process.env,
@@ -380,6 +389,16 @@ function spawnWorker(
     },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
+  child.stderr?.on('data', (bytes) =>
+    workerDiagnostics.set(
+      child,
+      ((workerDiagnostics.get(child) ?? '') + String(bytes))
+        .replaceAll(brokerSecret, '[REDACTED]')
+        .replace(/yhe_[A-Za-z0-9_-]+/g, '[REDACTED]')
+        .slice(-8192),
+    ),
+  );
+  return child;
 }
 
 async function stopWorker(worker: ChildProcess | undefined): Promise<void> {
