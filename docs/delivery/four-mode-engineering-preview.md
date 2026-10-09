@@ -32,3 +32,5 @@ SDK 使用 `prepareWorkspaceSnapshot` 或 `prepareGitWorkspace({ repository, com
 - 用户尚无 Anthropic Key，真实模型成功、费用和真实上游取消仍未验收。
 - Windows Server CI 不替代 Windows 10/11 实机验收；生产 TLS/ACL/高可用拓扑、签名、registry 与许可证仍是外部发布门禁。
 - 生产配置可用不代表已部署。本任务不修改生产服务。
+
+本轮最终验收：固定源码 `124f10f` 的 8 个工作流全部通过；15 项 Docker E2E 与 29 项 Mongo/Broker 测试零跳过，三个平台共 12 项真实厂商进程工具探针通过。见 [验收证据](../specs/four-mode-completion/evidence/124f10f/README.md)。

@@ -1,0 +1,319 @@
+{
+  "numTotalTestSuites": 6,
+  "numPassedTestSuites": 6,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 29,
+  "numPassedTests": 29,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1791514778429,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport requires an explicit Anthropic upstream for CodeBuddy and rejects arbitrary providers",
+          "status": "passed",
+          "title": "requires an explicit Anthropic upstream for CodeBuddy and rejects arbitrary providers",
+          "duration": 10.174185999999963,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport redacts every byte split, overlapping prefixes, repeated secrets and preserves UTF-8",
+          "status": "passed",
+          "title": "redacts every byte split, overlapping prefixes, repeated secrets and preserves UTF-8",
+          "duration": 15.441236000000004,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport rejects URLs, credentials, tools, oversized text, wrong model and token budget",
+          "status": "passed",
+          "title": "rejects URLs, credentials, tools, oversized text, wrong model and token budget",
+          "duration": 10.395330999999942,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport requires an explicit experimental deployment and never enables production",
+          "status": "passed",
+          "title": "requires an explicit experimental deployment and never enables production",
+          "duration": 1.9931950000000143,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport reads only owner-private bounded regular files without following final symlinks",
+          "status": "passed",
+          "title": "reads only owner-private bounded regular files without following final symlinks",
+          "duration": 13.271249000000012,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport sends only the fixed destination and headers and redacts streamed response bytes",
+          "status": "passed",
+          "title": "sends only the fixed destination and headers and redacts streamed response bytes",
+          "duration": 6.283865999999989,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport discards upstream diagnostics and redirects for status 302",
+          "status": "passed",
+          "title": "discards upstream diagnostics and redirects for status 302",
+          "duration": 1.4328249999999798,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport discards upstream diagnostics and redirects for status 401",
+          "status": "passed",
+          "title": "discards upstream diagnostics and redirects for status 401",
+          "duration": 0.6754059999999527,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport discards upstream diagnostics and redirects for status 500",
+          "status": "passed",
+          "title": "discards upstream diagnostics and redirects for status 500",
+          "duration": 0.8809209999999439,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport rejects unknown response types and bounded response overflow",
+          "status": "passed",
+          "title": "rejects unknown response types and bounded response overflow",
+          "duration": 2.137856000000056,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Model broker policies and transport"],
+          "fullName": "Model broker policies and transport aborts the upstream request on its total deadline without exposing transport errors",
+          "status": "passed",
+          "title": "aborts the upstream request on its total deadline without exposing transport errors",
+          "duration": 21.272604,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1791514779351,
+      "endTime": 1791514779435.2727,
+      "status": "passed",
+      "message": "",
+      "name": "/home/runner/work/yanbot-harness/yanbot-harness/apps/cloud-server/test/model-broker-core.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary streams through real HTTP with fixed headers, scoped credentials and safe audit",
+          "status": "passed",
+          "title": "streams through real HTTP with fixed headers, scoped credentials and safe audit",
+          "duration": 491.9986369999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary authorizes CodeBuddy only through its own explicit upstream policy",
+          "status": "passed",
+          "title": "authorizes CodeBuddy only through its own explicit upstream policy",
+          "duration": 325.9896919999999,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary rejects bad tokens, worker, run and attempt before credential access",
+          "status": "passed",
+          "title": "rejects bad tokens, worker, run and attempt before credential access",
+          "duration": 260.4112,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary rejects unclaimed and revoked grants, inactive attempts and missing tenant policy",
+          "status": "passed",
+          "title": "rejects unclaimed and revoked grants, inactive attempts and missing tenant policy",
+          "duration": 300.9192790000002,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary enforces model and request limits and does not reserve invalid inputs",
+          "status": "passed",
+          "title": "enforces model and request limits and does not reserve invalid inputs",
+          "duration": 216.39276199999995,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary reserves a persistent per-Run limit atomically under concurrent HTTP requests",
+          "status": "passed",
+          "title": "reserves a persistent per-Run limit atomically under concurrent HTTP requests",
+          "duration": 342.32430099999965,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary discards upstream diagnostic bodies and still charges the attempted request",
+          "status": "passed",
+          "title": "discards upstream diagnostic bodies and still charges the attempted request",
+          "duration": 198.5308839999998,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary cancels active upstream streaming when the Run is cancelled",
+          "status": "passed",
+          "title": "cancels active upstream streaming when the Run is cancelled",
+          "duration": 1207.4465770000002,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Run model broker HTTP boundary"],
+          "fullName": "Run model broker HTTP boundary cancels upstream when the client disconnects or the worker lease expires",
+          "status": "passed",
+          "title": "cancels upstream when the client disconnects or the worker lease expires",
+          "duration": 1260.96947,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1791514779841,
+      "endTime": 1791514784445.9695,
+      "status": "passed",
+      "message": "",
+      "name": "/home/runner/work/yanbot-harness/yanbot-harness/apps/cloud-server/test/model-broker-http.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence migrates the legacy sparse index explicitly and is idempotent",
+          "status": "passed",
+          "title": "migrates the legacy sparse index explicitly and is idempotent",
+          "duration": 58.176099999999906,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence atomically promotes checkpoints, survives service replacement and fences an expired worker",
+          "status": "passed",
+          "title": "atomically promotes checkpoints, survives service replacement and fences an expired worker",
+          "duration": 364.58881999999994,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence allows sequential no-key runs while enforcing explicit-key uniqueness",
+          "status": "passed",
+          "title": "allows sequential no-key runs while enforcing explicit-key uniqueness",
+          "duration": 98.33090600000014,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence deduplicates concurrent identical requests with one admission and outbox",
+          "status": "passed",
+          "title": "deduplicates concurrent identical requests with one admission and outbox",
+          "duration": 69.90284500000007,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence serializes the Session write lock and returns domain conflicts",
+          "status": "passed",
+          "title": "serializes the Session write lock and returns domain conflicts",
+          "duration": 132.920709,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence enforces organization concurrency across different sessions on first admission",
+          "status": "passed",
+          "title": "enforces organization concurrency across different sessions on first admission",
+          "duration": 81.50695099999984,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence rolls back admission, Run, outbox and Session when a transaction fails",
+          "status": "passed",
+          "title": "rolls back admission, Run, outbox and Session when a transaction fails",
+          "duration": 21.09346000000005,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence commits refresh-reuse family revocation despite authentication rejection",
+          "status": "passed",
+          "title": "commits refresh-reuse family revocation despite authentication rejection",
+          "duration": 125.12715300000036,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["Real Mongo replica-set persistence"],
+          "fullName": "Real Mongo replica-set persistence reconnects and replays one durable terminal event with tenant/cursor isolation",
+          "status": "passed",
+          "title": "reconnects and replays one durable terminal event with tenant/cursor isolation",
+          "duration": 144.940251,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1791514780087,
+      "endTime": 1791514781184.9402,
+      "status": "passed",
+      "message": "",
+      "name": "/home/runner/work/yanbot-harness/yanbot-harness/apps/cloud-server/test/mongo.integration.test.ts"
+    }
+  ]
+}

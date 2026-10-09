@@ -1,0 +1,104 @@
+{
+  "status": "passed",
+  "evidence": "real-cli-no-credentials",
+  "cliVersion": "2.1.284",
+  "platform": "linux",
+  "arch": "x64",
+  "events": ["run.started", "session.initialized", "run.failed"],
+  "terminalCode": "AUTHENTICATION_FAILED",
+  "persistedStatus": "failed",
+  "archiveSha512": "hjjPgN4u8DvnzZqWDYnU5xxQkykuUrkUoVeeutVLXjrhx4qeRPmwgZ69BFAHmV42FBRdiRwbLbiDE9nkQdAE8g==",
+  "archiveBytes": 108750001,
+  "toolProbes": [
+    {
+      "vendor": "claude",
+      "decision": "allow",
+      "status": "passed",
+      "modelRequests": 3,
+      "eventTypes": [
+        "run.started",
+        "session.initialized",
+        "tool.started",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.completed",
+        "tool.started",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.completed",
+        "assistant.delta",
+        "usage.updated",
+        "run.completed"
+      ],
+      "realProvider": false
+    },
+    {
+      "vendor": "claude",
+      "decision": "deny",
+      "status": "passed",
+      "modelRequests": 3,
+      "eventTypes": [
+        "run.started",
+        "session.initialized",
+        "tool.started",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.failed",
+        "tool.started",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.completed",
+        "assistant.delta",
+        "usage.updated",
+        "run.completed"
+      ],
+      "realProvider": false
+    },
+    {
+      "vendor": "codebuddy",
+      "decision": "allow",
+      "status": "passed",
+      "modelRequests": 3,
+      "eventTypes": [
+        "run.started",
+        "session.initialized",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.started",
+        "tool.completed",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.started",
+        "tool.completed",
+        "assistant.delta",
+        "assistant.message",
+        "usage.updated",
+        "run.completed"
+      ],
+      "realProvider": false
+    },
+    {
+      "vendor": "codebuddy",
+      "decision": "deny",
+      "status": "passed",
+      "modelRequests": 3,
+      "eventTypes": [
+        "run.started",
+        "session.initialized",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.started",
+        "tool.failed",
+        "interaction.requested",
+        "interaction.resolved",
+        "tool.started",
+        "tool.completed",
+        "assistant.delta",
+        "assistant.message",
+        "usage.updated",
+        "run.completed"
+      ],
+      "realProvider": false
+    }
+  ]
+}
