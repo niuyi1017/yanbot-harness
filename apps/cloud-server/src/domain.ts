@@ -121,6 +121,7 @@ export type RunAttemptRecord = {
   updatedAt: Date;
   workerId?: string;
   heartbeatAt?: Date;
+  fenceRevision?: number;
   leaseExpiresAt?: Date;
   failureCode?: string;
 };

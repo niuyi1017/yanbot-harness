@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   HARNESS_PROTOCOL_VERSION,
   type AdapterEvent,
@@ -541,13 +542,14 @@ class CodeBuddyRuntime implements AdapterRuntime {
     factory: AdapterEventFactory,
     policy: AdapterRunInput['permissionPolicy'],
   ): CodeBuddyCanUseTool {
-    return async (toolName, input, options) => {
+    return async (toolName, input) => {
       if (this.#bridge && !['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'AskUserQuestion'].includes(toolName))
         return { behavior: 'deny', message: 'Tool is outside the deployment allowlist.' };
       if (toolName !== 'AskUserQuestion' && policy === 'read-only') {
         return { behavior: 'deny', message: 'The read-only policy denies tool execution.' };
       }
-      const requestId = options.toolUseID || `interaction:${toolName}:${this.#pendingInteractions.size + 1}`;
+      // Vendor tool IDs are only conversation-local; the public interaction route needs a unique ID.
+      const requestId = randomUUID();
       let questionKeys: Record<string, string> | undefined;
       if (toolName === 'AskUserQuestion' && (!Array.isArray(input.questions) || input.questions.length === 0)) {
         return { behavior: 'deny', message: 'CodeBuddy supplied no valid questions.' };

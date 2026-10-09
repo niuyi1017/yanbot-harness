@@ -163,6 +163,7 @@ export const runAttemptSchema = tenantDocumentSchema({
   active: { type: Boolean, required: true },
   workerId: String,
   heartbeatAt: Date,
+  fenceRevision: Number,
   leaseExpiresAt: Date,
   failureCode: String,
   createdAt: date,

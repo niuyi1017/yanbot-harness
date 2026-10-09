@@ -480,7 +480,7 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
         workerId,
         leaseExpiresAt: { $gt: now },
       },
-      { $set: { heartbeatAt: now, leaseExpiresAt, updatedAt: now } },
+      { $set: { heartbeatAt: now, leaseExpiresAt, updatedAt: now }, $inc: { fenceRevision: 1 } },
       this.#options(),
     );
     return result.modifiedCount === 1;

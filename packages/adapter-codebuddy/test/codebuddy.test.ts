@@ -306,8 +306,11 @@ describe('CodeBuddyAdapter', () => {
     await iterator.next();
     await iterator.next();
     const interaction = await iterator.next();
-    expect(interaction.value).toMatchObject({ type: 'interaction.requested', payload: { requestId: 'permission-1' } });
-    await runtime.respondToInteraction?.({ requestId: 'permission-1', action: 'allow' });
+    expect(interaction.value).toMatchObject({
+      type: 'interaction.requested',
+      payload: { requestId: expect.any(String) },
+    });
+    await runtime.respondToInteraction?.({ requestId: interaction.value.payload.requestId, action: 'allow' });
     while (!(await iterator.next()).done) {
       // Drain the terminal stream.
     }

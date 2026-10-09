@@ -124,6 +124,19 @@ describe.skipIf(!uri)('Real Mongo replica-set persistence', () => {
       });
       const issued = await grants.issue((await f.store.findRun(f.principal.organizationId, created.run.runId))!);
       await grants.claim(issued.executionGrant, 'worker-state');
+      const heartbeatTime = new Date();
+      for (let index = 0; index < 2; index++)
+        expect(
+          await f.store.heartbeatRunAttempt(
+            f.principal.organizationId,
+            created.run.runId,
+            1,
+            'worker-state',
+            heartbeatTime,
+            new Date(heartbeatTime.getTime() + 30_000),
+          ),
+        ).toBe(true);
+      expect((await f.store.findRunAttempt(f.principal.organizationId, created.run.runId, 1))?.fenceRevision).toBe(2);
       await grants.checkpoint(issued.executionGrant, created.run.runId, 1, 'worker-state', {
         manifest: { schemaVersion: 1, entries: [] },
         files: [],

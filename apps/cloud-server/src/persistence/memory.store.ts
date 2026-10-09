@@ -457,6 +457,7 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     record.heartbeatAt = new Date(now);
     record.leaseExpiresAt = new Date(leaseExpiresAt);
     record.updatedAt = new Date(now);
+    record.fenceRevision = (record.fenceRevision ?? 0) + 1;
     return true;
   }
 
