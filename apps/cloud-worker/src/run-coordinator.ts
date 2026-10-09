@@ -81,7 +81,7 @@ export class RunCoordinator {
     timeout.unref();
 
     try {
-      const cwd = workspacePath(this.config.sharedWorkspaceRoot, workspace);
+      const cwd = workspacePath(this.config.sharedWorkspaceRoot, workspace, this.config.sandbox !== undefined);
       const request = {
         ...runRequestSchema.parse({
           runId: run.runId,
@@ -209,9 +209,10 @@ export class RunCoordinator {
   }
 }
 
-function workspacePath(root: string, workspace: WorkerWorkspace): string | undefined {
-  if (workspace.source.kind === 'git-ref') throw new Error('Git workspaces require an isolated sandbox.');
-  if (workspace.source.kind !== 'uploaded-snapshot' || !workspace.storageKey) return undefined;
+function workspacePath(root: string, workspace: WorkerWorkspace, sandbox = false): string | undefined {
+  if (workspace.source.kind === 'git-ref' && (!sandbox || !workspace.storageKey))
+    throw new Error('Git workspaces require an isolated sandbox.');
+  if (!workspace.storageKey) return undefined;
   const resolvedRoot = path.resolve(root);
   const resolved = path.resolve(resolvedRoot, ...workspace.storageKey.split('/'));
   if (!resolved.startsWith(`${resolvedRoot}${path.sep}`)) throw new Error('The workspace escaped its configured root.');

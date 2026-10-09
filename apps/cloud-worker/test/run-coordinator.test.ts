@@ -62,6 +62,20 @@ describe('Remote Reference run coordinator', () => {
     });
   });
 
+  it('executes a materialized Git workspace only with the sandbox enabled', async () => {
+    const fixture = createFixture(
+      { kind: 'text', chunks: ['pinned Git'] },
+      { sandbox: { dockerPath: '/test/docker', image: `sha256:${'a'.repeat(64)}` } },
+    );
+    fixture.client.workspaceValue = {
+      workspaceRef: randomUUID(),
+      source: { kind: 'git-ref', repository: 'https://github.com/example/repo.git', ref: 'a'.repeat(40) },
+      storageKey: 'tenant/workspace',
+    };
+    await fixture.coordinator.process(fixture.job);
+    expect(fixture.client.events.at(-1)?.type).toBe('run.completed');
+  });
+
   it('turns a bounded execution timeout into RUN_TIMEOUT', async () => {
     const fixture = createFixture({ kind: 'wait-for-cancel' }, { runTimeoutMs: 5, heartbeatMs: 100 });
     await fixture.coordinator.process(fixture.job);

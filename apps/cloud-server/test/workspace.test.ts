@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CloudError } from '../src/common/cloud-error.js';
 import type { CloudConfig } from '../src/config.js';
@@ -11,8 +11,13 @@ import type { TenantPrincipal } from '../src/domain.js';
 import { MemoryControlPlaneStore } from '../src/persistence/memory.store.js';
 import { WorkspaceService } from '../src/workspaces/workspace.service.js';
 
+import { gitArchive } from './helpers/git-archive.js';
+
 const roots: string[] = [];
-afterEach(async () => Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))));
+afterEach(async () => {
+  vi.unstubAllGlobals();
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
 describe('Cloud workspace preparation', () => {
   it('publishes a tenant-scoped snapshot and rejects cross-tenant lookup', async () => {
@@ -40,10 +45,13 @@ describe('Cloud workspace preparation', () => {
     const { service } = await setup();
     const principal = tenant();
     const commit = 'a'.repeat(40);
+    const archive = await gitArchive([{ name: 'repo/README.md', text: 'pinned checkout' }]);
+    vi.stubGlobal('fetch', async () => new Response(new Uint8Array(archive)));
     await expect(
       service.prepareGit(principal, { repository: 'https://github.com/example/repo.git', commit }),
     ).resolves.toMatchObject({
       source: { kind: 'git-ref', repository: 'https://github.com/example/repo.git', ref: commit },
+      storageKey: expect.any(String),
     });
     for (const repository of [
       'http://github.com/example/repo.git',

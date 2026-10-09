@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -16,6 +16,8 @@ import type { CloudConfig } from '../config.js';
 import type { TenantPrincipal, WorkspaceRecord } from '../domain.js';
 import { CONTROL_PLANE_STORE, type ControlPlaneStore } from '../persistence/control-plane.store.js';
 import { CLOUD_CONFIG } from '../persistence/mongo.service.js';
+
+import { fetchGitSnapshot } from './git-snapshot.js';
 
 const snapshotInputSchema = z.object({ manifest: z.unknown(), files: z.unknown() }).strict();
 const gitInputSchema = z
@@ -74,21 +76,31 @@ export class WorkspaceService {
   async prepareGit(principal: TenantPrincipal, value: unknown): Promise<WorkspaceRecord> {
     const input = gitInputSchema.parse(value);
     const repository = this.#normalizeGitRepository(input.repository);
+    const serialized = await fetchGitSnapshot(repository, input.commit);
+    const payload = validateWorkspacePayload(serialized.manifest, serialized.files);
     const now = this.#now();
     const workspaceRef = this.#generateId();
-    const digest = `sha256:${createHash('sha256').update(`${repository}\n${input.commit}\n`).digest('hex')}`;
+    const storageKey = `${principal.organizationId}/${workspaceRef}`;
+    const destination = this.#storagePath(storageKey);
+    await writeWorkspaceSnapshot(destination, payload);
     const record: WorkspaceRecord = {
       organizationId: principal.organizationId,
       userId: principal.userId,
       workspaceRef,
       source: { kind: 'git-ref', repository, ref: input.commit },
-      digest,
+      digest: payload.digest,
+      storageKey,
       status: 'ready',
       createdAt: now,
       expiresAt: new Date(now.getTime() + this.#config.workspaceTtlSeconds * 1_000),
     };
-    await this.#store.insertWorkspace(record);
-    return record;
+    try {
+      await this.#store.insertWorkspace(record);
+      return record;
+    } catch (error) {
+      await rm(destination, { recursive: true, force: true });
+      throw error;
+    }
   }
 
   async requireReady(organizationId: string, source: unknown): Promise<WorkspaceRecord> {

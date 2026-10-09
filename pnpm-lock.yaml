@@ -90,6 +90,9 @@ importers:
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      tar-stream:
+        specifier: 3.2.1
+        version: 3.2.1
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -100,6 +103,9 @@ importers:
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6
+      '@types/tar-stream':
+        specifier: 3.1.4
+        version: 3.1.4
       '@yanbot-harness/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -986,6 +992,9 @@ packages:
 
   '@types/serve-static@2.2.0':
     resolution: {integrity: sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ==}
+
+  '@types/tar-stream@3.1.4':
+    resolution: {integrity: sha512-921gW0+g29mCJX0fRvqeHzBlE/XclDaAG0Ousy1LCghsOhvaKacDeRGEVzQP9IPfKn8Vysy7FEXAIxycpc/CMg==}
 
   '@types/webidl-conversions@7.0.3':
     resolution: {integrity: sha512-CiJJvcRtIgzadHCYXw7dqEnMNRjhGZlYK05Mj9OyktqV8uVT8fD2BFOB7S1uwBE3Kj2Z+4UyPmFw/Ixgw/LAlA==}
@@ -2718,6 +2727,10 @@ snapshots:
   '@types/serve-static@2.2.0':
     dependencies:
       '@types/http-errors': 2.0.5
+      '@types/node': 22.19.15
+
+  '@types/tar-stream@3.1.4':
+    dependencies:
       '@types/node': 22.19.15
 
   '@types/webidl-conversions@7.0.3': {}

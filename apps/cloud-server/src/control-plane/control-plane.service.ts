@@ -218,13 +218,12 @@ export class ControlPlaneService {
             input.resume ||
             input.extensions.length ||
             input.configScopes.length ||
-            (input.maxTurns !== undefined && input.maxTurns !== 1) ||
-            input.workspace.kind !== 'uploaded-snapshot')
+            (input.maxTurns !== undefined && input.maxTurns !== 1))
         ) {
           throw new CloudError(
             422,
             'CAPABILITY_UNSUPPORTED',
-            'Experimental vendor Remote runs require a read-only snapshot, one turn, and no resume or extensions.',
+            'Experimental vendor Remote runs require a read-only workspace, one turn, and no resume or extensions.',
           );
         }
         if (sessionRecord.value.status === 'running') throw conflict('The session already has an active run.');
