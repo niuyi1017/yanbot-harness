@@ -55,9 +55,17 @@ export class RunCoordinator {
     let terminal = false;
     const abort = new AbortController();
     const pumps = new Set<Promise<void>>();
-    const stop = async () => {
+    let stopPromise: Promise<void> | undefined;
+    const stop = (): Promise<void> => {
       abort.abort();
-      await controller?.cancel('Remote execution lease ended.');
+      if (!controller) return Promise.resolve();
+      const current = controller;
+      // A revoked lease can close the Sidecar before cancel replies. Background
+      // timers must not turn that expected race into an unhandled rejection.
+      // Dispose is still mandatory; its rejection is awaited by process.finally.
+      return (stopPromise ??= current.cancel('Remote execution lease ended.').catch(async () => {
+        await current.dispose().catch(() => undefined);
+      }));
     };
     const heartbeat = setInterval(() => {
       void client.heartbeat(job.runId, job.attempt).catch(async () => {
@@ -143,6 +151,7 @@ export class RunCoordinator {
       clearInterval(heartbeat);
       clearTimeout(timeout);
       abort.abort();
+      await stopPromise;
       await controller?.dispose();
     }
   }

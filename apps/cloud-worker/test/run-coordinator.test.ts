@@ -1,3 +1,4 @@
+import type { HarnessAdapter } from '@yanbot-harness/adapter-api';
 import { randomUUID } from 'node:crypto';
 
 import { ReferenceAdapter, type ReferenceScenario } from '@yanbot-harness/adapter-reference';
@@ -70,6 +71,40 @@ describe('Remote Reference run coordinator', () => {
     });
   });
 
+  it.each([true, false])(
+    'contains a rejected vendor cancel with lost lease=%s and still disposes the runtime',
+    async (lostLease) => {
+      const a = new ReferenceAdapter({ scenario: { kind: 'wait-for-cancel' } });
+      const create = a.createRuntime.bind(a);
+      let disposed = false;
+      a.createRuntime = async (context) => {
+        const runtime = await create(context);
+        const cancel = runtime.cancel.bind(runtime);
+        const dispose = runtime.dispose.bind(runtime);
+        runtime.cancel = async (input) => {
+          await cancel(input);
+          throw new Error('Vendor closed during cancel.');
+        };
+        runtime.dispose = async () => {
+          disposed = true;
+          await dispose();
+        };
+        return runtime;
+      };
+      const fixture = createFixture({ kind: 'wait-for-cancel' }, { heartbeatMs: 1, runTimeoutMs: 1000 }, () => a);
+      fixture.client.failHeartbeat = lostLease;
+      await fixture.coordinator.process(fixture.job);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(disposed).toBe(true);
+      if (!lostLease)
+        expect(fixture.client.events.at(-1)).toMatchObject({
+          type: 'run.failed',
+          payload: { error: { code: 'RUN_TIMEOUT' } },
+        });
+      expect(fixture.client.events.some((e) => e.type === 'run.completed')).toBe(false);
+    },
+  );
+
   it('stops without a late event after losing its worker-bound lease', async () => {
     const fixture = createFixture({ kind: 'wait-for-cancel' }, { heartbeatMs: 1, runTimeoutMs: 1_000 });
     fixture.client.failHeartbeat = true;
@@ -116,7 +151,11 @@ class FakeClient implements WorkerControlPlaneClient {
   }
 }
 
-function createFixture(scenario: ReferenceScenario, overrides: Partial<WorkerConfig> = {}) {
+function createFixture(
+  scenario: ReferenceScenario,
+  overrides: Partial<WorkerConfig> = {},
+  factory?: () => HarnessAdapter,
+) {
   const client = new FakeClient();
   const config: WorkerConfig = {
     nodeEnv: 'test',
@@ -132,11 +171,7 @@ function createFixture(scenario: ReferenceScenario, overrides: Partial<WorkerCon
     sharedWorkspaceRoot: '/tmp/yanbot-worker-workspaces',
     ...overrides,
   };
-  const coordinator = new RunCoordinator(
-    config,
-    () => client,
-    () => new ReferenceAdapter({ scenario }),
-  );
+  const coordinator = new RunCoordinator(config, () => client, factory ?? (() => new ReferenceAdapter({ scenario })));
   const job = {
     schemaVersion: 1 as const,
     runId: client.runValue.runId,
