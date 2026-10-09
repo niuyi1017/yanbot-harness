@@ -1,3 +1,4 @@
+import type { ModelRequest } from '@yanbot-harness/sandbox-docker';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
@@ -18,6 +19,7 @@ import { InternalControlPlaneClient, InternalClientError, type WorkerWorkspace }
 
 export type WorkerControlPlaneClient = {
   claim(): Promise<unknown>;
+  model?(runId: string, attempt: number, body: unknown, signal: AbortSignal): Promise<Response>;
   run(runId: string, attempt: number): Promise<Run>;
   workspace(runId: string, attempt: number): Promise<WorkerWorkspace>;
   heartbeat(runId: string, attempt: number): Promise<void>;
@@ -25,7 +27,7 @@ export type WorkerControlPlaneClient = {
   append(runId: string, attempt: number, value: AdapterEvent): Promise<void>;
 };
 type ClientFactory = (grant: string) => WorkerControlPlaneClient;
-type AdapterFactory = (run: Run, cwd?: string) => HarnessAdapter | Promise<HarnessAdapter>;
+type AdapterFactory = (run: Run, cwd?: string, modelRequest?: ModelRequest) => HarnessAdapter | Promise<HarnessAdapter>;
 
 export class RunCoordinator {
   readonly #clientFactory: ClientFactory;
@@ -43,7 +45,7 @@ export class RunCoordinator {
 
   async process(job: RemoteRunJob): Promise<void> {
     const client = this.#clientFactory(job.executionGrant);
-    await client.claim();
+    const claimed = await client.claim();
     const run = await client.run(job.runId, job.attempt);
     const workspace = await client.workspace(job.runId, job.attempt);
     let sequence = run.lastSequence ?? 0;
@@ -85,7 +87,22 @@ export class RunCoordinator {
         }),
         abortSignal: abort.signal,
       };
-      const adapter = await this.#adapterFactory(run, cwd);
+      let modelRequest: ModelRequest | undefined;
+      if (this.config.modelBridgeEnabled && run.adapterId === 'com.anthropic.claude-code-cli') {
+        if (
+          !run.model ||
+          !client.model ||
+          typeof claimed !== 'object' ||
+          !claimed ||
+          !('actions' in claimed) ||
+          !Array.isArray(claimed.actions) ||
+          !claimed.actions.includes('model.invoke')
+        )
+          throw new Error('The Run has no model bridge authorization.');
+        modelRequest = (body, signal) =>
+          client.model!(job.runId, job.attempt, body, AbortSignal.any([abort.signal, signal]));
+      }
+      const adapter = await this.#adapterFactory(run, cwd, modelRequest);
       if (adapter.manifest.adapterId !== run.adapterId) throw new Error('Worker Adapter does not match the Run.');
       controller = await createManagedAdapterRun(adapter, {}, request);
       for await (const adapterEvent of controller.events) {

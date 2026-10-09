@@ -31,6 +31,27 @@ describe('Cloud Worker configuration', () => {
     ).toBe('sha256:' + 'a'.repeat(64));
   });
 
+  it('restricts the model bridge to explicitly enabled experimental sandboxes', () => {
+    expect(parseWorkerConfig(base).modelBridgeEnabled).toBe(false);
+    expect(() => parseWorkerConfig({ ...base, WORKER_MODEL_BRIDGE_ENABLED: 'true' })).toThrow();
+    const sandbox = {
+      ...base,
+      WORKER_EXECUTION_MODE: 'sandbox',
+      WORKER_DOCKER_PATH: '/usr/bin/docker',
+      WORKER_SANDBOX_IMAGE: 'sha256:' + 'a'.repeat(64),
+      WORKER_MODEL_BRIDGE_ENABLED: 'true',
+    };
+    expect(parseWorkerConfig(sandbox).modelBridgeEnabled).toBe(true);
+    expect(() =>
+      parseWorkerConfig({
+        ...sandbox,
+        NODE_ENV: 'production',
+        WORKER_INTERNAL_ORIGIN: 'https://internal.example.com',
+        WORKER_REDIS_URL: 'rediss://redis.example.com',
+      }),
+    ).toThrow(/experimental/u);
+  });
+
   it('parses bounded defaults', () => {
     expect(parseWorkerConfig({ ...base, PATH: '/usr/bin' })).toMatchObject({
       workerId: 'worker-a',

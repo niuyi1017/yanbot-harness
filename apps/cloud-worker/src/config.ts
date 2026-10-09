@@ -23,6 +23,7 @@ const environmentSchema = z
     WORKER_RUN_TIMEOUT_MS: positiveInteger(900_000),
     WORKER_SHUTDOWN_MS: positiveInteger(30_000),
     WORKER_SHARED_WORKSPACE_ROOT: z.string().trim().min(1),
+    WORKER_MODEL_BRIDGE_ENABLED: z.enum(['true', 'false']).default('false'),
     WORKER_EXECUTION_MODE: z.enum(['reference', 'sandbox']).default('reference'),
     WORKER_DOCKER_PATH: z.string().optional(),
     WORKER_SANDBOX_IMAGE: z.string().optional(),
@@ -42,6 +43,7 @@ export type WorkerConfig = {
   runTimeoutMs: number;
   shutdownMs: number;
   sharedWorkspaceRoot: string;
+  modelBridgeEnabled?: boolean;
   sandbox?: { dockerPath: string; image: string };
   testScenario?: 'text' | 'question' | 'wait-for-cancel';
 };
@@ -71,6 +73,9 @@ export function parseWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig 
     throw new Error('The shared workspace root cannot be a filesystem root.');
   }
   const sandbox = value.WORKER_EXECUTION_MODE === 'sandbox';
+  const modelBridgeEnabled = value.WORKER_MODEL_BRIDGE_ENABLED === 'true';
+  if (modelBridgeEnabled && (!sandbox || value.NODE_ENV === 'production'))
+    throw new Error('Model bridge requires an experimental sandbox Worker.');
   if (
     sandbox &&
     (!value.WORKER_DOCKER_PATH ||
@@ -85,6 +90,7 @@ export function parseWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig 
   if (!sandbox && (value.WORKER_DOCKER_PATH || value.WORKER_SANDBOX_IMAGE))
     throw new Error('Sandbox settings require sandbox execution mode.');
   return {
+    modelBridgeEnabled,
     ...(sandbox ? { sandbox: { dockerPath: value.WORKER_DOCKER_PATH!, image: value.WORKER_SANDBOX_IMAGE! } } : {}),
     nodeEnv: value.NODE_ENV,
     redisUrl: assertRedisUrl(value.WORKER_REDIS_URL, value.NODE_ENV === 'production'),

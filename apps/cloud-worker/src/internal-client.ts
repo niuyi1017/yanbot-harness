@@ -44,6 +44,20 @@ export class InternalControlPlaneClient {
     private readonly fetchImplementation: typeof fetch = fetch,
   ) {}
 
+  async model(runId: string, attempt: number, body: unknown, signal: AbortSignal): Promise<Response> {
+    return this.fetchImplementation(`${this.origin}/internal/v1/runs/${runId}/model?attempt=${attempt}`, {
+      method: 'POST',
+      redirect: 'error',
+      signal,
+      headers: {
+        authorization: `Bearer ${this.executionGrant}`,
+        'x-worker-id': this.workerId,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
   async claim() {
     return claimSchema.parse(
       await this.#request('/internal/v1/execution-grants/claim', {

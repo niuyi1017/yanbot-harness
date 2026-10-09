@@ -35,7 +35,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y redis-server
       - uses: ./.github/actions/mongo-replica-set
       - run: pnpm --filter @yanbot-harness/cloud-server exec vitest run test/remote-worker.e2e.test.ts --reporter=default --reporter=json --outputFile=../../evidence/remote-worker-e2e.json
+      - name: Require complete Worker and model bridge evidence
+        run: node -e 'const r=JSON.parse(require("fs").readFileSync("evidence/remote-worker-e2e.json"));if(!r.success||r.numPassedTests<7||r.numPendingTests||r.numFailedTests)process.exit(1)'
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: remote-sandbox-containment
           path: evidence/*

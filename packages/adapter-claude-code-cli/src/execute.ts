@@ -10,7 +10,12 @@ import {
 import { ClaudeEventParser } from './parser.js';
 import { CLAUDE_CODE_VERSION, manifest } from './manifest.js';
 
-export type ClaudeDeployment = { executablePath: string; apiKey?: string; windowsJobHost?: string };
+export type ClaudeDeployment = {
+  executablePath: string;
+  apiKey?: string;
+  loopbackOrigin?: string;
+  windowsJobHost?: string;
+};
 
 function environment(directory: string, deployment: ClaudeDeployment): Record<string, string> {
   return {
@@ -22,6 +27,14 @@ function environment(directory: string, deployment: ClaudeDeployment): Record<st
     DISABLE_AUTOUPDATER: '1',
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     ...(deployment.apiKey ? { ANTHROPIC_API_KEY: deployment.apiKey } : {}),
+    ...(deployment.loopbackOrigin
+      ? {
+          ANTHROPIC_BASE_URL: deployment.loopbackOrigin,
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: '1024',
+          MAX_THINKING_TOKENS: '0',
+          CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING: '1',
+        }
+      : {}),
   };
 }
 function owner(deployment: ClaudeDeployment) {

@@ -1,3 +1,4 @@
+import { GuestModelChannel } from '@yanbot-harness/sandbox-model-channel';
 import { TextDecoder } from 'node:util';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -9,6 +10,7 @@ import type { HarnessAdapter, AdapterRuntime } from '@yanbot-harness/adapter-api
 import { sidecarRequestSchema } from '@yanbot-harness/adapter-sidecar';
 import { HARNESS_PROTOCOL_VERSION, type AdapterEvent, type HarnessCapabilities } from '@yanbot-harness/contracts';
 
+let modelChannel: GuestModelChannel | undefined;
 let adapter: HarnessAdapter | undefined;
 let runtime: AdapterRuntime | undefined;
 let capabilities: HarnessCapabilities | undefined;
@@ -26,9 +28,11 @@ const write = (value: unknown) =>
 
 async function stop() {
   stopping = true;
+  modelChannel?.setEnabled(false);
   if (active) await runtime?.cancel({ runId: active.runId });
   await active?.done.catch(() => undefined);
   await runtime?.dispose();
+  await modelChannel?.close();
   clearInterval(lease);
 }
 async function handle(value: unknown) {
@@ -43,14 +47,27 @@ async function handle(value: unknown) {
     else if (value.adapterId === 'cn.tencent.codebuddy') {
       const { CodeBuddyAdapter } = await import('@yanbot-harness/adapter-codebuddy');
       adapter = new CodeBuddyAdapter();
-    } else if (value.adapterId === 'com.anthropic.claude-code-cli')
-      adapter = new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' });
-    else throw new Error('Unsupported adapter');
+    } else if (value.adapterId === 'com.anthropic.claude-code-cli') {
+      if ('modelBridge' in value && value.modelBridge === true) {
+        modelChannel = new GuestModelChannel(write);
+        const loopbackOrigin = await modelChannel.listen();
+        adapter = new ClaudeCodeCliAdapter({
+          executablePath: '/opt/claude/claude',
+          loopbackOrigin,
+          apiKey: modelChannel.token,
+        });
+      } else adapter = new ClaudeCodeCliAdapter({ executablePath: '/opt/claude/claude' });
+    } else throw new Error('Unsupported adapter');
     return;
   }
   if (!adapter) throw new Error('Missing boot');
   if (value.method === 'lease') {
     lastLease = Date.now();
+    return;
+  }
+  if (value.method === 'model.response') {
+    if (!modelChannel) throw new Error('Unexpected model response');
+    modelChannel.accept(value);
     return;
   }
   const request = sidecarRequestSchema.parse(value);
@@ -90,10 +107,12 @@ async function handle(value: unknown) {
       active ||
       request.params.adapterSessionId ||
       request.params.extensions.length ||
-      request.params.configScopes.length
+      request.params.configScopes.length ||
+      (modelChannel && !request.params.model)
     )
       return reject();
     await respond({});
+    modelChannel?.setEnabled(true);
     const selectedRuntime = runtime;
     const selectedAdapterId = adapter.manifest.adapterId;
     const done = (async () => {
@@ -132,6 +151,7 @@ async function handle(value: unknown) {
     void done
       .catch(() => process.exit(71))
       .finally(() => {
+        modelChannel?.setEnabled(false);
         active = undefined;
       });
     return;
@@ -142,6 +162,7 @@ async function handle(value: unknown) {
     return respond({});
   }
   if (request.method === 'cancel') {
+    modelChannel?.setEnabled(false);
     await runtime.cancel({
       runId: request.params.runId,
       ...(request.params.reason === undefined ? {} : { reason: request.params.reason }),

@@ -200,6 +200,9 @@ importers:
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@yanbot-harness/sandbox-model-channel':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-model-channel
 
   examples/sdk-basic:
     dependencies:
@@ -407,6 +410,15 @@ importers:
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@yanbot-harness/sandbox-model-channel':
+        specifier: workspace:*
+        version: link:../sandbox-model-channel
+
+  packages/sandbox-model-channel:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/sdk:
     dependencies:

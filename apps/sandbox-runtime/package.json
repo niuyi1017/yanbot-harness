@@ -17,6 +17,7 @@
     "@yanbot-harness/adapter-claude-code-cli": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
     "@yanbot-harness/adapter-codebuddy": "workspace:*",
-    "@yanbot-harness/adapter-kit": "workspace:*"
+    "@yanbot-harness/adapter-kit": "workspace:*",
+    "@yanbot-harness/sandbox-model-channel": "workspace:*"
   }
 }

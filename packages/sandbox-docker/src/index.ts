@@ -1,4 +1,5 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { HostModelChannel, type ModelRequest } from '@yanbot-harness/sandbox-model-channel';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import {
@@ -13,6 +14,7 @@ import { readSnapshot } from './snapshot.js';
 import { createArguments, type SandboxDeployment } from './policy.js';
 
 export { reapUnstartedContainers } from './reaper.js';
+export type { ModelRequest } from '@yanbot-harness/sandbox-model-channel';
 export type { SandboxDeployment } from './policy.js';
 const execute = promisify(execFile);
 const environment = { PATH: '/usr/bin:/bin' };
@@ -34,6 +36,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
   constructor(
     private readonly deployment: SandboxDeployment,
     manifest: AdapterManifest,
+    private readonly modelRequest?: ModelRequest,
   ) {
     this.manifest = { ...manifest, runtimeKinds: ['sidecar'] };
   }
@@ -76,6 +79,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
     let cid: string | undefined;
     let heartbeat: NodeJS.Timeout | undefined;
     let child: ChildProcess | undefined;
+    let channel: HostModelChannel | undefined;
     let cleanupPromise: Promise<void> | undefined;
     const command = async (args: string[]) =>
       (
@@ -89,6 +93,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
     const cleanup = () =>
       (cleanupPromise ??= (async () => {
         clearInterval(heartbeat);
+        channel?.close();
         if (!cid) return;
         await command(['rm', '--force', cid]).catch(() => undefined);
         let remaining: string;
@@ -124,9 +129,26 @@ export class DockerSandboxAdapter implements HarnessAdapter {
             shell: false,
             windowsHide: true,
           });
+          if (this.modelRequest) {
+            if (this.manifest.adapterId !== 'com.anthropic.claude-code-cli') throw failure();
+            channel = new HostModelChannel(
+              this.modelRequest,
+              (frame) =>
+                new Promise<void>((resolve, reject) => {
+                  child!.stdin!.write(`${JSON.stringify(frame)}\n`, (error) => (error ? reject(error) : resolve()));
+                }),
+            );
+            const output = child.stdout!;
+            output.on('error', () => channel?.destroy(new Error('Sandbox output failed.')));
+            child.stdout = output.pipe(channel);
+            channel.on('error', () => {
+              void cleanup().catch(() => undefined);
+            });
+            child.once('close', () => channel?.close());
+          }
           // Boot is private launcher metadata; all following frames use public Sidecar schemas.
           child.stdin!.write(
-            `${JSON.stringify({ method: 'boot', adapterId: this.manifest.adapterId, files: snapshot })}\n`,
+            `${JSON.stringify({ method: 'boot', adapterId: this.manifest.adapterId, files: snapshot, modelBridge: Boolean(this.modelRequest) })}\n`,
           );
           heartbeat = setInterval(() => {
             if (child?.stdin?.writable) child.stdin.write('{"method":"lease"}\n');

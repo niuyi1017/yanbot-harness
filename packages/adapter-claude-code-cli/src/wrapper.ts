@@ -6,6 +6,7 @@ import { capabilities, CLAUDE_CODE_VERSION, manifest } from './manifest.js';
 
 const deployment: ClaudeDeployment = {
   executablePath: process.env.HARNESS_CLAUDE_EXECUTABLE ?? '',
+  ...(process.env.HARNESS_CLAUDE_LOOPBACK_ORIGIN ? { loopbackOrigin: process.env.HARNESS_CLAUDE_LOOPBACK_ORIGIN } : {}),
   ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
   ...(process.env.HARNESS_CLI_JOB_HOST ? { windowsJobHost: process.env.HARNESS_CLI_JOB_HOST } : {}),
 };

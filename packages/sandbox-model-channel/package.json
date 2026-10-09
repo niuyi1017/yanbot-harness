@@ -1,5 +1,5 @@
 {
-  "name": "@yanbot-harness/sandbox-docker",
+  "name": "@yanbot-harness/sandbox-model-channel",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,9 +18,6 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@yanbot-harness/adapter-api": "workspace:*",
-    "@yanbot-harness/adapter-sidecar": "workspace:*",
-    "@yanbot-harness/contracts": "workspace:*",
-    "@yanbot-harness/sandbox-model-channel": "workspace:*"
+    "zod": "4.4.3"
   }
 }

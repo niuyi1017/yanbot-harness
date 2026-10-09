@@ -17,6 +17,10 @@ export class ClaudeCodeCliAdapter implements HarnessAdapter {
   constructor(deployment: ClaudeDeployment) {
     if (
       !path.isAbsolute(deployment.executablePath) ||
+      (deployment.loopbackOrigin !== undefined &&
+        (!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(deployment.loopbackOrigin) ||
+          Number(deployment.loopbackOrigin.split(':').at(-1)) > 65535 ||
+          !deployment.apiKey)) ||
       deployment.executablePath.includes('\0') ||
       (deployment.apiKey !== undefined &&
         (!deployment.apiKey || deployment.apiKey.length > 8192 || /[\r\n\0]/.test(deployment.apiKey)))
@@ -38,6 +42,7 @@ export class ClaudeCodeCliAdapter implements HarnessAdapter {
           TEMP: tmpdir(),
           TMP: tmpdir(),
           ...(deployment.apiKey ? { ANTHROPIC_API_KEY: deployment.apiKey } : {}),
+          ...(deployment.loopbackOrigin ? { HARNESS_CLAUDE_LOOPBACK_ORIGIN: deployment.loopbackOrigin } : {}),
           ...(process.platform === 'win32' && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
           ...(deployment.windowsJobHost ? { HARNESS_CLI_JOB_HOST: deployment.windowsJobHost } : {}),
         },

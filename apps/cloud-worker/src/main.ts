@@ -1,4 +1,4 @@
-import { DockerSandboxAdapter } from '@yanbot-harness/sandbox-docker';
+import { DockerSandboxAdapter, type ModelRequest } from '@yanbot-harness/sandbox-docker';
 import { CodeBuddyAdapter } from '@yanbot-harness/adapter-codebuddy';
 import { ClaudeCodeCliAdapter } from '@yanbot-harness/adapter-claude-code-cli';
 import type { Run } from '@yanbot-harness/contracts';
@@ -21,7 +21,7 @@ const coordinator = new RunCoordinator(
   config,
   undefined,
   config.sandbox
-    ? (run: Run, cwd?: string) => {
+    ? (run: Run, cwd?: string, modelRequest?: ModelRequest) => {
         if (!cwd) throw new Error('Sandbox requires a prepared snapshot.');
         const adapter =
           run.adapterId === 'cn.yanbot.reference'
@@ -35,6 +35,7 @@ const coordinator = new RunCoordinator(
         return new DockerSandboxAdapter(
           { ...config.sandbox!, snapshotRoot: config.sharedWorkspaceRoot, workspacePath: cwd },
           adapter.manifest,
+          modelRequest,
         );
       }
     : scenario === undefined
