@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { RemoteRunJob } from '@yanbot-harness/cloud-queue';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AuditService } from '../src/audit/audit.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -26,6 +26,27 @@ describe('Remote dispatch relay', () => {
       fixture.store.findRunAttempt(fixture.principal.organizationId, fixture.runId, 1),
     ).resolves.toMatchObject({ status: 'queued', active: true, queueJobId: jobId });
     expect(fixture.store.outbox[0]).toMatchObject({ status: 'published', queueJobId: jobId });
+  });
+
+  it('preserves a Worker claim completed before Redis publication returns', async () => {
+    const fixture = await setup();
+    const publish = fixture.queue.add.bind(fixture.queue);
+    vi.spyOn(fixture.queue, 'add').mockImplementation(async (name, data, options) => {
+      await publish(name, data, options);
+      const now = new Date();
+      expect(
+        await fixture.store.claimRunAttempt(
+          fixture.principal.organizationId,
+          fixture.runId,
+          1,
+          'fast-worker',
+          now,
+          new Date(now.getTime() + 30_000),
+        ),
+      ).toMatchObject({ status: 'leased' });
+    });
+    await fixture.dispatch.dispatchOnce();
+    expect(fixture.store.runAttempts[0]).toMatchObject({ status: 'leased', workerId: 'fast-worker' });
   });
 
   it('reconciles a crash after Redis add without issuing a duplicate job', async () => {
