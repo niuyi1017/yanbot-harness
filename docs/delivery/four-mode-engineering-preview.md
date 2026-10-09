@@ -13,7 +13,7 @@ Local/Remote 决定执行位置，SDK/CLI 决定厂商接入方式；应用使�
 - Local Claude 无凭据路径已在 macOS arm64、Windows x64、Linux x64 实际通过；该结果证明版本/协议/错误/清理路径。
 - Docker CI 已验证 Reference 完整运行、Claude 实际二进制认证失败、非 root、只读根文件系统、资源限制、断网、并发隔离、取消和父强杀回收。
 - 完整 Remote SDK → HTTP/SSE → Redis → Worker → Docker 厂商链路已使用真实 Mongo 8.0.32 Store，通过 5 项 E2E、无跳过；独立 Mongo 事务/索引/重连测试 8 项通过。CI 单节点部署不能作为生产 TLS/认证/故障切换证据。
-- 用户目前没有 Anthropic Key。真实模型成功、费用、带模型请求的取消未验收。生产 credential broker、受控模型出网、持久 Session volume/恢复与生产部署仍是后续门禁。
+- 用户目前没有 Anthropic Key。真实模型成功、费用、带模型请求的取消未验收。服务端 Run 模型代理已有工程候选；Sandbox 传输桥、Broker 生产认证、持久 Session volume/恢复与生产部署仍是后续门禁。
 - Remote 厂商入口只在 development/test 中显式开启；production 配置拒绝实验开关。默认仍是 Reference。
 
 ## Local CLI 配置
@@ -63,3 +63,7 @@ SDK 创建 Session 时选择 `cn.tencent.codebuddy` 或 `com.anthropic.claude-co
 证据和剩余任务以 `docs/specs/remote-sandbox-executor/`、`docs/specs/claude-code-cli-adapter/` 及总 roadmap 为准。
 
 工程证据：[`1386dbb` Mongo/Docker 与 Worker E2E](../specs/remote-sandbox-executor/evidence/1386dbb/README.md)；已有 Cloud 部署的显式索引迁移见 [Mongo 运维说明](../specs/remote-mongo-conformance/operations.md)。
+
+服务端模型代理：按已 claim 的 Run/attempt/worker grant 授权，私有 Key 留服务端，固定 Claude 文本 API、模型与输出限制；
+请求次数由 Mongo 原子计数，JSON/SSE 支持背压、跨块脱敏、取消和租约复核。26 项 CI 用例通过，配置与边界见 [代理说明](../specs/run-model-broker/operations.md)。
+它尚未连接断网 Sandbox 的厂商请求，不扩大当前 Remote 模型可用声明。

@@ -1,0 +1,66 @@
+[
+  {
+    "conclusion": "success",
+    "databaseId": 37863473565,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Remote Mongo persistence",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473565"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473543,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Native containment",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473543"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473466,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Claude CLI experimental probe",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473466"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473523,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Remote sandbox containment",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473523"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473664,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Dual Runtime Matrix Evidence",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473664"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473521,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Distribution mechanism probes",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473521"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473491,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "CI",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473491"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 37863473573,
+    "headSha": "558c96262a6a278e92d7df8a961e37b8bbc8f31d",
+    "name": "Unified local installation",
+    "status": "completed",
+    "url": "https://github.com/niuyi1017/yanbot-harness/actions/runs/37863473573"
+  }
+]

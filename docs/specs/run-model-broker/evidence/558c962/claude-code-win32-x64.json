@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "evidence": "real-cli-no-credentials",
+  "cliVersion": "2.1.284",
+  "platform": "win32",
+  "arch": "x64",
+  "events": ["run.started", "session.initialized", "run.failed"],
+  "terminalCode": "AUTHENTICATION_FAILED",
+  "persistedStatus": "failed",
+  "archiveSha512": "Usw9Z8unwN6sWlhAJm5pBdTj5LoYBotUddhCBpnnH1XFJT9dgxRvRXqhftuVQi6LhorFo/HD0VfeHmmJFNCMaw==",
+  "archiveBytes": 111621304
+}

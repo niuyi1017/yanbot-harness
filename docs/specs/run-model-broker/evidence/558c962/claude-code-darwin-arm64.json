@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "evidence": "real-cli-no-credentials",
+  "cliVersion": "2.1.284",
+  "platform": "darwin",
+  "arch": "arm64",
+  "events": ["run.started", "session.initialized", "run.failed"],
+  "terminalCode": "AUTHENTICATION_FAILED",
+  "persistedStatus": "failed",
+  "archiveSha512": "WczsKY4Bg4dlh5M2UILMHM/9xpBdDcXLulzCSE+TFIb6itI7q3kfYTIwvKOzxB557krwHEuKLgWkUiXGdojjVQ==",
+  "archiveBytes": 98952459
+}

@@ -20,19 +20,19 @@
 
 ## 2. 当前产品基线
 
-| 能力                  | 当前状态 | 已完成范围                                                                        | 尚缺内容                                                         |
-| --------------------- | -------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理及中立 `/v1/*`             | 旧 `/local/*` 迁移期兼容与双平台认证                             |
-| TypeScript SDK        | `[~]`    | Local/Remote 显式 Target、远端 Token Provider、Session/Run/Event                  | 正式 Remote service 实机认证                                     |
-| 平台 CLI              | `[~]`    | 公共 SDK、JSONL、Local/Remote Profile 与显式目标选择                              | 远端交互式登录与正式 Remote service 认证                         |
-| Reference Adapter     | `[~]`    | 离线黑盒与 Local/Remote Fixture 共享 Conformance                                  | 正式 Remote service 矩阵证据                                     |
-| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量；Remote Sandbox 无凭据全链路         | 工具/权限/提问场景、Windows 实机、Remote 真实模型                |
-| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档                         | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release              |
-| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线                                   | 与 Remote 和 CLI Sidecar 的完整认证                              |
-| CLI Sidecar           | `[~]`    | Client/Supervisor/Bridge、CLI Host、Windows Job/ACL 与三平台 Claude 无凭据工程 CI | POSIX Local 脱组强杀保证、真实付费调用                           |
-| Remote Runtime        | `[~]`    | Control Plane、Redis、Worker、真实 Linux Docker 与 SDK/CLI 厂商无凭据 E2E         | broker/egress、持久 Session、生产 Mongo/TLS 与双平台正式服务认证 |
-| 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过                     | 完整 containment、正式业务回滚、正式签名与实机认证               |
-| 产品界面与运营        | `[ ]`    | 总体设计                                                                          | Local Web、Electron、Admin、市场与版本管理                       |
+| 能力                  | 当前状态 | 已完成范围                                                                        | 尚缺内容                                                     |
+| --------------------- | -------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Local Runtime         | `[x]`    | loopback HTTP/SSE、认证、工作区授权、本地状态、Run 管理及中立 `/v1/*`             | 旧 `/local/*` 迁移期兼容与双平台认证                         |
+| TypeScript SDK        | `[~]`    | Local/Remote 显式 Target、远端 Token Provider、Session/Run/Event                  | 正式 Remote service 实机认证                                 |
+| 平台 CLI              | `[~]`    | 公共 SDK、JSONL、Local/Remote Profile 与显式目标选择                              | 远端交互式登录与正式 Remote service 认证                     |
+| Reference Adapter     | `[~]`    | 离线黑盒与 Local/Remote Fixture 共享 Conformance                                  | 正式 Remote service 矩阵证据                                 |
+| CodeBuddy SDK Adapter | `[~]`    | macOS 真实初始运行、恢复、取消、文本流和用量；Remote Sandbox 无凭据全链路         | 工具/权限/提问场景、Windows 实机、Remote 真实模型            |
+| 双平台 Preview 包     | `[~]`    | macOS arm64 与 Windows x64 候选包、CI artifacts、交付文档                         | Windows 真实 CodeBuddy 验收、最终冻结与 Pre-release          |
+| Adapter SPI           | `[x]`    | SDK 型 Adapter 接口、能力协商、Conformance 基线                                   | 与 Remote 和 CLI Sidecar 的完整认证                          |
+| CLI Sidecar           | `[~]`    | Client/Supervisor/Bridge、CLI Host、Windows Job/ACL 与三平台 Claude 无凭据工程 CI | POSIX Local 脱组强杀保证、真实付费调用                       |
+| Remote Runtime        | `[~]`    | Control Plane、Redis、Worker、真实 Linux Docker 与 SDK/CLI 厂商无凭据 E2E         | Sandbox 模型传输桥、Broker 生产认证、持久 Session 与正式部署 |
+| 本地统一安装          | `[~]`    | preview.3 三平台签名候选、npm/pnpm/离线安装与基础生命周期通过                     | 完整 containment、正式业务回滚、正式签名与实机认证           |
+| 产品界面与运营        | `[ ]`    | 总体设计                                                                          | Local Web、Electron、Admin、市场与版本管理                   |
 
 当前可以对外准确声明的是：**Local Preview 已形成候选交付；Claude Code CLI 三平台与 Remote SDK/CLI 断网沙箱均已有 Experimental 工程证据，付费 CLI 与 Remote 模型调用未认证；Remote Runtime 尚未正式交付。**
 
@@ -43,6 +43,9 @@ Remote 证据归档见 [`dac5b24`](../remote-sandbox-executor/evidence/dac5b24/R
 
 Mongo 补充：真实 8.0.32 副本集事务/索引/重连/Refresh 撤销 8 项通过（[证据](../remote-mongo-conformance/evidence/b1d9038/README.md)）；完整 SDK/HTTP/SSE/Redis/Worker/Docker 使用 Mongo Store 的 5 项 E2E 全通过（[`1386dbb`](../remote-sandbox-executor/evidence/1386dbb/README.md)）。
 修复无幂等键历史 Run 的唯一索引和 Refresh 重放撤销回滚；已有部署需显式运行索引迁移，见 [运维说明](../remote-mongo-conformance/operations.md)。CI 证据不等于生产 TLS/认证/多节点故障切换。
+
+模型代理补充：服务端 Run 级授权、私有 Key、固定 Claude 文本上游、模型/输出/请求次数限制、JSON/SSE 脱敏、取消和租约复核已实现；
+真实 Mongo 与 Broker 共 26 项通过、零跳过，见 [`run-model-broker`](../run-model-broker/evidence/558c962/README.md)。Sandbox 传输桥尚未接入，生产模式仍拒绝实验配置。
 
 ## 3. 总体执行原则
 
@@ -222,7 +225,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 - 建立 `apps/cloud-worker` 的队列领取、lease、心跳、取消、重试和孤儿任务收敛。
 - 每个 Run 使用非 root 隔离容器和临时工作区，限制 CPU、内存、磁盘、进程、网络和挂载。
-- 长期厂商凭据只留服务端，按 Run 向 Worker/Sandbox 注入短期或最小范围凭据。
+- 长期厂商凭据只留服务端，按 Run 使用受控模型代理；Worker 持有短期 execution grant，Sandbox 经私有传输桥请求代理。
 - 实现 Session 写锁、隔离状态目录、TTL、容器重建恢复和运行后清理。
 - 完成真实 CodeBuddy 初始运行、续接、交互、取消、超时、Worker 崩溃和恢复门禁。
 
@@ -279,7 +282,7 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 | P2 CLI Sidecar 基础设施   | `[~]` | Client/Supervisor/Bridge、CLI Host、私有凭据目录与 Windows Job/ACL 实际 CI 通过                                               | POSIX Local 脱组/父强杀保证与正式厂商认证                           |
 | P3 首个 CLI 厂商          | `[~]` | Claude Code 2.1.284 Wrapper/Host 与三平台无凭据 SDK 路径通过                                                                  | 有自有 Key 后执行真实文本/usage/cancel；保持 Experimental           |
 | P4 Remote Reference       | `[~]` | 控制面、组织 admission、Queue、Worker 与真实 Mongo/Redis/HTTP E2E 通过；8 项 Mongo 专项与 5 项完整链路证据已归档              | 生产 TLS/ACL、多节点故障切换和 macOS/Windows 正式 Remote 客户端验收 |
-| P5 Remote CodeBuddy       | `[~]` | 真实 Linux Docker、资源/工作区隔离、取消/父强杀回收、SDK/CLI 无凭据完整 E2E 通过                                              | broker/egress、持久 Session、真实 CodeBuddy 运行与生产部署          |
+| P5 Remote CodeBuddy       | `[~]` | 真实 Linux Docker、资源/工作区隔离、取消/父强杀回收、SDK/CLI 无凭据完整 E2E 通过                                              | Sandbox 模型传输桥、持久 Session、真实 CodeBuddy 与生产认证         |
 | P6 四象限认证             | `[~]` | 已归档四模式工程证据和限制；生产与付费矩阵不完整                                                                              | 真实模型、Windows 实机与正式 Remote service 认证                    |
 | P7 产品/运营              | `[ ]` | 未脚手架化                                                                                                                    | Local Web 可在 P1 后并行，其余按依赖进入                            |
 
@@ -287,7 +290,8 @@ P1D 是独立的安装分发工作流，可在 P0 基线隔离、方案确认后
 
 1. **收口 P0**：固定 `0.1.0-preview.2` 候选提交、产物摘要和交付声明；不因暂时缺少 Windows 机器停止后续开发。
 2. **推进四象限生产门禁**：P2 基础设施、P3 Claude 三平台无凭据路径、P5 Linux Sandbox 与 SDK/CLI 厂商完整远端错误路径已通过。
-   下一步需独立 Spec 建设 credential broker/受控出网、持久 Session 与恢复，并取得真实模型及正式 Mongo/TLS 证据。
+   服务端 credential/model broker 的首版工程候选已通过；下一步需独立 Spec 接入断网 Sandbox 的 Guest/Worker 私有传输桥，
+   补齐 CodeBuddy 上游策略、持久 Session 与恢复，并取得真实模型及正式 Mongo/TLS 证据。
    用户暂无 Anthropic Key，只阻塞付费厂商验收；不将此与尚未开发的生产能力混为同一个外部阻塞。
    P1D 发布门禁和 P4 正式 Remote service 认证仍单独跟踪。
 
@@ -312,6 +316,7 @@ P1 完成后，再在 P2 CLI Sidecar 与 P4 Remote Reference 两条工作流之�
 - CLI 厂商接入专项：[`cli-harness-adapter`](../cli-harness-adapter/tasks.md)
 - Remote 容器工程基线：[`remote-sandbox-executor`](../remote-sandbox-executor/tasks.md)
 - Remote Mongo 持久化认证：[`remote-mongo-conformance`](../remote-mongo-conformance/tasks.md)
+- Run 模型代理：[`run-model-broker`](../run-model-broker/tasks.md)
 - 统一本地分发专项：[`unified-local-distribution`](../unified-local-distribution/tasks.md)
 - 双平台 Preview 发布：[`dual-platform-preview-release`](../dual-platform-preview-release/tasks.md)
 - 当前交付兼容矩阵：[`compatibility.md`](../../delivery/compatibility.md)
