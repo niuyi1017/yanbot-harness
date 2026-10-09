@@ -82,6 +82,23 @@ describe.skipIf(!uri)('Real Mongo replica-set persistence', () => {
     };
   }
 
+  it('migrates the legacy sparse index explicitly and is idempotent', async () => {
+    const collection = mongo.model('HarnessRun').collection;
+    await collection.dropIndex('run_idempotency_present');
+    await collection.createIndex(
+      { organizationId: 1, sessionId: 1, idempotencyKey: 1 },
+      { unique: true, sparse: true },
+    );
+    await mongo.syncIndexes();
+    await mongo.syncIndexes();
+    const indexes = await collection.indexes();
+    expect(indexes.find((index) => index.name === 'organizationId_1_sessionId_1_idempotencyKey_1')).toBeUndefined();
+    expect(indexes.find((index) => index.name === 'run_idempotency_present')).toMatchObject({
+      unique: true,
+      partialFilterExpression: { idempotencyKey: { $type: 'string' } },
+    });
+  });
+
   it('atomically promotes checkpoints, survives service replacement and fences an expired worker', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'harness-mongo-state-'));
     try {
@@ -172,23 +189,6 @@ describe.skipIf(!uri)('Real Mongo replica-set persistence', () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
-
-  it('migrates the legacy sparse index explicitly and is idempotent', async () => {
-    const collection = mongo.model('HarnessRun').collection;
-    await collection.dropIndex('run_idempotency_present');
-    await collection.createIndex(
-      { organizationId: 1, sessionId: 1, idempotencyKey: 1 },
-      { unique: true, sparse: true },
-    );
-    await mongo.syncIndexes();
-    await mongo.syncIndexes();
-    const indexes = await collection.indexes();
-    expect(indexes.find((index) => index.name === 'organizationId_1_sessionId_1_idempotencyKey_1')).toBeUndefined();
-    expect(indexes.find((index) => index.name === 'run_idempotency_present')).toMatchObject({
-      unique: true,
-      partialFilterExpression: { idempotencyKey: { $type: 'string' } },
-    });
   });
 
   it('allows sequential no-key runs while enforcing explicit-key uniqueness', async () => {

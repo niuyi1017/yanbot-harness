@@ -281,6 +281,45 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     });
   }, 15_000);
 
+  it('fences a killed Worker despite its Redis job lock while a replacement handles new work', async () => {
+    await stopWorker(worker);
+    worker = spawnWorker(redis.url, queueName, origin, root, 'wait-for-cancel');
+    const client = await createClient(auth, origin);
+    const prepared = await client.prepareWorkspaceSnapshot({ manifest: { schemaVersion: 1, entries: [] }, files: [] });
+    const session = await client.createSession({ adapterId: 'cn.yanbot.reference' });
+    const handle = await client.createRun(session.sessionId, {
+      prompt: 'crash after start',
+      workspace: prepared.workspace,
+    });
+    const iterator = handle.events({ signal: AbortSignal.timeout(25_000) })[Symbol.asyncIterator]();
+    const events: AdapterEvent[] = [];
+    while (!events.some((event) => event.type === 'run.started')) {
+      const next = await iterator.next();
+      if (next.done) throw new Error('Missing start');
+      events.push(next.value);
+    }
+    const exited = new Promise<void>((resolve) => worker.once('exit', () => resolve()));
+    worker.kill('SIGKILL');
+    await exited;
+    worker = spawnWorker(redis.url, queueName, origin, root);
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+      events.push(next.value);
+    }
+    expect(events.at(-1)?.type).toBe('run.failed');
+    const attempts = (await inspect()).runAttempts.filter((attempt) => attempt.runId === handle.run.runId);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({ active: false, failureCode: 'LEASE_EXPIRED' });
+    const next = await client.createRun(session.sessionId, {
+      prompt: 'new explicit work',
+      workspace: prepared.workspace,
+    });
+    const completed: AdapterEvent[] = [];
+    for await (const event of next.events({ signal: AbortSignal.timeout(15_000) })) completed.push(event);
+    expect(completed.at(-1)?.type).toBe('run.completed');
+  }, 45_000);
+
   it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE).each(['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'])(
     'runs pinned %s through the disconnected Guest, Worker and scoped Broker',
     async (selectedAdapterId) => {
@@ -565,7 +604,7 @@ function spawnWorker(
       WORKER_REDIS_URL: redisUrl,
       WORKER_QUEUE_NAME: queue,
       WORKER_INTERNAL_ORIGIN: internalOrigin,
-      WORKER_ID: 'e2e-worker',
+      WORKER_ID: `e2e-${randomUUID()}`,
       WORKER_CONCURRENCY: '1',
       WORKER_MODEL_BRIDGE_ENABLED: String(modelBridgeEnabled),
       WORKER_HEARTBEAT_MS: '50',
@@ -596,7 +635,7 @@ function spawnWorker(
 }
 
 async function stopWorker(worker: ChildProcess | undefined): Promise<void> {
-  if (!worker || worker.exitCode !== null) return;
+  if (!worker || worker.exitCode !== null || worker.signalCode !== null) return;
   worker.kill('SIGTERM');
   await new Promise<void>((resolve) => worker.once('exit', () => resolve()));
 }
@@ -655,8 +694,8 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     queueName: queue,
     relayIntervalMs: 20,
     relayLeaseMs: 1_000,
-    runLeaseMs: process.env.HARNESS_SANDBOX_CLAUDE_IMAGE || mongoUri ? 5000 : 500,
-    attemptRecoveryMs: process.env.HARNESS_SANDBOX_CLAUDE_IMAGE || mongoUri ? 10_000 : 1_000,
+    runLeaseMs: 5000,
+    attemptRecoveryMs: 10_000,
     maxAttempts: 3,
     retryDelayMs: 20,
     runAllowedRoles: ['owner', 'admin'],

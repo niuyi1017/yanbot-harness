@@ -6,6 +6,8 @@ runs:
     - name: Start isolated single-node replica set
       shell: bash
       run: |
+        mkdir -p evidence
+        trap 'docker logs --tail 100 harness-mongo-ci > evidence/mongo-startup.log 2>&1 || true; docker inspect --format "{{json .State}}" harness-mongo-ci > evidence/mongo-startup-state.json 2>/dev/null || true; df -h > evidence/mongo-startup-disk.txt' ERR
         docker pull mongo:8.0
         image=$(docker image inspect --format '{{.Id}}' mongo:8.0)
         docker run -d --name harness-mongo-ci --publish 127.0.0.1:27017:27017 "$image" --replSet harness-ci --bind_ip_all

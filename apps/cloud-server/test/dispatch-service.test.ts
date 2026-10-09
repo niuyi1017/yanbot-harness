@@ -94,6 +94,7 @@ describe('Remote dispatch relay', () => {
       leaseExpiresAt: new Date(0),
       updatedAt: new Date(0),
     });
+    fixture.queue.failRemove = true;
     await fixture.dispatch.reapOnce();
     expect(fixture.store.outbox.some((outbox) => outbox.attempt > 1)).toBe(false);
     expect((await fixture.controlPlane.getRun(fixture.principal, fixture.runId)).status).toBe('failed');
@@ -121,6 +122,7 @@ class FakeQueue implements DispatchQueue {
   readonly jobs = new Map<string, { data: RemoteRunJob; jobId: string }>();
   failBeforeAdd = false;
   failAfterAdd = false;
+  failRemove = false;
 
   async add(_name: string, data: RemoteRunJob, options: { jobId: string }): Promise<void> {
     if (this.failBeforeAdd) throw new Error('Redis unavailable.');
@@ -130,7 +132,12 @@ class FakeQueue implements DispatchQueue {
 
   async getJob(jobId: string) {
     if (!this.jobs.has(jobId)) return undefined;
-    return { remove: async () => void this.jobs.delete(jobId) };
+    return {
+      remove: async () => {
+        if (this.failRemove) throw new Error('Job is locked');
+        this.jobs.delete(jobId);
+      },
+    };
   }
 
   async close(): Promise<void> {}

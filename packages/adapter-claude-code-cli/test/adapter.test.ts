@@ -89,10 +89,10 @@ describe.skipIf(process.platform === 'win32')('Claude Code fixture Sidecar confo
   it('rejects an unsupported version at probe', async () => {
     expect(await (await adapter('version')).probe({})).toMatchObject({ available: false });
   });
-  it('rejects interactive runs explicitly', async () => {
+  it('rejects unsupported config scopes explicitly', async () => {
     const report = await runAdapterConformance({
       adapter: await adapter('normal'),
-      request: { ...request(), permissionPolicy: 'interactive' },
+      request: { ...request(), configScopes: ['project'] },
     });
     expect(report.events.at(-1)).toMatchObject({
       type: 'run.failed',

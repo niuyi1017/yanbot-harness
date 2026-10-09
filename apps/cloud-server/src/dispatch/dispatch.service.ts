@@ -112,7 +112,11 @@ export class DispatchService implements OnApplicationBootstrap, OnApplicationShu
       const job = await this.#queue.getJob(queueJobId);
       if (job) {
         if (existing.status === 'dispatching') {
-          await this.#store.replaceRunAttempt({ ...existing, status: 'queued', updatedAt: now });
+          await this.#store.transaction(async () => {
+            const latest = await this.#store.findRunAttempt(outbox.organizationId, outbox.runId, outbox.attempt);
+            if (latest?.active && latest.status === 'dispatching')
+              await this.#store.replaceRunAttempt({ ...latest, status: 'queued', updatedAt: now });
+          });
         }
         await this.#store.markOutboxPublished(outbox.organizationId, outbox.outboxId, this.#owner, queueJobId, now);
         return true;
@@ -128,7 +132,7 @@ export class DispatchService implements OnApplicationBootstrap, OnApplicationShu
         runId: outbox.runId,
         attempt: outbox.attempt,
         queueJobId,
-        status: 'dispatching',
+        status: 'queued',
         active: true,
         createdAt: now,
         updatedAt: now,
@@ -153,7 +157,6 @@ export class DispatchService implements OnApplicationBootstrap, OnApplicationShu
         { schemaVersion: 1, runId: outbox.runId, attempt: outbox.attempt, executionGrant: issued.executionGrant },
         { jobId: queueJobId },
       );
-      await this.#store.replaceRunAttempt({ ...attempt, status: 'queued', updatedAt: new Date() });
       await this.#store.markOutboxPublished(
         outbox.organizationId,
         outbox.outboxId,
@@ -212,15 +215,18 @@ export class DispatchService implements OnApplicationBootstrap, OnApplicationShu
         );
         continue;
       }
+      // Fence in Mongo first. A BullMQ lock can outlive a dead Worker and must not delay revocation.
+      await this.#recover(attempt, attempt.status === 'leased' ? 'LEASE_EXPIRED' : 'ATTEMPT_STALE');
+      const latest = await this.#store.findRunAttempt(attempt.organizationId, attempt.runId, attempt.attempt);
+      if (latest?.active) continue;
       const job = await this.#queue.getJob(attempt.queueJobId);
       if (job) {
         try {
           await job.remove();
         } catch {
-          continue;
+          // A later BullMQ stalled-job pass will remove/reject the now-revoked attempt.
         }
       }
-      await this.#recover(attempt, attempt.status === 'leased' ? 'LEASE_EXPIRED' : 'ATTEMPT_STALE');
     }
     return attempts.length;
   }
