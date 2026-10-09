@@ -16,6 +16,7 @@ const integrities = {
 };
 if (!integrities[target]) throw new Error('Unsupported probe platform.');
 const root = await mkdtemp(path.join(tmpdir(), 'harness-claude-platform-'));
+let report;
 try {
   const name = `claude-code-${target}`;
   const response = await globalThis.fetch(`https://registry.npmjs.org/@anthropic-ai/${name}/-/${name}-${version}.tgz`, {
@@ -42,11 +43,13 @@ try {
     timeout: 90_000,
     maxBuffer: 64 * 1024,
   });
-  const report = { ...JSON.parse(result.stdout), archiveSha512: integrities[target], archiveBytes: total };
-  const output = path.resolve(process.argv[2] ?? 'evidence');
-  await mkdir(output, { recursive: true });
-  await writeFile(path.join(output, `claude-code-${target}.json`), `${JSON.stringify(report, null, 2)}\n`);
-  console.log(JSON.stringify({ target, status: report.status, evidence: report.evidence }));
+  report = { ...JSON.parse(result.stdout), archiveSha512: integrities[target], archiveBytes: total };
 } finally {
-  await rm(root, { recursive: true, force: true });
+  // Windows may briefly retain executable handles after the runtime has closed.
+  // Keep cleanup bounded and fail the probe if the lock outlives these retries.
+  await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
+const output = path.resolve(process.argv[2] ?? 'evidence');
+await mkdir(output, { recursive: true });
+await writeFile(path.join(output, `claude-code-${target}.json`), `${JSON.stringify(report, null, 2)}\n`);
+console.log(JSON.stringify({ target, status: report.status, evidence: report.evidence }));
