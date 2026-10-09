@@ -122,6 +122,7 @@ export class WorkspaceService {
   }
 
   async cleanupExpired(limit = 100): Promise<number> {
+    await this.#store.pruneExpiredCheckpoints(this.#now());
     const records = await this.#store.listExpiredWorkspaces(this.#now(), limit);
     let cleaned = 0;
     for (const record of records) {

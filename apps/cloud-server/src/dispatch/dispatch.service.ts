@@ -231,53 +231,68 @@ export class DispatchService implements OnApplicationBootstrap, OnApplicationShu
   }
 
   async #recover(attempt: RunAttemptRecord, failureCode: string): Promise<void> {
-    const now = new Date();
-    if (
-      !(await this.#store.closeRunAttempt(
-        attempt.organizationId,
-        attempt.runId,
-        attempt.attempt,
-        'abandoned',
-        now,
-        failureCode,
-      ))
-    ) {
-      return;
-    }
-    await this.#store.revokeRunGrants(attempt.organizationId, attempt.runId, now);
-    if (attempt.attempt >= this.#config.maxAttempts) {
+    await this.#store.transaction(async () => {
+      const now = new Date();
+      const current = await this.#store.findRunAttempt(attempt.organizationId, attempt.runId, attempt.attempt);
+      if (
+        !current?.active ||
+        (failureCode === 'LEASE_EXPIRED' && current.leaseExpiresAt && current.leaseExpiresAt > now) ||
+        (failureCode === 'ATTEMPT_STALE' &&
+          current.updatedAt.getTime() > now.getTime() - this.#config.attemptRecoveryMs)
+      )
+        return;
+      if (
+        !(await this.#store.closeRunAttempt(
+          attempt.organizationId,
+          attempt.runId,
+          attempt.attempt,
+          'abandoned',
+          now,
+          failureCode,
+        ))
+      ) {
+        return;
+      }
+      await this.#store.revokeRunGrants(attempt.organizationId, attempt.runId, now);
+      const run = await this.#store.findRun(attempt.organizationId, attempt.runId);
+      if (run?.value.startedAt || run?.value.lastSequence) {
+        await this.#controlPlane.failDispatch(attempt.organizationId, attempt.runId, attempt.attempt, 'HARNESS_FAILED');
+        return;
+      }
+      if (attempt.attempt >= this.#config.maxAttempts) {
+        await this.#audit.record({
+          requestId: randomUUID(),
+          organizationId: attempt.organizationId,
+          action: 'run.retry.exhausted',
+          resourceType: 'run',
+          resourceId: attempt.runId,
+          outcome: 'failed',
+          status: 503,
+          errorCode: failureCode,
+        });
+        await this.#controlPlane.failDispatch(attempt.organizationId, attempt.runId, attempt.attempt, 'HARNESS_FAILED');
+        return;
+      }
       await this.#audit.record({
         requestId: randomUUID(),
         organizationId: attempt.organizationId,
-        action: 'run.retry.exhausted',
+        action: 'run.retry',
         resourceType: 'run',
         resourceId: attempt.runId,
-        outcome: 'failed',
-        status: 503,
+        outcome: 'succeeded',
+        status: 202,
         errorCode: failureCode,
       });
-      await this.#controlPlane.failDispatch(attempt.organizationId, attempt.runId, attempt.attempt, 'HARNESS_FAILED');
-      return;
-    }
-    await this.#audit.record({
-      requestId: randomUUID(),
-      organizationId: attempt.organizationId,
-      action: 'run.retry',
-      resourceType: 'run',
-      resourceId: attempt.runId,
-      outcome: 'succeeded',
-      status: 202,
-      errorCode: failureCode,
-    });
-    await this.#store.insertOutbox({
-      organizationId: attempt.organizationId,
-      outboxId: randomUUID(),
-      runId: attempt.runId,
-      attempt: attempt.attempt + 1,
-      kind: 'run.requested',
-      status: 'pending',
-      availableAt: new Date(now.getTime() + this.#config.retryDelayMs * 2 ** (attempt.attempt - 1)),
-      createdAt: now,
+      await this.#store.insertOutbox({
+        organizationId: attempt.organizationId,
+        outboxId: randomUUID(),
+        runId: attempt.runId,
+        attempt: attempt.attempt + 1,
+        kind: 'run.requested',
+        status: 'pending',
+        availableAt: new Date(now.getTime() + this.#config.retryDelayMs * 2 ** (attempt.attempt - 1)),
+        createdAt: now,
+      });
     });
   }
 }

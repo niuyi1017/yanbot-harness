@@ -79,7 +79,10 @@ const claudeAdapterSummary = adapterSummarySchema.parse({
     'streaming.text': { level: 'native' },
     'usage.tokens': { level: 'native' },
     'usage.cost': { level: 'native' },
-    'sessions.resume': { level: 'unsupported', reason: 'Sandbox sessions are ephemeral.' },
+    'sessions.resume': { level: 'emulated', reason: 'Restores committed workspace and quoted conversation history.' },
+    'streaming.tool-events': { level: 'native' },
+    'interactions.permissions': { level: 'native' },
+    'interactions.questions': { level: 'native' },
     'models.list': { level: 'unsupported', reason: 'No certified discovery interface.' },
   },
 });
@@ -96,7 +99,10 @@ const codeBuddyAdapterSummary = adapterSummarySchema.parse({
   capabilities: {
     'runs.cancel': { level: 'native' },
     'streaming.text': { level: 'native' },
-    'sessions.resume': { level: 'unsupported', reason: 'Sandbox sessions are ephemeral.' },
+    'sessions.resume': { level: 'emulated', reason: 'Restores committed workspace and quoted conversation history.' },
+    'streaming.tool-events': { level: 'native' },
+    'interactions.permissions': { level: 'native' },
+    'interactions.questions': { level: 'native' },
     'models.list': { level: 'unsupported', reason: 'Sandbox model discovery is not certified.' },
   },
 });
@@ -214,21 +220,33 @@ export class ControlPlaneService {
           throw invalidConfiguration('The selected model is invalid.');
         if (
           selectedAdapterId !== adapterId &&
-          (input.permissionPolicy !== 'read-only' ||
-            input.resume ||
-            input.extensions.length ||
-            input.configScopes.length ||
-            (input.maxTurns !== undefined && input.maxTurns !== 1))
+          (input.extensions.length || input.configScopes.length || (input.maxTurns !== undefined && input.maxTurns > 8))
         ) {
           throw new CloudError(
             422,
             'CAPABILITY_UNSUPPORTED',
-            'Experimental vendor Remote runs require a read-only workspace, one turn, and no resume or extensions.',
+            'Experimental vendor Remote runs require at most eight turns and no extensions or config scopes.',
           );
         }
         if (sessionRecord.value.status === 'running') throw conflict('The session already has an active run.');
         const workspace = await this.#workspaces.requireReady(principal.organizationId, input.workspace);
         const now = this.#now();
+        const checkpoint = input.resume ? sessionRecord.checkpoint : undefined;
+        if (
+          input.resume &&
+          (!checkpoint || new Date(checkpoint.expiresAt) <= now || checkpoint.baseDigest !== workspace.digest)
+        )
+          throw invalidConfiguration('Resume requires a live committed checkpoint and the same base workspace.');
+        if (checkpoint) {
+          if (
+            checkpoint.history.length + input.prompt.length + 256 >
+            (sessionRecord.value.adapterId === 'cn.yanbot.reference' ? 1_000_000 : 65_536)
+          )
+            throw invalidConfiguration('Resumed prompt exceeds the run limit.');
+          const stateWorkspace = await this.#store.findWorkspace(principal.organizationId, checkpoint.workspaceRef);
+          if (!stateWorkspace || stateWorkspace.status !== 'ready' || stateWorkspace.expiresAt <= now)
+            throw invalidConfiguration('The session checkpoint workspace has expired.');
+        }
         const timestamp = now.toISOString();
         const run = runSchema.parse({
           protocolVersion: HARNESS_PROTOCOL_VERSION,
@@ -239,6 +257,7 @@ export class ControlPlaneService {
           prompt: input.prompt,
           ...(input.model === undefined ? {} : { model: input.model }),
           permissionPolicy: input.permissionPolicy,
+          ...(input.maxTurns === undefined ? {} : { maxTurns: input.maxTurns }),
           createdAt: timestamp,
         });
         const runRecord: RunRecord = {
@@ -249,6 +268,7 @@ export class ControlPlaneService {
           workspaceRef: workspace.workspaceRef,
           value: run,
           inputFingerprint: fingerprint,
+          ...(checkpoint ? { resumeFrom: checkpoint } : {}),
           ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
         };
         const nextSession = sessionSchema.parse({

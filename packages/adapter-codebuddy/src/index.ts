@@ -192,13 +192,10 @@ class CodeBuddyRuntime implements AdapterRuntime {
       ? {
           ...capabilities,
           ...Object.fromEntries(
-            [
-              'sessions.resume',
-              'streaming.tool-events',
-              'interactions.permissions',
-              'interactions.questions',
-              'usage.cost',
-            ].map((key) => [key, { level: 'unsupported' as const, reason: 'Experimental text model bridge.' }]),
+            ['sessions.resume', 'usage.cost'].map((key) => [
+              key,
+              { level: 'unsupported' as const, reason: 'Ephemeral broker execution.' },
+            ]),
           ),
         }
       : capabilities;
@@ -273,16 +270,15 @@ class CodeBuddyRuntime implements AdapterRuntime {
     if (
       this.#bridge &&
       (!input.model ||
-        input.permissionPolicy !== 'read-only' ||
         input.adapterSessionId ||
         input.extensions.length ||
         input.configScopes.length ||
-        (input.maxTurns !== undefined && input.maxTurns !== 1) ||
+        (input.maxTurns !== undefined && input.maxTurns > 8) ||
         Object.keys(this.#context.config ?? {}).length)
     )
       throw new HarnessAdapterError({
         code: 'CONFIGURATION_INVALID',
-        message: 'Model bridge requires an explicit model and isolated read-only text run.',
+        message: 'Model bridge requires an explicit model, isolated configuration and at most eight turns.',
         retryable: false,
       });
     if (input.model && input.model.adapterId !== ADAPTER_ID) {
@@ -321,11 +317,7 @@ class CodeBuddyRuntime implements AdapterRuntime {
       ...(this.#bridge
         ? {
             textBridge: true,
-            maxTurns: 1,
-            canUseTool: async () => ({
-              behavior: 'deny' as const,
-              message: 'Tools are disabled for the model bridge.',
-            }),
+            maxTurns: input.maxTurns ?? (input.permissionPolicy === 'read-only' ? 1 : 8),
           }
         : {}),
     };
@@ -550,6 +542,8 @@ class CodeBuddyRuntime implements AdapterRuntime {
     policy: AdapterRunInput['permissionPolicy'],
   ): CodeBuddyCanUseTool {
     return async (toolName, input, options) => {
+      if (this.#bridge && !['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'AskUserQuestion'].includes(toolName))
+        return { behavior: 'deny', message: 'Tool is outside the deployment allowlist.' };
       if (toolName !== 'AskUserQuestion' && policy === 'read-only') {
         return { behavior: 'deny', message: 'The read-only policy denies tool execution.' };
       }

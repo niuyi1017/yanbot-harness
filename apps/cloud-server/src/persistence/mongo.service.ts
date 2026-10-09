@@ -22,6 +22,15 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
       serverSelectionTimeoutMS: 10_000,
     });
     await connection.asPromise();
+    if (this.#config.nodeEnv === 'production') {
+      try {
+        const hello = await connection.db!.admin().command({ hello: 1 });
+        if (!hello.setName) throw new Error('Replica set unavailable.');
+      } catch {
+        await connection.close();
+        throw new Error('Production Mongo must provide a reachable replica set.');
+      }
+    }
     for (const [name, schema, collection] of modelDefinitions) connection.model(name, schema, collection);
     this.#connection = connection;
   }

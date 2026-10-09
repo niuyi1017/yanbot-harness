@@ -14,7 +14,8 @@
     "sync:indexes": "node dist/bin/sync-indexes.js",
     "reconcile:admission": "node dist/bin/reconcile-admission.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "preflight": "node dist/bin/preflight.js"
   },
   "dependencies": {
     "@nestjs/common": "11.1.27",
@@ -22,6 +23,7 @@
     "@nestjs/platform-express": "11.1.27",
     "@yanbot-harness/cloud-queue": "workspace:*",
     "@yanbot-harness/contracts": "workspace:*",
+    "@yanbot-harness/sandbox-model-channel": "workspace:*",
     "@yanbot-harness/workspace-snapshot": "workspace:*",
     "express": "5.2.1",
     "mongoose": "9.7.4",

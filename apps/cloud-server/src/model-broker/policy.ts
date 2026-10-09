@@ -2,6 +2,7 @@ import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
+import { anthropicRequest } from '@yanbot-harness/sandbox-model-channel';
 import { CloudError } from '../common/cloud-error.js';
 
 export const CLAUDE_ADAPTER_ID = 'com.anthropic.claude-code-cli';
@@ -20,6 +21,7 @@ export const brokerPoliciesSchema = z
             upstream: z.literal('anthropic-messages').optional(),
             models: z.array(modelId).min(1).max(16),
             apiKeyFile: privatePath,
+            allowTools: z.boolean().optional(),
             maxRequests: z.number().int().min(1).max(8),
             maxOutputTokens: z.number().int().min(1).max(4096),
           })
@@ -36,35 +38,19 @@ export const brokerPoliciesSchema = z
     if (new Set(keys).size !== keys.length) context.addIssue({ code: 'custom', message: 'Duplicate broker policy.' });
   });
 export type BrokerPolicy = z.infer<typeof brokerPoliciesSchema>['policies'][number];
-const text = z.string().max(65_536);
-const content = z.union([
-  text,
-  z
-    .array(z.object({ type: z.literal('text'), text }).strict())
-    .min(1)
-    .max(32),
-]);
-const requestSchema = z
-  .object({
-    model: modelId,
-    messages: z
-      .array(z.object({ role: z.enum(['user', 'assistant']), content }).strict())
-      .min(1)
-      .max(128),
-    system: content.optional(),
-    max_tokens: z.number().int().positive(),
-    stream: z.boolean().optional(),
-    temperature: z.number().min(0).max(1).optional(),
-  })
-  .strict();
 
 export function validateModelRequest(value: unknown, policy: BrokerPolicy, selectedModel?: string): string {
-  const parsed = requestSchema.safeParse(value);
+  const parsed = anthropicRequest.safeParse(value);
   if (
     !parsed.success ||
     !policy.models.includes(parsed.data.model) ||
     (selectedModel !== undefined && parsed.data.model !== selectedModel) ||
-    parsed.data.max_tokens > policy.maxOutputTokens
+    parsed.data.max_tokens > policy.maxOutputTokens ||
+    (!policy.allowTools &&
+      (parsed.data.tools !== undefined ||
+        parsed.data.messages.some(
+          (message) => Array.isArray(message.content) && message.content.some((block) => block.type !== 'text'),
+        )))
   )
     throw new CloudError(422, 'CONFIGURATION_INVALID', 'The model request is outside the deployment policy.');
   const encoded = JSON.stringify(parsed.data);

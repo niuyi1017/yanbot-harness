@@ -1,7 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { HARNESS_PROTOCOL_VERSION } from '@yanbot-harness/contracts';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { AdmissionService } from '../src/admission/admission.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -68,6 +71,7 @@ describe('Cloud control plane', () => {
         prompt: 'test',
         workspace: fixture.workspace.source,
         permissionPolicy: 'interactive',
+        maxTurns: 9,
       }),
     ).rejects.toMatchObject({ code: 'CAPABILITY_UNSUPPORTED' });
     expect(fixture.store.runs).toHaveLength(0);
@@ -234,7 +238,160 @@ describe('Cloud control plane', () => {
   });
 });
 
+const checkpointRoots: string[] = [];
+afterEach(async () => {
+  await Promise.all(checkpointRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function checkpointFixture() {
+  const root = await mkdtemp(path.join(tmpdir(), 'harness-session-state-'));
+  checkpointRoots.push(root);
+  const f = await setup({ workspaceRoot: root });
+  const session = await f.service.createSession(f.principal, { adapterId: 'cn.yanbot.reference' });
+  const created = await f.service.createRun(f.principal, session.sessionId, {
+    prompt: 'remember this',
+    workspace: f.workspace.source,
+  });
+  await insertAttempt(f.store, f.principal.organizationId, created.run.runId);
+  const grants = new ExecutionGrantService(f.store, f.auth, f.service, f.config, new AuditService(f.store, f.config));
+  const issued = await grants.issue((await f.store.findRun(f.principal.organizationId, created.run.runId))!);
+  await grants.claim(issued.executionGrant, 'worker-state');
+  const bytes = Buffer.from('saved file');
+  const snapshot = {
+    manifest: {
+      schemaVersion: 1,
+      entries: [
+        {
+          path: 'result.txt',
+          type: 'file',
+          size: bytes.length,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+          executable: false,
+        },
+      ],
+    },
+    files: [{ path: 'result.txt', contentBase64: bytes.toString('base64') }],
+  };
+  const append = (sequence: number, type: string, payload: unknown) =>
+    grants.append(
+      issued.executionGrant,
+      created.run.runId,
+      1,
+      {
+        protocolVersion: HARNESS_PROTOCOL_VERSION,
+        eventId: randomUUID(),
+        runId: created.run.runId,
+        sessionId: session.sessionId,
+        sequence,
+        timestamp: new Date().toISOString(),
+        type,
+        payload,
+      },
+      'worker-state',
+    );
+  return { ...f, root, session, created, grants, issued, snapshot, append };
+}
+
+describe('Persistent remote sessions', () => {
+  it('promotes only a completed checkpoint and restores files/history for a fresh worker', async () => {
+    const f = await checkpointFixture();
+    await f.append(1, 'run.started', { adapterId: 'cn.yanbot.reference' });
+    await f.append(2, 'assistant.delta', { channel: 'output', text: 'remembered response' });
+    await f.grants.checkpoint(f.issued.executionGrant, f.created.run.runId, 1, 'worker-state', f.snapshot);
+    expect((await f.store.findSession(f.principal.organizationId, f.session.sessionId))?.checkpoint).toBeUndefined();
+    await f.append(3, 'run.completed', {});
+    const committed = (await f.store.findSession(f.principal.organizationId, f.session.sessionId))!.checkpoint!;
+    expect(committed).toMatchObject({ version: 1, baseDigest: f.workspace.digest });
+    expect(committed.history).toContain('remembered response');
+    const second = await f.service.createRun(f.principal, f.session.sessionId, {
+      prompt: 'continue',
+      workspace: f.workspace.source,
+      resume: true,
+    });
+    await insertAttempt(f.store, f.principal.organizationId, second.run.runId);
+    const grant = await f.grants.issue((await f.store.findRun(f.principal.organizationId, second.run.runId))!);
+    await f.grants.claim(grant.executionGrant, 'worker-replacement');
+    const restored = await f.grants.workspace(grant.executionGrant, second.run.runId, 1, 'worker-replacement');
+    expect(await readFile(path.join(f.root, restored.storageKey!, 'result.txt'), 'utf8')).toBe('saved file');
+    expect((await f.grants.run(grant.executionGrant, second.run.runId, 1, 'worker-replacement')).prompt).toContain(
+      'remembered response',
+    );
+    expect((await f.service.getRun(f.principal, second.run.runId)).prompt).toBe('continue');
+    await expect(
+      f.grants.checkpoint(f.issued.executionGrant, f.created.run.runId, 1, 'worker-state', f.snapshot),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('rejects stale leases, wrong workers and missing/expired resume state', async () => {
+    const f = await checkpointFixture();
+    await expect(
+      f.grants.checkpoint(f.issued.executionGrant, f.created.run.runId, 1, 'wrong-worker', f.snapshot),
+    ).rejects.toMatchObject({ status: 403 });
+    f.store.runAttempts[0]!.leaseExpiresAt = new Date(0);
+    await expect(f.append(1, 'run.started', { adapterId: 'cn.yanbot.reference' })).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(
+      f.grants.checkpoint(f.issued.executionGrant, f.created.run.runId, 1, 'worker-state', f.snapshot),
+    ).rejects.toMatchObject({ status: 403 });
+    await f.service.cancelRun(f.principal, f.created.run.runId);
+    await expect(
+      f.service.createRun(f.principal, f.session.sessionId, {
+        prompt: 'continue',
+        workspace: f.workspace.source,
+        resume: true,
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIGURATION_INVALID' });
+  });
+
+  it('rejects expired and incompatible committed state before admission', async () => {
+    const f = await checkpointFixture();
+    await f.grants.checkpoint(f.issued.executionGrant, f.created.run.runId, 1, 'worker-state', f.snapshot);
+    await f.append(1, 'run.completed', {});
+    const session = [...f.store.sessions.values()].find((record) => record.value.sessionId === f.session.sessionId)!;
+    const input = { prompt: 'continue', workspace: f.workspace.source, resume: true };
+    session.checkpoint!.baseDigest = 'sha256:' + '0'.repeat(64);
+    await expect(f.service.createRun(f.principal, f.session.sessionId, input)).rejects.toMatchObject({
+      code: 'CONFIGURATION_INVALID',
+    });
+    session.checkpoint!.baseDigest = f.workspace.digest;
+    session.checkpoint!.expiresAt = new Date(0).toISOString();
+    await expect(f.service.createRun(f.principal, f.session.sessionId, input)).rejects.toMatchObject({
+      code: 'CONFIGURATION_INVALID',
+    });
+    expect(f.store.runs).toHaveLength(1);
+  });
+
+  it('does not promote a staged checkpoint after cancellation and cleans expired history', async () => {
+    const f = await checkpointFixture();
+    await f.grants.checkpoint(f.issued.executionGrant, f.created.run.runId, 1, 'worker-state', f.snapshot);
+    await f.service.cancelRun(f.principal, f.created.run.runId);
+    expect((await f.store.findSession(f.principal.organizationId, f.session.sessionId))?.checkpoint).toBeUndefined();
+    await expect(f.append(1, 'run.completed', {})).rejects.toMatchObject({ status: 403 });
+    await f.store.pruneExpiredCheckpoints(new Date(Date.now() + 2 * 86_400_000));
+    expect((await f.store.findRun(f.principal.organizationId, f.created.run.runId))?.pendingCheckpoint).toBeUndefined();
+  });
+});
+
 describe('Execution grants', () => {
+  it('requires the pinned production image without consuming a rejected grant', async () => {
+    const f = await setup({ experimentalClaudeCli: true, productionSandboxImage: 'sha256:' + 'a'.repeat(64) });
+    const session = await f.service.createSession(f.principal, { adapterId: 'com.anthropic.claude-code-cli' });
+    const created = await f.service.createRun(f.principal, session.sessionId, {
+      prompt: 'image',
+      workspace: f.workspace.source,
+    });
+    await insertAttempt(f.store, f.principal.organizationId, created.run.runId);
+    const grants = new ExecutionGrantService(f.store, f.auth, f.service, f.config, new AuditService(f.store, f.config));
+    const issued = await grants.issue((await f.store.findRun(f.principal.organizationId, created.run.runId))!);
+    await expect(
+      grants.claim(issued.executionGrant, 'worker', undefined, 'sha256:' + 'b'.repeat(64)),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      grants.claim(issued.executionGrant, 'worker', undefined, f.config.productionSandboxImage),
+    ).resolves.toMatchObject({ claimedBy: 'worker' });
+  });
+
   it('are stored as digests, claimed once and constrained by run, attempt and action', async () => {
     const { service, store, principal, workspace, auth } = await setup();
     const session = await service.createSession(principal, { adapterId: 'cn.yanbot.reference' });

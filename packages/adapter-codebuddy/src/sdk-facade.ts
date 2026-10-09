@@ -84,7 +84,10 @@ export const defaultCodeBuddySdkFacade: CodeBuddySdkFacade = {
       includePartialMessages: true,
       ...(input.textBridge
         ? {
-            tools: [],
+            tools:
+              input.permissionMode === 'plan'
+                ? []
+                : ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'AskUserQuestion'],
             thinking: { type: 'disabled' as const },
             persistSession: false,
             maxBudgetUsd: 0.1,

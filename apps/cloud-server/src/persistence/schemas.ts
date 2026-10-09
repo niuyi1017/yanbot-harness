@@ -78,6 +78,7 @@ export const tokenGrantSchema = new Schema(
 export const sessionSchema = tenantDocumentSchema({
   sessionId: identity,
   value: { type: Schema.Types.Mixed, required: true },
+  checkpoint: Schema.Types.Mixed,
 }).index({ organizationId: 1, sessionId: 1 }, { unique: true });
 export const runSchema = tenantDocumentSchema({
   runId: identity,
@@ -88,6 +89,8 @@ export const runSchema = tenantDocumentSchema({
   idempotencyKey: String,
   admissionReleasedAt: Date,
   modelRequestCount: { type: Number, min: 0 },
+  resumeFrom: Schema.Types.Mixed,
+  pendingCheckpoint: Schema.Types.Mixed,
 })
   .index({ organizationId: 1, runId: 1 }, { unique: true })
   .index(

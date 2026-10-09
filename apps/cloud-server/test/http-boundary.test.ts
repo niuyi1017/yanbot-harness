@@ -46,8 +46,8 @@ describe('Cloud HTTP boundary', () => {
     const authorization = { authorization: `Bearer ${String(tokens.accessToken)}` };
     const prepared = await post(
       origin,
-      '/v1/workspaces/git',
-      { repository: 'https://github.com/example/repo.git', commit: 'a'.repeat(40) },
+      '/v1/workspaces/snapshots',
+      { manifest: { schemaVersion: 1, entries: [] }, files: [] },
       authorization,
     );
     const session = await post(origin, '/v1/sessions', { adapterId: 'cn.yanbot.reference' }, authorization);
@@ -148,8 +148,8 @@ describe('Cloud HTTP boundary', () => {
     const authorization = { authorization: `Bearer ${String(tokens.accessToken)}` };
     const prepared = await post(
       origin,
-      '/v1/workspaces/git',
-      { repository: 'https://github.com/example/repo.git', commit: 'a'.repeat(40) },
+      '/v1/workspaces/snapshots',
+      { manifest: { schemaVersion: 1, entries: [] }, files: [] },
       authorization,
     );
     const sessions = await Promise.all([

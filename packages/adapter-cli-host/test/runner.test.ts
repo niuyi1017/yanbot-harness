@@ -71,6 +71,16 @@ describe.skipIf(process.platform === 'win32' && !nativeHost)('generic vendor CLI
     ).rejects.toMatchObject({ code: 'RESOURCE_LIMIT' });
   });
 
+  it('bounds a stalled interactive input callback and owns cleanup', async () => {
+    await expect(
+      runVendorCli({
+        ...launch('stdin-eof'),
+        runTimeoutMs: 100,
+        onInputReady: () => new Promise<void>(() => undefined),
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_TIMEOUT' });
+  });
+
   it('closes stdin for commands waiting for EOF', async () => {
     const lines: string[] = [];
     await runVendorCli({

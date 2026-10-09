@@ -7,6 +7,7 @@ import {
   runVendorCli,
   withCredentialDirectory,
 } from '@yanbot-harness/adapter-cli-host';
+import { ClaudeInteractions, tools, type ClaudeInteractionBridge } from './interactions.js';
 import { ClaudeEventParser } from './parser.js';
 import { CLAUDE_CODE_VERSION, manifest } from './manifest.js';
 
@@ -62,6 +63,7 @@ export async function executeClaudeRun(
   request: RunRequest,
   signal: AbortSignal,
   send: (event: AdapterEvent) => Promise<void>,
+  bridge?: ClaudeInteractionBridge,
 ): Promise<void> {
   const factory = new AdapterEventFactory(request);
   const emit = async (type: AdapterEvent['type'], payload: unknown) => send(factory.create(type, payload));
@@ -70,10 +72,10 @@ export async function executeClaudeRun(
   let parser: ClaudeEventParser | undefined;
   try {
     if (
-      request.permissionPolicy !== 'read-only' ||
       request.extensions.length ||
       request.adapterSessionId ||
-      request.configScopes.length
+      request.configScopes.length ||
+      (request.maxTurns !== undefined && request.maxTurns > 8)
     ) {
       failureCode = 'CAPABILITY_UNSUPPORTED';
       throw new Error('Unsupported capability');
@@ -86,37 +88,84 @@ export async function executeClaudeRun(
       failureCode = 'ADAPTER_INCOMPATIBLE';
       throw new Error('Unsupported version');
     }
-    parser = new ClaudeEventParser(emit);
+    const interactive = request.permissionPolicy !== 'read-only';
+    const interactions = new ClaudeInteractions(request.permissionPolicy, emit, signal);
+    if (bridge) bridge.respond = (response) => interactions.respond(response);
+    parser = new ClaudeEventParser(emit, interactive);
     const activeParser = parser;
     await withCredentialDirectory(
       {},
       async (directory) => {
         const args = [
-          '--bare',
+          ...(interactive
+            ? [
+                '--setting-sources',
+                '',
+                '--strict-mcp-config',
+                '--safe-mode',
+                '--restricted',
+                '--no-session-persistence',
+              ]
+            : ['--bare']),
           '-p',
           '--tools',
-          '',
+          interactive ? tools.join(',') : '',
           '--permission-mode',
-          'dontAsk',
+          interactive ? (request.permissionPolicy === 'auto-edit' ? 'acceptEdits' : 'default') : 'dontAsk',
+          ...(interactive ? ['--permission-prompt-tool', 'stdio', '--input-format', 'stream-json'] : []),
           '--output-format',
           'stream-json',
           '--verbose',
           '--include-partial-messages',
           '--max-turns',
-          String(request.maxTurns ?? 1),
+          String(request.maxTurns ?? (interactive ? 8 : 1)),
           '--max-budget-usd',
           '0.10',
         ];
         if (request.model) args.push('--model', request.model.modelId);
+        let input: { write(text: string): Promise<void>; end(): void } | undefined;
+        let initializedControl = false;
         await runVendorCli({
           executablePath: deployment.executablePath,
           args,
-          stdinText: request.prompt,
+          ...(interactive
+            ? {
+                onInputReady: async (writer: { write(text: string): Promise<void>; end(): void }) => {
+                  input = writer;
+                  await writer.write(
+                    `${JSON.stringify({ type: 'control_request', request_id: 'harness-initialize', request: { subtype: 'initialize' } })}\n${JSON.stringify({ type: 'user', message: { role: 'user', content: request.prompt }, session_id: '' })}\n`,
+                  );
+                },
+              }
+            : { stdinText: request.prompt }),
           workingDirectory: request.cwd ?? directory,
           environment: environment(directory, deployment),
           ...owner(deployment),
           signal,
-          onStdoutLine: (line) => activeParser.line(line),
+          onStdoutLine: async (line) => {
+            if (interactive) {
+              const frame = JSON.parse(line) as Record<string, unknown>;
+              if (frame.type === 'control_response') {
+                const response = frame.response as Record<string, unknown> | undefined;
+                if (
+                  initializedControl ||
+                  response?.request_id !== 'harness-initialize' ||
+                  response.subtype !== 'success'
+                )
+                  throw new Error('Invalid initialization response.');
+                initializedControl = true;
+                return;
+              }
+              if (frame.type === 'control_request') {
+                if (!initializedControl || !activeParser.initialized || !input)
+                  throw new Error('Unexpected permission request.');
+                await input.write(`${JSON.stringify(await interactions.request(frame))}\n`);
+                return;
+              }
+            }
+            await activeParser.line(line);
+            if (activeParser.finished) input?.end();
+          },
         });
       },
       { signal },
@@ -149,7 +198,7 @@ function failureMessage(code: HarnessErrorCode): string {
   if (code === 'AUTHENTICATION_FAILED')
     return 'Claude Code authentication failed. Configure an authorized API key in the Runtime.';
   if (code === 'CAPABILITY_UNSUPPORTED')
-    return 'This experimental adapter accepts text-only read-only runs without resume, extensions, or config scopes.';
+    return 'This adapter requires at most eight turns and does not support vendor-native resume, extensions, or config scopes.';
   if (code === 'ADAPTER_INCOMPATIBLE') return 'The installed Claude Code version is not supported.';
   return 'Claude Code execution failed. Inspect the Runtime configuration and certified version.';
 }

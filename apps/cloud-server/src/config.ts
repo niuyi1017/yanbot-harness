@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { assertProductionMongo, productionProxyCidrs } from './production.js';
 
 import { assertRedisUrl } from '@yanbot-harness/cloud-queue';
 import type { PermissionPolicy } from '@yanbot-harness/contracts';
@@ -37,6 +38,12 @@ const environmentSchema = z
     CLOUD_HOST: z.string().trim().min(1).default('127.0.0.1'),
     CLOUD_PORT: z.coerce.number().int().min(0).max(65_535).default(3_878),
     CLOUD_TRUST_PROXY: booleanText,
+    CLOUD_TRUST_PROXY_CIDRS: z.string().optional(),
+    CLOUD_ENABLED_VENDOR_ADAPTERS: z.string().default(''),
+    CLOUD_VENDOR_SANDBOX_IMAGE: z
+      .string()
+      .regex(/^(?:sha256:[a-f0-9]{64}|[a-zA-Z0-9][a-zA-Z0-9./:_-]*@sha256:[a-f0-9]{64})$/u)
+      .optional(),
     CLOUD_TLS_TERMINATED: booleanText,
     MONGODB_URI: z.string().trim().min(1),
     CLOUD_MONGODB_DATABASE: z
@@ -82,6 +89,8 @@ export type CloudConfig = {
   host: string;
   port: number;
   trustProxy: boolean;
+  trustedProxyCidrs?: string[];
+  productionSandboxImage?: string;
   tlsTerminated: boolean;
   mongodbUri: string;
   mongodbDatabase: string;
@@ -147,23 +156,47 @@ export function parseCloudConfig(environment: NodeJS.ProcessEnv): CloudConfig {
   }
   if (value.NODE_ENV === 'production' && (value.CLOUD_EXPERIMENTAL_CLAUDE_CLI || value.CLOUD_EXPERIMENTAL_CODEBUDDY))
     throw new Error('Experimental vendor adapters are unavailable in production.');
+  const enabledVendors = value.CLOUD_ENABLED_VENDOR_ADAPTERS.split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (
+    new Set(enabledVendors).size !== enabledVendors.length ||
+    enabledVendors.some((id) => !['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'].includes(id))
+  )
+    throw new Error('Invalid enabled vendor adapter allowlist.');
+  const claude = value.CLOUD_EXPERIMENTAL_CLAUDE_CLI || enabledVendors.includes('com.anthropic.claude-code-cli');
+  const codebuddy = value.CLOUD_EXPERIMENTAL_CODEBUDDY || enabledVendors.includes('cn.tencent.codebuddy');
+  const trustedProxyCidrs =
+    value.NODE_ENV === 'production' ? productionProxyCidrs(value.CLOUD_HOST, value.CLOUD_TRUST_PROXY_CIDRS) : undefined;
+  if (value.NODE_ENV === 'production') {
+    assertProductionMongo(value.MONGODB_URI);
+    if (
+      (claude || codebuddy) &&
+      (!value.CLOUD_VENDOR_SANDBOX_IMAGE ||
+        !value.CLOUD_MODEL_BROKER_POLICIES_FILE ||
+        !value.CLOUD_RELAY_ENABLED ||
+        !value.CLOUD_INTERNAL_API_ENABLED)
+    )
+      throw new Error('Production vendors require a pinned sandbox image, Broker policy, internal API and relay.');
+  }
   if (
     value.CLOUD_MODEL_BROKER_POLICIES_FILE &&
-    (value.NODE_ENV === 'production' ||
-      !value.CLOUD_INTERNAL_API_ENABLED ||
-      (!value.CLOUD_EXPERIMENTAL_CLAUDE_CLI && !value.CLOUD_EXPERIMENTAL_CODEBUDDY) ||
+    (!value.CLOUD_INTERNAL_API_ENABLED ||
+      (!claude && !codebuddy) ||
       !path.isAbsolute(value.CLOUD_MODEL_BROKER_POLICIES_FILE) ||
       value.CLOUD_MODEL_BROKER_POLICIES_FILE.includes('\0'))
   )
-    throw new Error(
-      'Experimental model broker requires a development/test internal vendor deployment and an absolute policy file.',
-    );
+    throw new Error('Model broker requires an enabled internal vendor deployment and an absolute policy file.');
   return {
     ...(value.CLOUD_MODEL_BROKER_POLICIES_FILE
       ? { modelBrokerPoliciesFile: value.CLOUD_MODEL_BROKER_POLICIES_FILE }
       : {}),
-    experimentalClaudeCli: value.CLOUD_EXPERIMENTAL_CLAUDE_CLI,
-    experimentalCodeBuddy: value.CLOUD_EXPERIMENTAL_CODEBUDDY,
+    experimentalClaudeCli: claude,
+    experimentalCodeBuddy: codebuddy,
+    ...(trustedProxyCidrs ? { trustedProxyCidrs } : {}),
+    ...(value.NODE_ENV === 'production' && value.CLOUD_VENDOR_SANDBOX_IMAGE
+      ? { productionSandboxImage: value.CLOUD_VENDOR_SANDBOX_IMAGE }
+      : {}),
     nodeEnv: value.NODE_ENV,
     host: value.CLOUD_HOST,
     port: value.CLOUD_PORT,

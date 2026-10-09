@@ -334,6 +334,7 @@ export const runSchema = z
     status: runStatusSchema,
     prompt: z.string().min(1).max(1_000_000),
     model: modelRefSchema.optional(),
+    maxTurns: z.number().int().positive().max(1_000).optional(),
     permissionPolicy: permissionPolicySchema,
     adapterSessionId: opaqueIdSchema.optional(),
     firstSequence: z.number().int().positive().optional(),

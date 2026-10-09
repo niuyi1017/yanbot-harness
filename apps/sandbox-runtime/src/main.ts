@@ -1,4 +1,5 @@
-import { GuestModelChannel } from '@yanbot-harness/sandbox-model-channel';
+import { GuestCheckpointChannel, GuestModelChannel } from '@yanbot-harness/sandbox-model-channel';
+import { createWorkspaceSnapshot } from '@yanbot-harness/workspace-snapshot';
 import { TextDecoder } from 'node:util';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -10,6 +11,7 @@ import type { HarnessAdapter, AdapterRuntime } from '@yanbot-harness/adapter-api
 import { sidecarRequestSchema } from '@yanbot-harness/adapter-sidecar';
 import { HARNESS_PROTOCOL_VERSION, type AdapterEvent, type HarnessCapabilities } from '@yanbot-harness/contracts';
 
+let stateChannel: GuestCheckpointChannel | undefined;
 let modelChannel: GuestModelChannel | undefined;
 let adapter: HarnessAdapter | undefined;
 let runtime: AdapterRuntime | undefined;
@@ -28,6 +30,7 @@ const write = (value: unknown) =>
 
 async function stop() {
   stopping = true;
+  stateChannel?.close();
   modelChannel?.setEnabled(false);
   if (active) await runtime?.cancel({ runId: active.runId });
   await active?.done.catch(() => undefined);
@@ -40,6 +43,7 @@ async function handle(value: unknown) {
   if (value.method === 'boot') {
     if (adapter || !('adapterId' in value) || !('files' in value)) throw new Error('Invalid boot');
     await restoreSnapshot(value.files);
+    if ('checkpoint' in value && value.checkpoint === true) stateChannel = new GuestCheckpointChannel(write);
     if (value.adapterId === 'cn.yanbot.reference')
       adapter = new ReferenceAdapter(
         process.env.HARNESS_SANDBOX_REFERENCE_WAIT === '1' ? { scenario: { kind: 'wait-for-cancel' } } : {},
@@ -69,6 +73,11 @@ async function handle(value: unknown) {
     lastLease = Date.now();
     return;
   }
+  if (value.method === 'state.saved') {
+    if (!stateChannel) throw new Error('Unexpected checkpoint acknowledgement');
+    stateChannel.accept(value);
+    return;
+  }
   if (value.method === 'model.response') {
     if (!modelChannel) throw new Error('Unexpected model response');
     modelChannel.accept(value);
@@ -84,7 +93,9 @@ async function handle(value: unknown) {
     runtime = await adapter.createRuntime({});
     capabilities = {
       ...(await runtime.capabilities()),
-      'sessions.resume': { level: 'unsupported', reason: 'Sandbox sessions are ephemeral.' },
+      'sessions.resume': stateChannel
+        ? { level: 'emulated', reason: 'Host restores committed workspace and conversation context.' }
+        : { level: 'unsupported', reason: 'Checkpoint storage is not connected.' },
       ...(adapter.manifest.adapterId === 'cn.tencent.codebuddy'
         ? { 'models.list': { level: 'unsupported' as const, reason: 'Sandbox model discovery is not certified.' } }
         : {}),
@@ -124,10 +135,27 @@ async function handle(value: unknown) {
       try {
         for await (const event of selectedRuntime.startRun({ ...request.params, cwd: '/home/sandbox/workspace' })) {
           emitted = true;
-          const normalized: AdapterEvent =
+          let normalized: AdapterEvent =
             event.type === 'session.initialized'
               ? { ...event, payload: { ...event.payload, capabilities: capabilities! } }
               : event;
+          if (event.type === 'run.completed' && stateChannel) {
+            try {
+              await stateChannel.save(await createWorkspaceSnapshot('/home/sandbox/workspace'));
+            } catch {
+              normalized = {
+                ...event,
+                type: 'run.failed',
+                payload: {
+                  error: {
+                    code: 'HARNESS_FAILED',
+                    message: 'The session checkpoint could not be committed.',
+                    retryable: false,
+                  },
+                },
+              };
+            }
+          }
           await write({ jsonrpc: '2.0', method: 'event', params: normalized });
         }
       } catch (error) {
@@ -166,6 +194,7 @@ async function handle(value: unknown) {
     return respond({});
   }
   if (request.method === 'cancel') {
+    stateChannel?.close();
     modelChannel?.setEnabled(false);
     await runtime.cancel({
       runId: request.params.runId,

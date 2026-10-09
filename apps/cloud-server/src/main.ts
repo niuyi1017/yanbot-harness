@@ -14,7 +14,7 @@ const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(c
   bodyParser: false,
 });
 app.disable('x-powered-by');
-app.set('trust proxy', config.trustProxy);
+app.set('trust proxy', config.trustedProxyCidrs ?? config.trustProxy);
 app.use('/internal/v1/runs/:runId/model', json({ limit: MAX_MODEL_REQUEST_BYTES, strict: true }));
 app.use(json({ limit: '90mb', strict: true }));
 app.useGlobalFilters(new CloudExceptionFilter());

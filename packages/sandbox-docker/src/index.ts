@@ -1,5 +1,10 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { HostModelChannel, type ModelRequest } from '@yanbot-harness/sandbox-model-channel';
+import {
+  HostCheckpointChannel,
+  HostModelChannel,
+  type SaveCheckpoint,
+  type ModelRequest,
+} from '@yanbot-harness/sandbox-model-channel';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import {
@@ -14,7 +19,7 @@ import { readSnapshot } from './snapshot.js';
 import { createArguments, type SandboxDeployment } from './policy.js';
 
 export { reapUnstartedContainers } from './reaper.js';
-export type { ModelRequest } from '@yanbot-harness/sandbox-model-channel';
+export type { ModelRequest, SaveCheckpoint } from '@yanbot-harness/sandbox-model-channel';
 export type { SandboxDeployment } from './policy.js';
 const execute = promisify(execFile);
 const environment = { PATH: '/usr/bin:/bin' };
@@ -37,6 +42,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
     private readonly deployment: SandboxDeployment,
     manifest: AdapterManifest,
     private readonly modelRequest?: ModelRequest,
+    private readonly saveCheckpoint?: SaveCheckpoint,
   ) {
     this.manifest = { ...manifest, runtimeKinds: ['sidecar'] };
   }
@@ -80,6 +86,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
     let heartbeat: NodeJS.Timeout | undefined;
     let child: ChildProcess | undefined;
     let channel: HostModelChannel | undefined;
+    let stateChannel: HostCheckpointChannel | undefined;
     let cleanupPromise: Promise<void> | undefined;
     const command = async (args: string[]) =>
       (
@@ -94,6 +101,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
       (cleanupPromise ??= (async () => {
         clearInterval(heartbeat);
         channel?.close();
+        stateChannel?.destroy();
         if (!cid) return;
         await command(['rm', '--force', cid]).catch(() => undefined);
         let remaining: string;
@@ -129,6 +137,21 @@ export class DockerSandboxAdapter implements HarnessAdapter {
             shell: false,
             windowsHide: true,
           });
+          if (this.saveCheckpoint) {
+            stateChannel = new HostCheckpointChannel(
+              this.saveCheckpoint,
+              (frame) =>
+                new Promise<void>((resolve, reject) => {
+                  child!.stdin!.write(`${JSON.stringify(frame)}\n`, (error) => (error ? reject(error) : resolve()));
+                }),
+            );
+            const output = child.stdout!;
+            output.on('error', () => stateChannel?.destroy(new Error('Sandbox output failed.')));
+            child.stdout = output.pipe(stateChannel);
+            stateChannel.on('error', () => {
+              void cleanup().catch(() => undefined);
+            });
+          }
           if (this.modelRequest) {
             if (!['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'].includes(this.manifest.adapterId))
               throw failure();
@@ -149,7 +172,7 @@ export class DockerSandboxAdapter implements HarnessAdapter {
           }
           // Boot is private launcher metadata; all following frames use public Sidecar schemas.
           child.stdin!.write(
-            `${JSON.stringify({ method: 'boot', adapterId: this.manifest.adapterId, files: snapshot, modelBridge: Boolean(this.modelRequest) })}\n`,
+            `${JSON.stringify({ method: 'boot', adapterId: this.manifest.adapterId, files: snapshot, modelBridge: Boolean(this.modelRequest), checkpoint: Boolean(this.saveCheckpoint) })}\n`,
           );
           heartbeat = setInterval(() => {
             if (child?.stdin?.writable) child.stdin.write('{"method":"lease"}\n');

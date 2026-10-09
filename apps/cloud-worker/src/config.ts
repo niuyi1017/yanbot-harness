@@ -74,8 +74,7 @@ export function parseWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig 
   }
   const sandbox = value.WORKER_EXECUTION_MODE === 'sandbox';
   const modelBridgeEnabled = value.WORKER_MODEL_BRIDGE_ENABLED === 'true';
-  if (modelBridgeEnabled && (!sandbox || value.NODE_ENV === 'production'))
-    throw new Error('Model bridge requires an experimental sandbox Worker.');
+  if (modelBridgeEnabled && !sandbox) throw new Error('Model bridge requires an isolated sandbox Worker.');
   if (
     sandbox &&
     (!value.WORKER_DOCKER_PATH ||

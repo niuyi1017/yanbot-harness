@@ -20,7 +20,7 @@ The outbox relay is opt-in with `CLOUD_RELAY_ENABLED=true` and requires `CLOUD_R
 `rediss:`. `CLOUD_QUEUE_NAME` must match the Worker. Relay interval/lease, Run lease, stale-attempt recovery, retry
 delay, and maximum attempts have bounded defaults in `src/config.ts`. Recommended startup order is MongoDB and Redis,
 Cloud Server (including index reconciliation), then Worker. A lost Redis job or expired Worker lease is abandoned,
-its grant revoked, and a new attempt issued; retry exhaustion writes one durable `run.failed` event.
+its grant revoked, and an unstarted Run may receive a new attempt. Started Runs fail without replaying side effects; retry exhaustion also writes one durable `run.failed` event.
 
 Bootstrap one organization/user/device with the `CLOUD_PROVISION_*` variables after building:
 
@@ -45,3 +45,5 @@ release marker require no destructive migration.
 Use the shutdown signal handled by Nest so the relay closes BullMQ/Redis cleanly. Redis loss is recoverable from Mongo
 attempt/outbox state, but production readiness still requires Redis TLS/ACL and a real Mongo replica-set transaction
 test; local temporary Redis and memory-store evidence do not replace those gates.
+
+Four-mode tools, Git preparation, durable checkpoints, production TLS/ACL configuration and local preflight are documented in [operations](../../docs/specs/four-mode-completion/operations.md).

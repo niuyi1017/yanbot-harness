@@ -40,11 +40,46 @@ const brokerOrganization = randomUUID();
 const brokerModel = 'claude-sonnet-4-6';
 const brokerSecret = 'synthetic-e2e-broker-secret-not-real';
 let brokerWait = false;
+let brokerToolMode: 'write' | 'read' | undefined;
+let brokerToolStep = 0;
 let brokerAborted = false;
 const brokerRequests: unknown[] = [];
 const workerDiagnostics = new WeakMap<ChildProcess, string>();
 
 function modelResponse(body: { model: string; stream?: boolean }, signal: AbortSignal): Response {
+  const step = brokerToolMode ? ++brokerToolStep : 0;
+  const block =
+    brokerToolMode && step === 1
+      ? {
+          type: 'tool_use',
+          id: 'fixture_tool_1',
+          name: brokerToolMode === 'write' ? 'Write' : 'Read',
+          input: {
+            file_path: '/home/sandbox/workspace/generated.txt',
+            ...(brokerToolMode === 'write' ? { content: 'PERSISTED_TOOL_OK' } : {}),
+          },
+        }
+      : brokerToolMode === 'write' && step === 2
+        ? {
+            type: 'tool_use',
+            id: 'fixture_question_1',
+            name: 'AskUserQuestion',
+            input: {
+              questions: [
+                {
+                  question: 'Choose a color?',
+                  header: 'Color',
+                  options: [
+                    { label: 'Blue', description: 'Blue color' },
+                    { label: 'Red', description: 'Red color' },
+                  ],
+                  multiSelect: false,
+                },
+              ],
+            },
+          }
+        : { type: 'text', text: 'BRIDGE_OK' };
+  const stopReason = block.type === 'tool_use' ? 'tool_use' : 'end_turn';
   const message = {
     id: 'msg_fixture',
     type: 'message',
@@ -58,8 +93,8 @@ function modelResponse(body: { model: string; stream?: boolean }, signal: AbortS
   if (!body.stream)
     return Response.json({
       ...message,
-      content: [{ type: 'text', text: 'BRIDGE_OK' }],
-      stop_reason: 'end_turn',
+      content: [block],
+      stop_reason: stopReason,
       usage: { input_tokens: 5, output_tokens: 2 },
     });
   return new Response(
@@ -70,8 +105,17 @@ function modelResponse(body: { model: string; stream?: boolean }, signal: AbortS
             new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify({ type, ...extra })}\n\n`),
           );
         emit('message_start', { message });
-        emit('content_block_start', { index: 0, content_block: { type: 'text', text: '' } });
-        emit('content_block_delta', { index: 0, delta: { type: 'text_delta', text: 'BRIDGE_OK' } });
+        emit('content_block_start', {
+          index: 0,
+          content_block: block.type === 'text' ? { type: 'text', text: '' } : { ...block, input: {} },
+        });
+        emit('content_block_delta', {
+          index: 0,
+          delta:
+            block.type === 'text'
+              ? { type: 'text_delta', text: block.text }
+              : { type: 'input_json_delta', partial_json: JSON.stringify(block.input) },
+        });
         if (brokerWait) {
           // Advance the broker's bounded redaction tail while leaving the message open.
           emit('ping');
@@ -91,7 +135,7 @@ function modelResponse(body: { model: string; stream?: boolean }, signal: AbortS
           return;
         }
         emit('content_block_stop', { index: 0 });
-        emit('message_delta', { delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 2 } });
+        emit('message_delta', { delta: { stop_reason: stopReason, stop_sequence: null }, usage: { output_tokens: 2 } });
         emit('message_stop');
         controller.close();
       },
@@ -159,6 +203,28 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
     expect(JSON.stringify(persisted.outbox)).not.toContain('e2e-secret-prompt');
     expect(JSON.stringify(persisted.audits)).not.toContain('e2e-secret-prompt');
   }, 15_000);
+
+  it.skipIf(!process.env.HARNESS_SANDBOX_IMAGE)(
+    'materializes an actual pinned public Git export and executes it in Docker',
+    async () => {
+      await stopWorker(worker);
+      worker = spawnWorker(redis.url, queueName, origin, root, undefined, process.env.HARNESS_SANDBOX_IMAGE);
+      const client = await createClient(auth, origin);
+      const prepared = await client.prepareGitWorkspace({
+        repository: 'https://github.com/octocat/Hello-World',
+        commit: '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d',
+      });
+      const session = await client.createSession({ adapterId: 'cn.yanbot.reference' });
+      const handle = await client.createRun(session.sessionId, {
+        prompt: 'pinned Git workspace',
+        workspace: prepared.workspace,
+      });
+      const events: AdapterEvent[] = [];
+      for await (const event of handle.events({ signal: AbortSignal.timeout(30_000) })) events.push(event);
+      expect(events.at(-1)?.type).toBe('run.completed');
+    },
+    60_000,
+  );
 
   it('round-trips an interaction through polling without queue payload expansion', async () => {
     await stopWorker(worker);
@@ -256,8 +322,136 @@ describe.sequential('Remote Reference Worker real queue E2E', () => {
       expect(await handle.refresh()).toMatchObject({ status: 'completed' });
       const state = await inspect();
       expect(JSON.stringify({ events, audits: state.audits, outbox: state.outbox })).not.toContain(brokerSecret);
+      await stopWorker(worker);
+      worker = spawnWorker(
+        redis.url,
+        queueName,
+        origin,
+        root,
+        undefined,
+        process.env.HARNESS_SANDBOX_CLAUDE_IMAGE,
+        true,
+      );
+      brokerRequests.length = 0;
+      const resumed = await client.createRun(session.sessionId, {
+        prompt: 'Continue from the previously committed response.',
+        workspace: prepared.workspace,
+        permissionPolicy: 'read-only',
+        model: { adapterId: selectedAdapterId, modelId: brokerModel },
+        resume: true,
+      });
+      const resumedEvents: AdapterEvent[] = [];
+      for await (const event of resumed.events({ signal: AbortSignal.timeout(45_000) })) resumedEvents.push(event);
+      expect(resumedEvents.at(-1)?.type).toBe('run.completed');
+      expect(JSON.stringify(brokerRequests)).toContain('BRIDGE_OK');
+      expect(JSON.stringify(brokerRequests)).toContain('harness-history');
+      expect((await resumed.refresh()).prompt).toBe('Continue from the previously committed response.');
     },
     60_000,
+  );
+
+  it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE).each([
+    ['com.anthropic.claude-code-cli', 'allow'],
+    ['com.anthropic.claude-code-cli', 'deny'],
+    ['cn.tencent.codebuddy', 'allow'],
+    ['cn.tencent.codebuddy', 'deny'],
+  ] as const)(
+    'round-trips %s tool permission=%s and restores committed files across workers',
+    async (selectedAdapterId, decision) => {
+      await stopWorker(worker);
+      worker = spawnWorker(
+        redis.url,
+        queueName,
+        origin,
+        root,
+        undefined,
+        process.env.HARNESS_SANDBOX_CLAUDE_IMAGE,
+        true,
+      );
+      brokerToolMode = 'write';
+      brokerToolStep = 0;
+      try {
+        const client = await createClient(auth, origin, brokerOrganization);
+        const prepared = await client.prepareWorkspaceSnapshot({
+          manifest: { schemaVersion: 1, entries: [] },
+          files: [],
+        });
+        const session = await client.createSession({ adapterId: selectedAdapterId });
+        const handle = await client.createRun(session.sessionId, {
+          prompt: 'Write a file and ask a question.',
+          workspace: prepared.workspace,
+          permissionPolicy: 'interactive',
+          maxTurns: 4,
+          model: { adapterId: selectedAdapterId, modelId: brokerModel },
+        });
+        const events: AdapterEvent[] = [];
+        for await (const event of handle.events({ signal: AbortSignal.timeout(60_000) })) {
+          events.push(event);
+          if (event.type === 'interaction.requested')
+            await handle.respond(
+              event.payload.kind === 'permission'
+                ? { requestId: event.payload.requestId, action: decision }
+                : {
+                    requestId: event.payload.requestId,
+                    action: 'submit',
+                    answers: Object.fromEntries(event.payload.questions.map((question) => [question.id, 'Blue'])),
+                  },
+            );
+        }
+        expect(events.at(-1)?.type, JSON.stringify(events)).toBe('run.completed');
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            type: 'interaction.resolved',
+            payload: expect.objectContaining({ outcome: decision === 'allow' ? 'allowed' : 'denied' }),
+          }),
+        );
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            type: 'interaction.resolved',
+            payload: expect.objectContaining({ outcome: 'answered' }),
+          }),
+        );
+        expect(events).toContainEqual(
+          expect.objectContaining({ type: decision === 'allow' ? 'tool.completed' : 'tool.failed' }),
+        );
+        if (decision === 'allow') {
+          await stopWorker(worker);
+          worker = spawnWorker(
+            redis.url,
+            queueName,
+            origin,
+            root,
+            undefined,
+            process.env.HARNESS_SANDBOX_CLAUDE_IMAGE,
+            true,
+          );
+          brokerToolMode = 'read';
+          brokerToolStep = 0;
+          const resumed = await client.createRun(session.sessionId, {
+            prompt: 'Read the saved file.',
+            workspace: prepared.workspace,
+            permissionPolicy: 'interactive',
+            maxTurns: 4,
+            model: { adapterId: selectedAdapterId, modelId: brokerModel },
+            resume: true,
+          });
+          const restored: AdapterEvent[] = [];
+          for await (const event of resumed.events({ signal: AbortSignal.timeout(60_000) })) {
+            restored.push(event);
+            if (event.type === 'interaction.requested' && event.payload.kind === 'permission')
+              await resumed.respond({ requestId: event.payload.requestId, action: 'allow' });
+          }
+          expect(restored.at(-1)?.type, JSON.stringify(restored)).toBe('run.completed');
+          expect(JSON.stringify(restored.filter((event) => event.type === 'tool.completed'))).toContain(
+            'PERSISTED_TOOL_OK',
+          );
+        }
+      } finally {
+        brokerToolMode = undefined;
+        brokerToolStep = 0;
+      }
+    },
+    120_000,
   );
 
   it.skipIf(!process.env.HARNESS_SANDBOX_CLAUDE_IMAGE).each(['com.anthropic.claude-code-cli', 'cn.tencent.codebuddy'])(
@@ -429,7 +623,8 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
           upstream: 'anthropic-messages',
           models: [brokerModel],
           apiKeyFile,
-          maxRequests: 2,
+          maxRequests: 8,
+          allowTools: true,
           maxOutputTokens: 1024,
         })),
       }),
@@ -453,7 +648,7 @@ async function startApplication(redisUrl: string, queue: string, workspaceRoot: 
     refreshTokenTtlSeconds: 604_800,
     eventRetentionSeconds: 604_800,
     workspaceTtlSeconds: 86_400,
-    gitAllowedHosts: [],
+    gitAllowedHosts: ['github.com'],
     internalApiEnabled: true,
     relayEnabled: true,
     redisUrl,

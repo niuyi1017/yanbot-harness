@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { assertProductionMongo, productionProxyCidrs } from '../src/production.js';
 import { parseCloudConfig } from '../src/config.js';
 import { ProductionHttpsMiddleware } from '../src/common/request-context.js';
 import { collectionNames, modelDefinitions } from '../src/persistence/schemas.js';
@@ -70,6 +71,54 @@ describe('Cloud Server configuration', () => {
     expect(() => parseCloudConfig({ ...base, NODE_ENV: 'production' })).toThrow(/HTTPS/u);
   });
 
+  it('enables production vendors only with the full isolated transport contract', () => {
+    const production = {
+      ...base,
+      NODE_ENV: 'production',
+      CLOUD_TLS_TERMINATED: 'true',
+      CLOUD_TRUST_PROXY: 'true',
+      MONGODB_URI: 'mongodb://harness:fixture@mongo.example.test:27017/harness?tls=true&replicaSet=rs0',
+      CLOUD_ENABLED_VENDOR_ADAPTERS: 'com.anthropic.claude-code-cli,cn.tencent.codebuddy',
+      CLOUD_VENDOR_SANDBOX_IMAGE: `sha256:${'a'.repeat(64)}`,
+      CLOUD_INTERNAL_API_ENABLED: 'true',
+      CLOUD_RELAY_ENABLED: 'true',
+      CLOUD_REDIS_URL: 'rediss://harness:fixture@redis.example.test:6380',
+      CLOUD_MODEL_BROKER_POLICIES_FILE: '/srv/harness/broker.json',
+    };
+    expect(parseCloudConfig(production)).toMatchObject({
+      experimentalClaudeCli: true,
+      experimentalCodeBuddy: true,
+      productionSandboxImage: production.CLOUD_VENDOR_SANDBOX_IMAGE,
+      trustedProxyCidrs: ['127.0.0.1/32', '::1/128'],
+    });
+    for (const extra of [
+      { CLOUD_VENDOR_SANDBOX_IMAGE: undefined },
+      { CLOUD_REDIS_URL: 'rediss://redis.example.test' },
+      { CLOUD_MODEL_BROKER_POLICIES_FILE: undefined },
+      { CLOUD_RELAY_ENABLED: 'false' },
+      { CLOUD_HOST: '0.0.0.0' },
+      { MONGODB_URI: base.MONGODB_URI },
+    ])
+      expect(() => parseCloudConfig({ ...production, ...extra })).toThrow();
+    expect(
+      parseCloudConfig({ ...production, CLOUD_HOST: '0.0.0.0', CLOUD_TRUST_PROXY_CIDRS: '10.0.0.0/24' })
+        .trustedProxyCidrs,
+    ).toEqual(['10.0.0.0/24']);
+  });
+
+  it('rejects insecure Mongo certificate switches, unauthenticated Redis and broad proxy trust', () => {
+    for (const uri of [
+      'mongodb://user:secret@host/db?tls=false&replicaSet=rs0',
+      'mongodb://user:secret@host/db?tls=true',
+      'mongodb+srv://user:secret@host/db?tlsAllowInvalidCertificates=true',
+      'mongodb://host/db?tls=true&replicaSet=rs0',
+    ])
+      expect(() => assertProductionMongo(uri)).toThrow();
+    expect(() => assertProductionMongo('mongodb+srv://user:secret@host/db')).not.toThrow();
+    for (const cidr of ['0.0.0.0/0', '::/0', '127.0.0.1/33', 'example.com', ''])
+      expect(() => productionProxyCidrs('0.0.0.0', cidr)).toThrow();
+  });
+
   it('defines only prefixed collections and required unique/TTL indexes', () => {
     expect(Object.values(collectionNames).every((name) => name.startsWith('yanbot_harness_'))).toBe(true);
     expect(modelDefinitions).toHaveLength(15);
@@ -94,6 +143,7 @@ describe('Cloud Server configuration', () => {
       NODE_ENV: 'production',
       CLOUD_TLS_TERMINATED: 'true',
       CLOUD_TRUST_PROXY: 'true',
+      MONGODB_URI: 'mongodb://harness:fixture@mongo.example.test:27017/harness?tls=true&replicaSet=rs0',
     });
     const middleware = new ProductionHttpsMiddleware(config);
     expect(() => middleware.use({ secure: false } as never, {} as never, () => undefined)).toThrow(/HTTPS/u);

@@ -34,11 +34,11 @@ export class ModelBrokerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     if (!this.config.modelBrokerPoliciesFile) return;
     if (
-      this.config.nodeEnv === 'production' ||
+      (this.config.nodeEnv === 'production' && !this.config.productionSandboxImage) ||
       !this.config.internalApiEnabled ||
       (!this.config.experimentalClaudeCli && !this.config.experimentalCodeBuddy)
     )
-      throw new Error('The model broker requires an experimental internal vendor deployment.');
+      throw new Error('The model broker requires an enabled, isolated internal vendor deployment.');
     try {
       this.#policies = brokerPoliciesSchema.parse(
         JSON.parse(await readPrivateFile(this.config.modelBrokerPoliciesFile, 256 * 1024)),

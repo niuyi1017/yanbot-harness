@@ -1,6 +1,7 @@
 import { TextDecoder } from 'node:util';
 import { sidecarRequestSchema, type SidecarRequest } from '@yanbot-harness/adapter-sidecar';
 import { HARNESS_PROTOCOL_VERSION } from '@yanbot-harness/contracts';
+import type { ClaudeInteractionBridge } from './interactions.js';
 import { executeClaudeRun, probeClaude, type ClaudeDeployment } from './execute.js';
 import { capabilities, CLAUDE_CODE_VERSION, manifest } from './manifest.js';
 
@@ -12,7 +13,9 @@ const deployment: ClaudeDeployment = {
 };
 let initialized = false;
 let stopping = false;
-let active: { runId: string; controller: AbortController; done: Promise<void> } | undefined;
+let active:
+  | { runId: string; controller: AbortController; bridge: ClaudeInteractionBridge; done: Promise<void> }
+  | undefined;
 
 async function write(frame: unknown): Promise<void> {
   const value = JSON.stringify(frame, (_key, item: unknown) =>
@@ -47,10 +50,15 @@ async function handle(request: SidecarRequest): Promise<void> {
     if (active) return reject();
     const controller = new AbortController();
     await respond({});
-    const done = executeClaudeRun(deployment, request.params, controller.signal, (event) =>
-      write({ jsonrpc: '2.0', method: 'event', params: event }),
+    const bridge: ClaudeInteractionBridge = {};
+    const done = executeClaudeRun(
+      deployment,
+      request.params,
+      controller.signal,
+      (event) => write({ jsonrpc: '2.0', method: 'event', params: event }),
+      bridge,
     );
-    active = { runId: request.params.runId, controller, done };
+    active = { runId: request.params.runId, controller, bridge, done };
     void done
       .catch(() => {
         process.exitCode = 1;
@@ -60,6 +68,15 @@ async function handle(request: SidecarRequest): Promise<void> {
         active = undefined;
       });
     return;
+  }
+  if (request.method === 'respondToInteraction') {
+    if (!active?.bridge.respond) return reject();
+    try {
+      await active.bridge.respond(request.params);
+      return respond({});
+    } catch {
+      return reject();
+    }
   }
   if (request.method === 'cancel') {
     if (active?.runId === request.params.runId) active.controller.abort();

@@ -1,4 +1,4 @@
-import type { ModelRequest } from '@yanbot-harness/sandbox-docker';
+import type { ModelRequest, SaveCheckpoint } from '@yanbot-harness/sandbox-docker';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
@@ -19,6 +19,7 @@ import { InternalControlPlaneClient, InternalClientError, type WorkerWorkspace }
 
 export type WorkerControlPlaneClient = {
   claim(): Promise<unknown>;
+  checkpoint?(runId: string, attempt: number, snapshot: unknown): Promise<void>;
   model?(runId: string, attempt: number, body: unknown, signal: AbortSignal): Promise<Response>;
   run(runId: string, attempt: number): Promise<Run>;
   workspace(runId: string, attempt: number): Promise<WorkerWorkspace>;
@@ -27,7 +28,12 @@ export type WorkerControlPlaneClient = {
   append(runId: string, attempt: number, value: AdapterEvent): Promise<void>;
 };
 type ClientFactory = (grant: string) => WorkerControlPlaneClient;
-type AdapterFactory = (run: Run, cwd?: string, modelRequest?: ModelRequest) => HarnessAdapter | Promise<HarnessAdapter>;
+type AdapterFactory = (
+  run: Run,
+  cwd?: string,
+  modelRequest?: ModelRequest,
+  saveCheckpoint?: SaveCheckpoint,
+) => HarnessAdapter | Promise<HarnessAdapter>;
 
 export class RunCoordinator {
   readonly #clientFactory: ClientFactory;
@@ -39,7 +45,9 @@ export class RunCoordinator {
     adapterFactory: AdapterFactory = () => new ReferenceAdapter(),
   ) {
     this.#clientFactory =
-      clientFactory ?? ((grant) => new InternalControlPlaneClient(config.internalOrigin, grant, config.workerId));
+      clientFactory ??
+      ((grant) =>
+        new InternalControlPlaneClient(config.internalOrigin, grant, config.workerId, fetch, config.sandbox?.image));
     this.#adapterFactory = adapterFactory;
   }
 
@@ -90,6 +98,7 @@ export class RunCoordinator {
           ...(cwd === undefined ? {} : { cwd }),
           ...(run.model === undefined ? {} : { model: run.model }),
           permissionPolicy: run.permissionPolicy,
+          ...(run.maxTurns === undefined ? {} : { maxTurns: run.maxTurns }),
           configScopes: [],
           extensions: [],
         }),
@@ -113,7 +122,15 @@ export class RunCoordinator {
         modelRequest = (body, signal) =>
           client.model!(job.runId, job.attempt, body, AbortSignal.any([abort.signal, signal]));
       }
-      const adapter = await this.#adapterFactory(run, cwd, modelRequest);
+      const saveCheckpoint: SaveCheckpoint | undefined =
+        this.config.sandbox && client.checkpoint
+          ? async (snapshot) => {
+              abort.signal.throwIfAborted();
+              await client.checkpoint!(job.runId, job.attempt, snapshot);
+              abort.signal.throwIfAborted();
+            }
+          : undefined;
+      const adapter = await this.#adapterFactory(run, cwd, modelRequest, saveCheckpoint);
       if (adapter.manifest.adapterId !== run.adapterId) throw new Error('Worker Adapter does not match the Run.');
       controller = await createManagedAdapterRun(adapter, {}, request);
       for await (const adapterEvent of controller.events) {

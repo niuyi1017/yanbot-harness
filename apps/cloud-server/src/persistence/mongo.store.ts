@@ -160,6 +160,21 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
     return result.modifiedCount === 1;
   }
 
+  async pruneExpiredCheckpoints(now: Date): Promise<void> {
+    await this.#model('HarnessSession').updateMany(
+      { 'checkpoint.expiresAt': { $lte: now.toISOString() } },
+      { $unset: { checkpoint: 1 } },
+      this.#options(),
+    );
+    for (const field of ['resumeFrom', 'pendingCheckpoint']) {
+      await this.#model('HarnessRun').updateMany(
+        { [`${field}.expiresAt`]: { $lte: now.toISOString() }, 'value.status': { $nin: ['queued', 'running'] } },
+        { $unset: { [field]: 1 } },
+        this.#options(),
+      );
+    }
+  }
+
   insertSession(record: SessionRecord): Promise<void> {
     return this.#insert('HarnessSession', { ...record, sessionId: record.value.sessionId });
   }

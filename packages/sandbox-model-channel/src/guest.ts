@@ -2,53 +2,10 @@ import { CodeBuddyResponse, normalizeCodeBuddyText } from './codebuddy.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer, type ServerResponse } from 'node:http';
-import { z } from 'zod';
 import { CHUNK_LIMIT, REQUEST_LIMIT, RESPONSE_LIMIT, responseFrame, TIMEOUT_MS, type SendFrame } from './protocol.js';
 
-const cache = z.object({ type: z.literal('ephemeral'), ttl: z.enum(['5m', '1h']).optional() }).strict();
-const text = z
-  .object({ type: z.literal('text'), text: z.string().max(65536), cache_control: cache.optional() })
-  .strict();
-const content = z.union([z.string().max(65536), z.array(text).max(256)]);
-const cliBody = z
-  .object({
-    model: z.string().min(1).max(256),
-    messages: z
-      .array(z.object({ role: z.enum(['user', 'assistant']), content }).strict())
-      .min(1)
-      .max(256),
-    system: content.optional(),
-    max_tokens: z.number().int().min(1).max(4096),
-    stream: z.boolean().optional(),
-    temperature: z.number().min(0).max(1).optional(),
-    tools: z.array(z.never()).max(0).optional(),
-    metadata: z
-      .object({ user_id: z.string().max(4096).optional() })
-      .strict()
-      .optional(),
-    thinking: z
-      .object({ type: z.literal('disabled') })
-      .strict()
-      .optional(),
-    output_config: z
-      .object({ effort: z.enum(['low', 'medium', 'high']).optional() })
-      .strict()
-      .optional(),
-  })
-  .strict();
-export function normalizeClaudeText(value: unknown): unknown {
-  const parsed = cliBody.parse(value);
-  const clean = (value: z.infer<typeof content>) =>
-    typeof value === 'string' ? value : value.map((v) => ({ type: v.type, text: v.text }));
-  return {
-    model: parsed.model,
-    max_tokens: parsed.max_tokens,
-    messages: parsed.messages.map((m) => ({ role: m.role, content: clean(m.content) })),
-    ...(parsed.system === undefined ? {} : { system: clean(parsed.system) }),
-    ...(parsed.stream === undefined ? {} : { stream: parsed.stream }),
-    ...(parsed.temperature === undefined ? {} : { temperature: parsed.temperature }),
-  };
-}
+export { normalizeAnthropicRequest as normalizeClaudeText } from './wire.js';
+import { normalizeAnthropicRequest as normalizeClaudeText } from './wire.js';
 
 type Pending = {
   id: string;

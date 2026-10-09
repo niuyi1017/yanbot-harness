@@ -526,10 +526,9 @@ describe('CodeBuddy deployment model bridge', () => {
     const runtime = await adapter(fake.sdk, { modelBridge }).createRuntime({});
     for (const extra of [
       { model: undefined },
-      { permissionPolicy: 'interactive' as const },
       { configScopes: ['user'] as const },
       { adapterSessionId: 'resume' },
-      { maxTurns: 2 },
+      { maxTurns: 9 },
     ]) {
       await expect(async () => {
         for await (const event of runtime.startRun({ ...input, ...extra } as typeof input)) void event;

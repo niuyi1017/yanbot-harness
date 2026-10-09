@@ -48,7 +48,15 @@ export type WorkspaceRecord = {
   createdAt: Date;
   expiresAt: Date;
 };
-export type SessionRecord = { organizationId: string; userId: string; value: Session };
+export type SessionCheckpoint = {
+  version: number;
+  workspaceRef: string;
+  baseDigest: string;
+  history: string;
+  expiresAt: string;
+};
+export type SessionRecord = { organizationId: string; userId: string; value: Session; checkpoint?: SessionCheckpoint };
+
 export type RunRecord = {
   organizationId: string;
   userId: string;
@@ -60,6 +68,8 @@ export type RunRecord = {
   idempotencyKey?: string;
   admissionReleasedAt?: Date;
   modelRequestCount?: number;
+  resumeFrom?: SessionCheckpoint;
+  pendingCheckpoint?: SessionCheckpoint & { attempt: number };
 };
 export type AdmissionStateRecord = {
   organizationId: string;
@@ -115,6 +125,7 @@ export type RunAttemptRecord = {
   failureCode?: string;
 };
 export type ExecutionGrantAction =
+  | 'state.write'
   | 'model.invoke'
   | 'run.read'
   | 'workspace.read'

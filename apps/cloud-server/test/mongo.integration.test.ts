@@ -1,5 +1,10 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { HARNESS_PROTOCOL_VERSION } from '@yanbot-harness/contracts';
+import { ExecutionGrantService } from '../src/execution-grants/execution-grant.service.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseCloudConfig, type CloudConfig } from '../src/config.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -76,6 +81,98 @@ describe.skipIf(!uri)('Real Mongo replica-set persistence', () => {
       outbox: await mongo.model('Outbox').countDocuments({ organizationId }),
     };
   }
+
+  it('atomically promotes checkpoints, survives service replacement and fences an expired worker', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'harness-mongo-state-'));
+    try {
+      const f = await setup({ workspaceRoot: root, internalApiEnabled: true });
+      const created = await f.service.createRun(f.principal, f.session.sessionId, f.input);
+      const grants = new ExecutionGrantService(
+        f.store,
+        f.auth,
+        f.service,
+        f.config,
+        new AuditService(f.store, f.config),
+      );
+      const now = new Date();
+      await f.store.insertRunAttempt({
+        organizationId: f.principal.organizationId,
+        runId: created.run.runId,
+        attempt: 1,
+        queueJobId: `run-${created.run.runId}-attempt-1`,
+        status: 'queued',
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const issued = await grants.issue((await f.store.findRun(f.principal.organizationId, created.run.runId))!);
+      await grants.claim(issued.executionGrant, 'worker-state');
+      await grants.checkpoint(issued.executionGrant, created.run.runId, 1, 'worker-state', {
+        manifest: { schemaVersion: 1, entries: [] },
+        files: [],
+      });
+      const terminal = {
+        protocolVersion: HARNESS_PROTOCOL_VERSION,
+        eventId: randomUUID(),
+        runId: created.run.runId,
+        sessionId: f.session.sessionId,
+        sequence: 1,
+        timestamp: new Date().toISOString(),
+        type: 'run.completed',
+        payload: {},
+      };
+      await expect(
+        f.store.transaction(async () => {
+          await grants.append(issued.executionGrant, created.run.runId, 1, terminal, 'worker-state');
+          throw new Error('checkpoint-rollback');
+        }),
+      ).rejects.toThrow('checkpoint-rollback');
+      expect((await f.store.findSession(f.principal.organizationId, f.session.sessionId))?.checkpoint).toBeUndefined();
+      expect(await f.store.listEvents(f.principal.organizationId, created.run.runId, 0)).toHaveLength(0);
+      await grants.append(issued.executionGrant, created.run.runId, 1, terminal, 'worker-state');
+      const replacement = services(f.config);
+      const restored = await replacement.service.createRun(f.principal, f.session.sessionId, {
+        ...f.input,
+        resume: true,
+      });
+      expect(
+        (await replacement.store.findRun(f.principal.organizationId, restored.run.runId))?.resumeFrom,
+      ).toMatchObject({ version: 1, baseDigest: f.workspace.digest });
+      await replacement.store.insertRunAttempt({
+        organizationId: f.principal.organizationId,
+        runId: restored.run.runId,
+        attempt: 1,
+        queueJobId: `run-${restored.run.runId}-attempt-1`,
+        status: 'queued',
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const next = await grants.issue(
+        (await replacement.store.findRun(f.principal.organizationId, restored.run.runId))!,
+      );
+      await grants.claim(next.executionGrant, 'worker-replacement');
+      await mongo
+        .model('RunAttempt')
+        .updateOne({ runId: restored.run.runId }, { $set: { leaseExpiresAt: new Date(0) } });
+      await expect(
+        grants.checkpoint(next.executionGrant, restored.run.runId, 1, 'worker-replacement', {
+          manifest: { schemaVersion: 1, entries: [] },
+          files: [],
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(
+        (await replacement.store.findSession(f.principal.organizationId, f.session.sessionId))?.checkpoint?.version,
+      ).toBe(1);
+      await replacement.service.cancelRun(f.principal, restored.run.runId);
+      await replacement.store.pruneExpiredCheckpoints(new Date(Date.now() + 2 * 86_400_000));
+      expect(
+        (await replacement.store.findSession(f.principal.organizationId, f.session.sessionId))?.checkpoint,
+      ).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 
   it('migrates the legacy sparse index explicitly and is idempotent', async () => {
     const collection = mongo.model('HarnessRun').collection;

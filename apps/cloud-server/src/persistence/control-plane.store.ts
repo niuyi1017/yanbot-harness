@@ -62,6 +62,7 @@ export interface ControlPlaneStore {
   listExpiredWorkspaces(now: Date, limit: number): Promise<WorkspaceRecord[]>;
   markWorkspaceDeleted(organizationId: string, workspaceRef: string): Promise<boolean>;
 
+  pruneExpiredCheckpoints(now: Date): Promise<void>;
   insertSession(record: SessionRecord): Promise<void>;
   listSessions(organizationId: string): Promise<SessionRecord[]>;
   findSession(organizationId: string, sessionId: string): Promise<SessionRecord | undefined>;

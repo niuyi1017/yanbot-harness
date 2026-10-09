@@ -77,6 +77,29 @@ describe('Remote dispatch relay', () => {
     expect(fixture.store.runAttempts[1]).toMatchObject({ attempt: 2, status: 'queued', active: true });
   });
 
+  it('never replays an expired attempt once execution may have produced side effects', async () => {
+    const fixture = await setup({ retryDelayMs: 0 });
+    await fixture.dispatch.dispatchOnce();
+    const first = fixture.store.runAttempts[0]!;
+    const run = (await fixture.store.findRun(fixture.principal.organizationId, fixture.runId))!;
+    const session = (await fixture.store.findSession(fixture.principal.organizationId, run.sessionId))!;
+    await fixture.store.replaceRunAndSession(
+      { ...run, value: { ...run.value, status: 'running', startedAt: new Date().toISOString(), lastSequence: 1 } },
+      session,
+    );
+    await fixture.store.replaceRunAttempt({
+      ...first,
+      status: 'leased',
+      workerId: 'lost-worker',
+      leaseExpiresAt: new Date(0),
+      updatedAt: new Date(0),
+    });
+    await fixture.dispatch.reapOnce();
+    expect(fixture.store.outbox.some((outbox) => outbox.attempt > 1)).toBe(false);
+    expect((await fixture.controlPlane.getRun(fixture.principal, fixture.runId)).status).toBe('failed');
+    expect((await fixture.store.findAdmissionState(fixture.principal.organizationId))?.activeRuns).toBe(0);
+  });
+
   it('rebuilds a lost Redis job as a new attempt without reusing the old raw grant', async () => {
     const fixture = await setup({ retryDelayMs: 0, attemptRecoveryMs: 1 });
     await fixture.dispatch.dispatchOnce();

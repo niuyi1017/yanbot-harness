@@ -14,9 +14,12 @@ export const capabilities: HarnessCapabilities = {
   'streaming.text': { level: 'native' },
   'usage.tokens': { level: 'native' },
   'usage.cost': { level: 'native' },
-  'sessions.resume': { level: 'unsupported', reason: 'Ephemeral text-only experimental execution.' },
-  'streaming.tool-events': { level: 'unsupported', reason: 'Tools are disabled.' },
-  'interactions.permissions': { level: 'unsupported', reason: 'Only read-only text execution is accepted.' },
-  'interactions.questions': { level: 'unsupported', reason: 'Interactive execution is disabled.' },
+  'sessions.resume': {
+    level: 'unsupported',
+    reason: 'Vendor-native resume is unavailable; Remote checkpoint resume is provided by the control plane.',
+  },
+  'streaming.tool-events': { level: 'native' },
+  'interactions.permissions': { level: 'native' },
+  'interactions.questions': { level: 'native' },
   'models.list': { level: 'unsupported', reason: 'No certified discovery interface.' },
 };

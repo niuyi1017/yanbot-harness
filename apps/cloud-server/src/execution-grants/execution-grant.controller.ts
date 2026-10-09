@@ -12,10 +12,10 @@ export class ExecutionGrantController {
   @Post('/execution-grants/claim')
   claim(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: { workerId?: unknown },
+    @Body() body: { workerId?: unknown; sandboxImage?: unknown },
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.grants.claim(grant(authorization), body.workerId, requestId(response));
+    return this.grants.claim(grant(authorization), body.workerId, requestId(response), body.sandboxImage);
   }
 
   @Get('/runs/:runId/workspace')
@@ -36,6 +36,17 @@ export class ExecutionGrantController {
     @Headers('x-worker-id') workerId: string | undefined,
   ) {
     return this.grants.run(grant(authorization), runId, integer(attempt), workerId);
+  }
+
+  @Post('/runs/:runId/checkpoint')
+  checkpoint(
+    @Param('runId') runId: string,
+    @Query('attempt') attempt: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-id') workerId: string | undefined,
+    @Body() body: unknown,
+  ) {
+    return this.grants.checkpoint(grant(authorization), runId, integer(attempt), workerId, body);
   }
 
   @Post('/runs/:runId/heartbeat')

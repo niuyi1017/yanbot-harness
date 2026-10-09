@@ -135,6 +135,16 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     return true;
   }
 
+  async pruneExpiredCheckpoints(now: Date): Promise<void> {
+    for (const session of this.sessions.values())
+      if (session.checkpoint && new Date(session.checkpoint.expiresAt) <= now) delete session.checkpoint;
+    for (const run of this.runs.values()) {
+      if (['queued', 'running'].includes(run.value.status)) continue;
+      if (run.resumeFrom && new Date(run.resumeFrom.expiresAt) <= now) delete run.resumeFrom;
+      if (run.pendingCheckpoint && new Date(run.pendingCheckpoint.expiresAt) <= now) delete run.pendingCheckpoint;
+    }
+  }
+
   async insertSession(record: SessionRecord): Promise<void> {
     this.sessions.set(tenantKey(record.organizationId, record.value.sessionId), clone(record));
   }

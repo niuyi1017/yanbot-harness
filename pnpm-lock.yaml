@@ -75,6 +75,9 @@ importers:
       '@yanbot-harness/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@yanbot-harness/sandbox-model-channel':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-model-channel
       '@yanbot-harness/workspace-snapshot':
         specifier: workspace:*
         version: link:../../packages/workspace-snapshot
@@ -209,6 +212,9 @@ importers:
       '@yanbot-harness/sandbox-model-channel':
         specifier: workspace:*
         version: link:../../packages/sandbox-model-channel
+      '@yanbot-harness/workspace-snapshot':
+        specifier: workspace:*
+        version: link:../../packages/workspace-snapshot
 
   examples/sdk-basic:
     dependencies:

@@ -37,6 +37,8 @@ export function assertRedisUrl(value: string, production = false): string {
     throw new Error('The Redis connection URL is invalid.');
   }
   if (production && url.protocol !== 'rediss:') throw new Error('Production Redis requires TLS.');
+  if (production && (!url.username || decodeURIComponent(url.username) === 'default' || !url.password))
+    throw new Error('Production Redis requires a named ACL user and password.');
   return url.toString();
 }
 

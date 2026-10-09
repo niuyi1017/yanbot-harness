@@ -1,70 +1,34 @@
 # 四模式工程候选
 
-此文档描述 Harness 基座的执行能力，版本仍为 Experimental/Preview。四模式是两个维度的组合：
-Local/Remote 决定执行位置，SDK/CLI 决定厂商接入方式；应用使用同一套 Session、Run、Event API。
+Harness 基座仍为 Experimental/Preview。Local/Remote 决定执行位置，SDK/CLI 决定厂商接入方式；应用使用同一套 Session、Run、Event API。
 
-| 执行位置 | SDK 型                                                   | CLI 型                                                                |
-| -------- | -------------------------------------------------------- | --------------------------------------------------------------------- |
-| Local    | 现有 CodeBuddy Adapter，沿用公共 Adapter SPI             | Claude Code 2.1.284，通过独立 Wrapper 与 CLI Host                     |
-| Remote   | Sandbox Guest 装载 CodeBuddy SDK，缺凭据返回标准认证失败 | Sandbox Guest 装载 Claude Wrapper，断网无凭据认证失败已通过 Docker CI |
+| 执行位置 | SDK 型                                                     | CLI 型                                                  |
+| -------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| Local    | CodeBuddy SDK Adapter                                      | Claude Code 2.1.284 Wrapper + CLI Host                  |
+| Remote   | Docker Guest 中的 CodeBuddy SDK，经私有模型通道访问 Broker | Docker Guest 中的 Claude Wrapper，经同一通道访问 Broker |
 
-## 已验证与限制
+## 本轮补齐
 
-- Local Claude 无凭据路径已在 macOS arm64、Windows x64、Linux x64 实际通过；该结果证明版本/协议/错误/清理路径。
-- Docker CI 已验证 Reference 完整运行、Claude 实际二进制认证失败、非 root、只读根文件系统、资源限制、断网、并发隔离、取消和父强杀回收。
-- 完整 Remote SDK → HTTP/SSE → Redis → Worker → Docker 厂商链路已使用真实 Mongo 8.0.32 Store，通过 7 项 E2E、无跳过（Claude 模型桥使用合成上游）；独立 Mongo 事务/索引/重连测试 8 项通过。CI 单节点部署不能作为生产 TLS/认证/故障切换证据。
-- 用户目前没有 Anthropic Key。真实厂商模型成功、实际费用与真实厂商请求的取消未验收。服务端 Run 模型代理与 Claude Sandbox 传输桥已有工程候选；CodeBuddy 模型代理、Broker 生产认证、持久 Session volume/恢复与生产部署仍是后续门禁。
-- Remote 厂商入口只在 development/test 中显式开启；production 配置拒绝实验开关。默认仍是 Reference。
+1. CLI Remote 登录、私有凭据、串行 refresh、状态查询、logout/token family 撤销。
+2. 公开 GitHub 固定 commit 下载为不可变工作区，经过路径、文件类型、容量和 allowlist 校验后进入 Docker 执行。
+3. 成功 Run 的工作区与历史 checkpoint 持久化、TTL 清理、Worker/容器重建后的 emulated resume。取消/失败保留前一成功状态。
+4. 两家厂商的工具调用、权限允许/拒绝、提问和回答。Broker 对工具、模型、请求次数和输出进行限制。
+5. 生产 TLS、Mongo 认证/replica set、Redis 命名 ACL、代理 CIDR、固定镜像声明校验与 preflight；过期 Worker 无权提交状态，已开始的任务不自动重放副作用。
 
-## Local CLI 配置
+具体配置、资源限制、恢复和回滚见 [四模式运维说明](../specs/four-mode-completion/operations.md)。CLI 使用见 `apps/cli/README.md`，开发任务与最终证据见 [本轮 Spec](../specs/four-mode-completion/tasks.md)。
 
-```sh
-export YANBOT_HARNESS_ADAPTER=claude-code-cli
-export CLAUDE_CODE_EXECUTABLE=/absolute/path/to/claude
-# 有自有授权 Key 时才配置；文件权限 0600。
-export ANTHROPIC_API_KEY_FILE=/absolute/path/to/private-key-file
-pnpm --filter @yanbot-harness/local-runtime start
-```
+## 使用约定
 
-Windows 额外配置 `HARNESS_CLI_JOB_HOST` 指向构建的 `cli-job-host.exe`。只支持固定版本 2.1.284；不会隐式安装或升级 CLI。
+Local Claude 需要部署侧配置 `YANBOT_HARNESS_ADAPTER=claude-code-cli`、`CLAUDE_CODE_EXECUTABLE`；有授权 Key 时配置 `ANTHROPIC_API_KEY_FILE`。Windows 额外配置编译后的 `HARNESS_CLI_JOB_HOST`。不隐式安装/更新厂商 CLI。
 
-## Remote 候选配置
+Remote Worker 设置 `WORKER_EXECUTION_MODE=sandbox`、绝对 Docker 路径、不可变镜像 digest 和模型桥开关。Guest 非 root、断网、只读根文件系统、受限 tmpfs，不接收模型 Key、Docker socket 或宿主目录挂载。服务端持有模型凭据。
 
-Cloud Server 保留既有 Mongo/Redis/认证配置，开发/测试环境选择需要的固定厂商：
+SDK 使用 `prepareWorkspaceSnapshot` 或 `prepareGitWorkspace({ repository, commit })`，选择 `cn.tencent.codebuddy` / `com.anthropic.claude-code-cli` 创建 Session。文本用 `read-only`；工具用 `interactive`，通过 `handle.respond()` 回应权限/问题。Remote 成功运行后，在同一 Session、同一原始 workspace 上使用 `resume: true`。厂商桥最多 8 turns，extensions/config scopes/厂商原生会话恢复不在本轮支持范围。
 
-```sh
-CLOUD_EXPERIMENTAL_CLAUDE_CLI=true
-CLOUD_EXPERIMENTAL_CODEBUDDY=true
-```
+## 验证边界
 
-Worker 保留既有队列、internal origin、worker ID 和 snapshot root，增加：
-
-```sh
-WORKER_EXECUTION_MODE=sandbox
-WORKER_DOCKER_PATH=/usr/bin/docker
-WORKER_SANDBOX_IMAGE=sha256:<64-hex-local-image-id>
-```
-
-镜像必须已存在且不可变。Claude 候选镜像须独立包含 `/opt/claude/claude`；CI 的测试镜像安装过程校验官方固定 SHA512，镜像不发布。
-默认网络关闭，容器没有厂商 Key，也没有 Docker socket 或宿主 bind mount。快照经有界 stdin 送入 tmpfs，容器退出即销毁。
-
-SDK 创建 Session 时选择 `cn.tencent.codebuddy` 或 `com.anthropic.claude-code-cli`，通过既有 `prepareWorkspaceSnapshot` 创建工作区。
-调用 `createRun` 使用 `permissionPolicy: 'read-only'`、`maxTurns: 1`，不开启 resume、extensions 或 config scopes。
-缺少凭据时预期看到 `run.started` → `run.failed`，错误码 `AUTHENTICATION_FAILED`，持久化状态为 `failed`。
-
-## 验证与回滚
-
-- `pnpm check`：类型、依赖边界、单元与离线 probes。
-- `scripts/smoke-claude-code-cli.mjs`：独立 Local Runtime + SDK 的无凭据探针；只有显式 `--live` 才读取 Key file。
-- `scripts/probe-remote-sandbox.mjs`：在专用 Linux Docker 测试环境运行，所需三个不可变镜像变量见 `.github/workflows/remote-sandbox.yml`。
-- 关闭 Cloud Server 的两个实验开关，Worker 恢复 Reference 执行配置，即可停止新厂商 Run 的接入；已派发的 Run 先按既有取消流程收敛。
-- 旧候选镜像保留在受信部署侧，以 digest 切回。禁用自动更新，不混用厂商版本与 Wrapper 版本。
-
-证据和剩余任务以 `docs/specs/remote-sandbox-executor/`、`docs/specs/claude-code-cli-adapter/` 及总 roadmap 为准。
-
-工程证据：[`1386dbb` Mongo/Docker 与 Worker E2E](../specs/remote-sandbox-executor/evidence/1386dbb/README.md)；已有 Cloud 部署的显式索引迁移见 [Mongo 运维说明](../specs/remote-mongo-conformance/operations.md)。
-
-服务端模型代理：按已 claim 的 Run/attempt/worker grant 授权，私有 Key 留服务端，固定 Claude 文本 API、模型与输出限制；
-请求次数由 Mongo 原子计数，JSON/SSE 支持背压、跨块脱敏、取消和租约复核。26 项 CI 用例通过，配置与边界见 [代理说明](../specs/run-model-broker/operations.md)。
-Claude 断网 Sandbox 已通过私有管道连接该代理，固定 CLI 对合成上游的成功与流式取消已通过完整 Worker E2E（共 7 项、零跳过）。
-配置、限制及证据见 [传输桥说明](../specs/sandbox-model-bridge/operations.md)；真实厂商付费调用仍未认证。
+- `pnpm check` 验证类型、边界、单元和离线 probes；专用 CI 执行真实 Mongo replica set、Redis、Docker 和固定厂商进程。
+- 厂商工具探针使用合成上游，验证真实进程/协议/工具和权限，不消费模型费用。
+- 用户尚无 Anthropic Key，真实模型成功、费用和真实上游取消仍未验收。
+- Windows Server CI 不替代 Windows 10/11 实机验收；生产 TLS/ACL/高可用拓扑、签名、registry 与许可证仍是外部发布门禁。
+- 生产配置可用不代表已部署。本任务不修改生产服务。

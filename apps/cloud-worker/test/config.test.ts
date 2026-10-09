@@ -31,7 +31,7 @@ describe('Cloud Worker configuration', () => {
     ).toBe('sha256:' + 'a'.repeat(64));
   });
 
-  it('restricts the model bridge to explicitly enabled experimental sandboxes', () => {
+  it('restricts the model bridge to explicitly enabled sandboxes with production TLS and ACL', () => {
     expect(parseWorkerConfig(base).modelBridgeEnabled).toBe(false);
     expect(() => parseWorkerConfig({ ...base, WORKER_MODEL_BRIDGE_ENABLED: 'true' })).toThrow();
     const sandbox = {
@@ -49,7 +49,15 @@ describe('Cloud Worker configuration', () => {
         WORKER_INTERNAL_ORIGIN: 'https://internal.example.com',
         WORKER_REDIS_URL: 'rediss://redis.example.com',
       }),
-    ).toThrow(/experimental/u);
+    ).toThrow(/ACL/u);
+    expect(
+      parseWorkerConfig({
+        ...sandbox,
+        NODE_ENV: 'production',
+        WORKER_INTERNAL_ORIGIN: 'https://internal.example.com',
+        WORKER_REDIS_URL: 'rediss://harness:fixture@redis.example.com',
+      }).modelBridgeEnabled,
+    ).toBe(true);
   });
 
   it('parses bounded defaults', () => {

@@ -94,3 +94,93 @@ describe('CodeBuddy certified text protocol', () => {
     expect(() => bad.finish()).toThrow();
   });
 });
+
+describe('CodeBuddy tool protocol', () => {
+  it('normalizes actual tool metadata and rejects unmatched results', () => {
+    const messages = [
+      { role: 'user', content: 'write' },
+      {
+        role: 'assistant',
+        messageId: 'id',
+        model: 'model',
+        requestModelId: 'model',
+        requestModelName: 'Model',
+        traceId: 'trace',
+        queuePosition: 0,
+        queueTotal: 1,
+        tool_calls: [{ id: 'call1', type: 'function', function: { name: 'Write', arguments: '{"content":"hello"}' } }],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call1',
+        content: 'written',
+        messageId: 'id2',
+        model: 'model',
+        requestModelId: 'model',
+        requestModelName: 'Model',
+        traceId: 'trace',
+      },
+    ];
+    const result = normalizeCodeBuddyText({
+      ...body,
+      messages,
+      tools: [{ type: 'function', function: { name: 'Write', parameters: { type: 'object' } } }],
+    });
+    expect(JSON.stringify(result)).not.toContain('traceId');
+    expect(result.messages).toEqual([
+      { role: 'user', content: 'write' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'call1', name: 'Write', input: { content: 'hello' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'call1', content: 'written' }] },
+    ]);
+    expect(() => normalizeCodeBuddyText({ ...body, messages: [messages[0], messages[2]] })).toThrow();
+  });
+
+  it('preserves denied tool failure while stripping actual SDK diagnostic metadata', () => {
+    const result = normalizeCodeBuddyText({
+      ...body,
+      messages: [
+        { role: 'user', content: 'write' },
+        {
+          role: 'assistant',
+          tool_calls: [{ id: 'denied', type: 'function', function: { name: 'Write', arguments: '{}' } }],
+          rawUsage: { prompt_tokens: 5 },
+          usage: { requests: 1, inputTokensDetails: [{ cached_tokens: 0 }] },
+          argumentsDisplayText: '~/result.txt',
+        },
+        { role: 'tool', tool_call_id: 'denied', content: 'Permission denied', skipRun: false, error: 'No' },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('rawUsage');
+    expect(result.messages).toEqual(
+      expect.arrayContaining([
+        {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: 'denied', content: 'Permission denied', is_error: true }],
+        },
+      ]),
+    );
+  });
+
+  it('buffers fragmented tool arguments until validated and converts completion correctly', () => {
+    const stream = [
+      events[0],
+      {
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'tool_use', id: 'call1', name: 'Write', input: {} },
+      },
+      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"content":' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '"你好"}' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 3 } },
+      { type: 'message_stop' },
+    ];
+    const converter = new CodeBuddyResponse(true);
+    const output = converter.push(encode(stream)) + converter.finish();
+    expect(output).toContain('tool_calls');
+    expect(output).toContain('你好');
+    expect(output).toContain('[DONE]');
+    const invalid = new CodeBuddyResponse(true);
+    expect(() => invalid.push(encode([...stream.slice(0, 3), stream[4]]))).toThrow();
+  });
+});

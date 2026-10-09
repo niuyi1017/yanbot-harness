@@ -40,7 +40,13 @@ describe('cloud queue', () => {
 
   it('requires TLS for production without reflecting credentials', () => {
     expect(assertRedisUrl('rediss://user:secret@redis.example.test:6380/0', true)).toContain('rediss:');
-    for (const value of ['redis://redis.example.test:6379', 'https://redis.example.test', 'not-a-url']) {
+    for (const value of [
+      'redis://redis.example.test:6379',
+      'https://redis.example.test',
+      'not-a-url',
+      'rediss://redis.example.test',
+      'rediss://default:secret@redis.example.test',
+    ]) {
       const error = catchError(() => assertRedisUrl(value, true));
       expect(String(error)).not.toContain(value);
       expect(String(error)).not.toContain('secret');

@@ -42,6 +42,7 @@ export class InternalControlPlaneClient {
     private readonly executionGrant: string,
     private readonly workerId: string,
     private readonly fetchImplementation: typeof fetch = fetch,
+    private readonly sandboxImage?: string,
   ) {}
 
   async model(runId: string, attempt: number, body: unknown, signal: AbortSignal): Promise<Response> {
@@ -62,7 +63,10 @@ export class InternalControlPlaneClient {
     return claimSchema.parse(
       await this.#request('/internal/v1/execution-grants/claim', {
         method: 'POST',
-        body: JSON.stringify({ workerId: this.workerId }),
+        body: JSON.stringify({
+          workerId: this.workerId,
+          ...(this.sandboxImage ? { sandboxImage: this.sandboxImage } : {}),
+        }),
       }),
     );
   }
@@ -78,6 +82,13 @@ export class InternalControlPlaneClient {
       source: value.source,
       ...(value.storageKey === undefined ? {} : { storageKey: value.storageKey }),
     };
+  }
+
+  async checkpoint(runId: string, attempt: number, snapshot: unknown): Promise<void> {
+    await this.#request(`/internal/v1/runs/${runId}/checkpoint?attempt=${attempt}`, {
+      method: 'POST',
+      body: JSON.stringify(snapshot),
+    });
   }
 
   async heartbeat(runId: string, attempt: number): Promise<void> {
@@ -110,6 +121,8 @@ export class InternalControlPlaneClient {
   async #request(pathname: string, init: RequestInit = {}): Promise<unknown> {
     const response = await this.fetchImplementation(`${this.origin}${pathname}`, {
       ...init,
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
       headers: {
         authorization: `Bearer ${this.executionGrant}`,
         'x-worker-id': this.workerId,

@@ -43,7 +43,20 @@ try {
     timeout: 90_000,
     maxBuffer: 64 * 1024,
   });
-  report = { ...JSON.parse(result.stdout), archiveSha512: integrities[target], archiveBytes: total };
+  const tools = await execute(process.execPath, [path.join(import.meta.dirname, 'probe-vendor-tools.mjs')], {
+    env: { ...process.env, CLAUDE_CODE_EXECUTABLE: executable },
+    timeout: 360_000,
+    maxBuffer: 128 * 1024,
+  });
+  report = {
+    ...JSON.parse(result.stdout),
+    archiveSha512: integrities[target],
+    archiveBytes: total,
+    toolProbes: tools.stdout
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line)),
+  };
 } finally {
   // Windows may briefly retain executable handles after the runtime has closed.
   // Keep cleanup bounded and fail the probe if the lock outlives these retries.

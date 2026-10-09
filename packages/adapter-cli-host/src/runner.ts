@@ -22,6 +22,8 @@ export interface CliHostProcessOwner {
 
 export type CliHostOptions = VendorLaunch & {
   stdinText?: string;
+  /** Deployment-owned bidirectional input. Each write and the total are bounded. */
+  onInputReady?: (input: { write(text: string): Promise<void>; end(): void }) => void | Promise<void>;
   onStdoutLine?: (line: string) => void | Promise<void>;
   signal?: AbortSignal;
   processOwner?: CliHostProcessOwner;
@@ -145,8 +147,29 @@ export async function runVendorCli(options: CliHostOptions): Promise<CliHostResu
     ]);
     clearTimeout(startupTimer);
     if (!child.stdout || !child.stderr) throw new CliHostError('SPAWN_ERROR', 'Vendor CLI pipes are unavailable.');
-    child.stdin?.end(options.stdinText);
     timer = setTimeout(() => fail(new CliHostError('RUN_TIMEOUT', 'Vendor CLI run timed out.')), runTimeoutMs);
+    if (options.onInputReady) {
+      if (!child.stdin) throw new CliHostError('SPAWN_ERROR', 'Vendor CLI input is unavailable.');
+      let inputBytes = 0;
+      await Promise.race([
+        Promise.resolve(
+          options.onInputReady({
+            write: async (text) => {
+              const bytes = Buffer.byteLength(text);
+              if (stopped || bytes > 4 * 1024 * 1024 || (inputBytes += bytes) > 16 * 1024 * 1024)
+                throw new CliHostError('RESOURCE_LIMIT', 'Vendor CLI input limit.');
+              await new Promise<void>((resolve, reject) =>
+                child.stdin!.write(text, (error) =>
+                  error ? reject(new CliHostError('PROCESS_EXIT', 'Vendor CLI input closed.')) : resolve(),
+                ),
+              );
+            },
+            end: () => child.stdin!.end(),
+          }),
+        ),
+        failure,
+      ]);
+    } else child.stdin?.end(options.stdinText);
     const markActivity = () => {
       if (stopped) return;
       clearTimeout(idleTimer);
