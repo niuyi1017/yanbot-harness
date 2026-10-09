@@ -72,6 +72,9 @@ function modelResponse(body: { model: string; stream?: boolean }, signal: AbortS
         emit('content_block_start', { index: 0, content_block: { type: 'text', text: '' } });
         emit('content_block_delta', { index: 0, delta: { type: 'text_delta', text: 'BRIDGE_OK' } });
         if (brokerWait) {
+          // Advance the broker's bounded redaction tail while leaving the message open.
+          emit('ping');
+          emit('ping');
           signal.addEventListener(
             'abort',
             () => {
