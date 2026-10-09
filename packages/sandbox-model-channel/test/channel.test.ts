@@ -103,9 +103,12 @@ describe('private sandbox model channel', () => {
             headers: { 'content-type': kind === 'overflow' ? 'application/json' : 'text/html' },
           }),
       );
-      const response = await f.request();
-      expect(response.status).toBe(502);
-      expect(await response.text()).toBe('');
+      if (kind === 'overflow') await expect(f.request()).rejects.toThrow();
+      else {
+        const response = await f.request();
+        expect(response.status).toBe(502);
+        expect(await response.text()).toBe('');
+      }
     },
   );
 

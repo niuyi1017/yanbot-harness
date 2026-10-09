@@ -150,8 +150,7 @@ export class GuestModelChannel {
     void (async () => {
       try {
         if (frame.failed) {
-          if (!pending.response.headersSent) pending.response.writeHead(502);
-          else pending.response.destroy();
+          // Send the ACK before closing the HTTP consumer.
         } else if (frame.contentType) {
           if (pending.started || frame.sequence !== 0) throw new Error();
           pending.started = true;
@@ -170,7 +169,11 @@ export class GuestModelChannel {
         if (frame.end || frame.failed) {
           clearTimeout(pending.timer);
           if (this.#pending === pending) this.#pending = undefined;
-          pending.response.end();
+          if (frame.failed && pending.started) pending.response.destroy();
+          else {
+            if (frame.failed) pending.response.writeHead(502);
+            pending.response.end();
+          }
         }
       } catch {
         this.cancel();
