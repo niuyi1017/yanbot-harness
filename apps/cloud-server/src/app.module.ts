@@ -18,6 +18,8 @@ import { CLOUD_CONFIG, MongoService } from './persistence/mongo.service.js';
 import { MongoControlPlaneStore } from './persistence/mongo.store.js';
 import { WorkspaceController } from './workspaces/workspace.controller.js';
 import { WorkspaceService } from './workspaces/workspace.service.js';
+import { ModelBrokerController } from './model-broker/model-broker.controller.js';
+import { ModelBrokerService } from './model-broker/model-broker.service.js';
 
 @Module({})
 export class AppModule implements NestModule {
@@ -30,6 +32,7 @@ export class AppModule implements NestModule {
         WorkspaceController,
         ControlPlaneController,
         ExecutionGrantController,
+        ModelBrokerController,
       ],
       providers: [
         { provide: CLOUD_CONFIG, useValue: config },
@@ -43,6 +46,7 @@ export class AppModule implements NestModule {
         WorkspaceService,
         ControlPlaneService,
         ExecutionGrantService,
+        ModelBrokerService,
         DispatchService,
         ProductionHttpsMiddleware,
       ],

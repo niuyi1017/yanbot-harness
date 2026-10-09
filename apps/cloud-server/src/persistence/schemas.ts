@@ -87,6 +87,7 @@ export const runSchema = tenantDocumentSchema({
   inputFingerprint: identity,
   idempotencyKey: String,
   admissionReleasedAt: Date,
+  modelRequestCount: { type: Number, min: 0 },
 })
   .index({ organizationId: 1, runId: 1 }, { unique: true })
   .index(

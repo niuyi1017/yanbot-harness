@@ -67,7 +67,7 @@ export class ExecutionGrantService {
       workspaceRef: run.workspaceRef,
       attempt,
       digest: this.#auth.digest(executionGrant),
-      actions: allActions,
+      actions: this.#config.modelBrokerPoliciesFile ? [...allActions, 'model.invoke'] : allActions,
       expiresAt,
     });
     await this.#audit.record({
@@ -133,6 +133,23 @@ export class ExecutionGrantService {
     const workspace = await this.#store.findWorkspace(grant.organizationId, grant.workspaceRef);
     if (!workspace || workspace.status !== 'ready' || workspace.expiresAt <= new Date()) throw resourceNotFound();
     return { workspaceRef: workspace.workspaceRef, source: workspace.source, storageKey: workspace.storageKey };
+  }
+
+  async authorizeModel(rawGrant: string, runId: string, attempt: number, workerId: unknown): Promise<RunRecord> {
+    const grant = await this.#authorize(rawGrant, runId, attempt, 'model.invoke', workerId);
+    const run = await this.#store.findRun(grant.organizationId, runId);
+    const active = await this.#store.findRunAttempt(grant.organizationId, runId, attempt);
+    if (
+      !run ||
+      run.value.terminalEventType ||
+      !active?.active ||
+      active.status !== 'leased' ||
+      active.workerId !== workerId ||
+      !active.leaseExpiresAt ||
+      active.leaseExpiresAt <= new Date()
+    )
+      throw permissionDenied();
+    return run;
   }
 
   async run(rawGrant: string, runId: string, attempt: number, workerIdValue: unknown) {

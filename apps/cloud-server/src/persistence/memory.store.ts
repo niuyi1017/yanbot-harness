@@ -217,6 +217,14 @@ export class MemoryControlPlaneStore implements ControlPlaneStore {
     ).length;
   }
 
+  async reserveModelRequest(organizationId: string, runId: string, limit: number): Promise<boolean> {
+    const run = this.runs.get(tenantKey(organizationId, runId));
+    if (!Number.isInteger(limit) || limit < 1 || limit > 8) throw new Error('Invalid model request limit.');
+    if (!run || run.value.terminalEventType || (run.modelRequestCount ?? 0) >= limit) return false;
+    run.modelRequestCount = (run.modelRequestCount ?? 0) + 1;
+    return true;
+  }
+
   async reconcileAdmissionActiveRuns(
     organizationId: string,
     previousActiveRuns: number,

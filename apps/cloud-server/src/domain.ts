@@ -59,6 +59,7 @@ export type RunRecord = {
   inputFingerprint: string;
   idempotencyKey?: string;
   admissionReleasedAt?: Date;
+  modelRequestCount?: number;
 };
 export type AdmissionStateRecord = {
   organizationId: string;
@@ -114,6 +115,7 @@ export type RunAttemptRecord = {
   failureCode?: string;
 };
 export type ExecutionGrantAction =
+  | 'model.invoke'
   | 'run.read'
   | 'workspace.read'
   | 'events.append'

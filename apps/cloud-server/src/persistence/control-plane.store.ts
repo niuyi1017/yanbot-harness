@@ -83,6 +83,7 @@ export interface ControlPlaneStore {
     updatedAt: Date,
   ): Promise<boolean>;
   findRun(organizationId: string, runId: string): Promise<RunRecord | undefined>;
+  reserveModelRequest(organizationId: string, runId: string, limit: number): Promise<boolean>;
   findIdempotentRun(organizationId: string, sessionId: string, key: string): Promise<RunRecord | undefined>;
   replaceRunAndSession(run: RunRecord, session: SessionRecord): Promise<void>;
   cancelOutbox(organizationId: string, runId: string): Promise<void>;

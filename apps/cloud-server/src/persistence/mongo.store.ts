@@ -316,6 +316,21 @@ export class MongoControlPlaneStore implements ControlPlaneStore {
     return this.#findOne('HarnessRun', { organizationId, runId });
   }
 
+  async reserveModelRequest(organizationId: string, runId: string, limit: number): Promise<boolean> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 8) throw new Error('Invalid model request limit.');
+    const result = await this.#model('HarnessRun').updateOne(
+      {
+        organizationId,
+        runId,
+        'value.terminalEventType': { $exists: false },
+        $or: [{ modelRequestCount: { $exists: false } }, { modelRequestCount: { $lt: limit } }],
+      },
+      { $inc: { modelRequestCount: 1 } },
+      this.#options(),
+    );
+    return result.modifiedCount === 1;
+  }
+
   findIdempotentRun(organizationId: string, sessionId: string, key: string): Promise<RunRecord | undefined> {
     return this.#findOne('HarnessRun', { organizationId, sessionId, idempotencyKey: key });
   }

@@ -54,6 +54,7 @@ const environmentSchema = z
     CLOUD_INTERNAL_API_ENABLED: booleanText,
     CLOUD_EXPERIMENTAL_CLAUDE_CLI: booleanText,
     CLOUD_EXPERIMENTAL_CODEBUDDY: booleanText,
+    CLOUD_MODEL_BROKER_POLICIES_FILE: z.string().min(1).optional(),
     CLOUD_RELAY_ENABLED: booleanText,
     CLOUD_REDIS_URL: z.string().trim().min(1).optional(),
     CLOUD_QUEUE_NAME: z
@@ -94,6 +95,7 @@ export type CloudConfig = {
   internalApiEnabled: boolean;
   experimentalClaudeCli?: boolean;
   experimentalCodeBuddy?: boolean;
+  modelBrokerPoliciesFile?: string;
   relayEnabled: boolean;
   redisUrl?: string;
   queueName: string;
@@ -145,7 +147,21 @@ export function parseCloudConfig(environment: NodeJS.ProcessEnv): CloudConfig {
   }
   if (value.NODE_ENV === 'production' && (value.CLOUD_EXPERIMENTAL_CLAUDE_CLI || value.CLOUD_EXPERIMENTAL_CODEBUDDY))
     throw new Error('Experimental vendor adapters are unavailable in production.');
+  if (
+    value.CLOUD_MODEL_BROKER_POLICIES_FILE &&
+    (value.NODE_ENV === 'production' ||
+      !value.CLOUD_INTERNAL_API_ENABLED ||
+      !value.CLOUD_EXPERIMENTAL_CLAUDE_CLI ||
+      !path.isAbsolute(value.CLOUD_MODEL_BROKER_POLICIES_FILE) ||
+      value.CLOUD_MODEL_BROKER_POLICIES_FILE.includes('\0'))
+  )
+    throw new Error(
+      'Experimental model broker requires a development/test internal Claude deployment and an absolute policy file.',
+    );
   return {
+    ...(value.CLOUD_MODEL_BROKER_POLICIES_FILE
+      ? { modelBrokerPoliciesFile: value.CLOUD_MODEL_BROKER_POLICIES_FILE }
+      : {}),
     experimentalClaudeCli: value.CLOUD_EXPERIMENTAL_CLAUDE_CLI,
     experimentalCodeBuddy: value.CLOUD_EXPERIMENTAL_CODEBUDDY,
     nodeEnv: value.NODE_ENV,
